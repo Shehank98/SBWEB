@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
-import { wrap, badRequest, notFound } from '../utils/http.js';
+import { wrap, badRequest, notFound, conflict } from '../utils/http.js';
+import { slugify } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { activateSubscription, extendSubscription } from '../services/subscription.js';
@@ -147,6 +148,21 @@ adminRouter.post(
     const biz = await loadBusiness(req.params.id);
     await query(`UPDATE businesses SET status = 'ACTIVE' WHERE id = $1`, [biz.id]);
     res.json({ ok: true, status: 'ACTIVE' });
+  })
+);
+
+// ---- Change store link (slug) on the owner's request ----
+adminRouter.post(
+  '/businesses/:id/slug',
+  wrap(async (req, res) => {
+    const biz = await loadBusiness(req.params.id);
+    const slug = slugify((req.body && req.body.slug) || '');
+    if (slug.length < 3) throw badRequest('Store link must be at least 3 characters (lowercase letters, numbers and hyphens).');
+    const taken = await query('SELECT 1 FROM stores WHERE slug = $1 AND business_id <> $2', [slug, biz.id]);
+    if (taken.rowCount) throw conflict('That store link is already taken.');
+    const upd = await query('UPDATE stores SET slug = $2 WHERE business_id = $1 RETURNING slug', [biz.id, slug]);
+    if (!upd.rowCount) throw notFound('This business does not have a store yet.');
+    res.json({ ok: true, slug });
   })
 );
 

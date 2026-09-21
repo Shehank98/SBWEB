@@ -9,7 +9,7 @@
   var plans = [
     { id: 'starter',  name: 'Starter',  price: 1500, durationDays: 30, maxProducts: 100,  features: ['Up to 100 products', 'Your own store link', 'Order dashboard', 'Email order alerts'] },
     { id: 'business', name: 'Business', price: 2500, durationDays: 30, maxProducts: 500,  features: ['Up to 500 products', 'Store colour presets', 'Coupons and discounts', 'Sales reports'] },
-    { id: 'pro',      name: 'Pro',      price: 5000, durationDays: 30, maxProducts: null, features: ['Unlimited products', 'Your own domain', 'Staff accounts', 'Advanced reports'] }
+    { id: 'pro',      name: 'Pro',      price: 5000, durationDays: 30, maxProducts: null, features: ['Unlimited products', 'Priority support', 'Staff accounts', 'Advanced reports'] }
   ];
 
   var stores = {

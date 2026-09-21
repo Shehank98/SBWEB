@@ -13,7 +13,7 @@ function daysAhead(n) { return daysAgo(-n); }
 const plans = [
   { id: 'starter', name: 'Starter', price: 1500, duration_days: 30, max_products: 100, features: ['Up to 100 products', 'Your own store link', 'Order dashboard', 'Email order alerts'], sort_order: 1 },
   { id: 'business', name: 'Business', price: 2500, duration_days: 30, max_products: 500, features: ['Up to 500 products', 'Store colour presets', 'Coupons and discounts', 'Sales reports'], sort_order: 2 },
-  { id: 'pro', name: 'Pro', price: 5000, duration_days: 30, max_products: null, features: ['Unlimited products', 'Your own domain', 'Staff accounts', 'Advanced reports'], sort_order: 3 },
+  { id: 'pro', name: 'Pro', price: 5000, duration_days: 30, max_products: null, features: ['Unlimited products', 'Priority support', 'Staff accounts', 'Advanced reports'], sort_order: 3 },
 ];
 
 // Store detail for the four fully-described shops.

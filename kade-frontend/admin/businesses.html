@@ -41,12 +41,13 @@
         if (b.status === 'PENDING_APPROVAL') { a.push('<button class="kd-btn kd-btn--primary kd-btn--sm" data-a="approve" data-id="' + b.id + '" aria-label="Approve ' + K.esc(b.name) + '">Approve</button>', '<button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-a="reject" data-id="' + b.id + '" aria-label="Reject ' + K.esc(b.name) + '">Reject</button>'); }
         else if (b.status === 'SUSPENDED') a.push('<button class="kd-btn kd-btn--primary kd-btn--sm" data-a="reactivate" data-id="' + b.id + '" aria-label="Reactivate ' + K.esc(b.name) + '">Reactivate</button>');
         else if (b.status === 'ACTIVE' || b.status === 'EXPIRING' || b.status === 'GRACE_PERIOD') a.push('<button class="kd-btn kd-btn--secondary kd-btn--sm" data-a="extend" data-id="' + b.id + '" aria-label="Extend ' + K.esc(b.name) + ' by 30 days">Extend 30 days</button>', '<button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-a="suspend" data-id="' + b.id + '" aria-label="Suspend ' + K.esc(b.name) + '">Suspend</button>');
+        if (b.slug && b.status !== 'CANCELLED') a.push('<button class="kd-btn kd-btn--ghost kd-btn--sm" data-a="slug" data-id="' + b.id + '" aria-label="Change store link for ' + K.esc(b.name) + '">Change link</button>');
         return a.join('');
       }
       function render() {
         var list = B.filter(function (b) { return (st === 'ALL' || b.status === st) && (!q || (b.name + ' ' + b.owner).toLowerCase().indexOf(q) >= 0); });
         K.$('#none').hidden = list.length > 0;
-        K.$('#rows').innerHTML = list.map(function (b) { return '<tr><td><strong>' + K.esc(b.name) + '</strong><span class="sub">' + K.esc(b.owner) + ' | Joined ' + K.fmtDate(b.joined) + '</span></td><td>' + K.esc(b.plan) + '</td><td>' + K.badge('sub', b.status) + '</td><td>' + (b.expiry ? K.fmtDate(b.expiry) : 'Not started') + '</td><td class="kd-num">' + b.orders + '</td><td class="kd-num">' + K.rs(b.revenue) + '</td><td><div class="actions">' + actions(b) + '</div></td></tr>'; }).join('');
+        K.$('#rows').innerHTML = list.map(function (b) { return '<tr><td><strong>' + K.esc(b.name) + '</strong><span class="sub">' + K.esc(b.owner) + (b.slug ? ' | /store/' + K.esc(b.slug) : '') + ' | Joined ' + K.fmtDate(b.joined) + '</span></td><td>' + K.esc(b.plan) + '</td><td>' + K.badge('sub', b.status) + '</td><td>' + (b.expiry ? K.fmtDate(b.expiry) : 'Not started') + '</td><td class="kd-num">' + b.orders + '</td><td class="kd-num">' + K.rs(b.revenue) + '</td><td><div class="actions">' + actions(b) + '</div></td></tr>'; }).join('');
       }
       K.$('#q').addEventListener('input', function () { q = this.value.trim().toLowerCase(); render(); });
       K.$('#st').addEventListener('change', function () { st = this.value; render(); });
@@ -57,7 +58,39 @@
         else if (a === 'extend') { b.expiry = addDays(b.expiry > D.today ? b.expiry : D.today, 30); b.status = 'ACTIVE'; render(); K.toast(b.name + ' extended to ' + K.fmtDate(b.expiry) + '.'); }
         else if (a === 'suspend') K.confirm({ title: 'Suspend ' + b.name + '?', body: 'Their store will show as temporarily unavailable. Products and orders are kept and come back when you reactivate.', confirmLabel: 'Suspend store', danger: true }).then(function (ok) { if (ok) { b.status = 'SUSPENDED'; render(); K.toast(b.name + ' suspended.'); } });
         else if (a === 'reject') K.confirm({ title: 'Reject ' + b.name + '?', body: 'The owner gets an email with your reason.', confirmLabel: 'Reject application', danger: true, reason: 'Reason for the owner' }).then(function (r) { if (r) { b.status = 'CANCELLED'; render(); K.toast('Application rejected. Email queued.'); } });
+        else if (a === 'slug') changeLink(b);
       });
+
+      /* Change the store link (slug) at the owner's request. */
+      function changeLink(b) {
+        K.prompt({
+          title: 'Change store link',
+          label: 'Store link for ' + b.name,
+          value: b.slug,
+          placeholder: 'abc-fashion',
+          help: 'Lowercase letters, numbers and hyphens. Customers use ' + K.host + '/store/<name>.',
+          confirmLabel: 'Save link',
+          validate: function (v) {
+            if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(v) || v.length < 3) return 'Use 3 or more lowercase letters, numbers and hyphens only.';
+            var taken = B.some(function (x) { return x !== b && x.slug === v; }) || (D.stores[v] && D.stores[v].slug !== b.slug);
+            if (taken) return 'That link is already taken.';
+            return '';
+          }
+        }).then(function (v) {
+          if (!v || v === b.slug) return;
+          function applyLocal(newSlug) {
+            var old = b.slug;
+            if (D.stores[old]) { D.stores[newSlug] = D.stores[old]; D.stores[newSlug].slug = newSlug; if (newSlug !== old) delete D.stores[old]; }
+            D.products.forEach(function (p) { if (p.store === old) p.store = newSlug; });
+            D.orders.forEach(function (o) { if (o.business === old) o.business = newSlug; });
+            b.slug = newSlug; render(); K.toast('Store link changed to ' + K.host + '/store/' + newSlug);
+          }
+          // Uses the real API when the admin page is connected; otherwise updates the demo data.
+          if (window.KadeApi && KadeApi.enabled && KadeApi.token()) {
+            KadeApi.adminChangeSlug(b.id, v).then(function (r) { applyLocal(r.slug || v); }).catch(function (ex) { K.toast(ex.message || 'Could not change the link.'); });
+          } else { applyLocal(v); }
+        });
+      }
       render();
 
     })();

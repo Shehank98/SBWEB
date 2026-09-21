@@ -115,6 +115,7 @@
     adminSuspend(id) { return req('POST', '/api/admin/businesses/' + id + '/suspend'); },
     adminReactivate(id) { return req('POST', '/api/admin/businesses/' + id + '/reactivate'); },
     adminExtend(id, days) { return req('POST', '/api/admin/businesses/' + id + '/extend', { days: days }); },
+    adminChangeSlug(id, slug) { return req('POST', '/api/admin/businesses/' + id + '/slug', { slug: slug }); },
     adminPayments(status) { return req('GET', '/api/admin/payments' + (status ? '?status=' + status : '')); },
     adminApprovePayment(id) { return req('POST', '/api/admin/payments/' + id + '/approve'); },
     adminRejectPayment(id, reason) { return req('POST', '/api/admin/payments/' + id + '/reject', { reason: reason }); },

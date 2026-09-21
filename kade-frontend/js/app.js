@@ -66,6 +66,32 @@
     });
   };
 
+  /* ---------- Prompt dialog (single text input, with validation) ---------- */
+  K.prompt = function (o) {
+    return new Promise(function (resolve) {
+      var d = document.createElement('dialog');
+      d.setAttribute('aria-labelledby', 'pr-title');
+      d.innerHTML = '<form><div class="dialog__head"><h2 class="heading" id="pr-title">' + K.esc(o.title) + '</h2></div>' +
+        '<div class="dialog__body"><div class="kd-field"><label class="kd-label" for="pr-input">' + K.esc(o.label || '') + '</label>' +
+        '<input class="kd-input" id="pr-input" value="' + K.esc(o.value || '') + '"' + (o.placeholder ? ' placeholder="' + K.esc(o.placeholder) + '"' : '') + ' autocapitalize="none" autocomplete="off" spellcheck="false">' +
+        (o.help ? '<span class="kd-help">' + K.esc(o.help) + '</span>' : '') + '<span class="kd-error" id="pr-err" hidden></span></div></div>' +
+        '<div class="dialog__foot"><button class="kd-btn kd-btn--ghost" type="button" id="pr-cancel" formnovalidate>Cancel</button><button class="kd-btn kd-btn--primary" type="submit">' + K.esc(o.confirmLabel || 'Save') + '</button></div></form>';
+      document.body.appendChild(d);
+      var input = d.querySelector('#pr-input'), errEl = d.querySelector('#pr-err'), form = d.querySelector('form'), done = false;
+      function finish(val) { done = true; d.close(); resolve(val); }
+      d.querySelector('#pr-cancel').addEventListener('click', function () { finish(null); });
+      input.addEventListener('input', function () { errEl.hidden = true; input.removeAttribute('aria-invalid'); });
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var val = input.value.trim(), msg = o.validate ? o.validate(val) : '';
+        if (msg) { errEl.hidden = false; errEl.textContent = msg; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+        finish(val);
+      });
+      d.addEventListener('close', function () { if (!done) resolve(null); d.remove(); });
+      d.showModal(); input.focus(); input.select();
+    });
+  };
+
   /* ---------- Cart (per store) ---------- */
   K.cart = {
     key: function (slug) { return 'kade-cart-' + slug; },

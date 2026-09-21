@@ -145,6 +145,7 @@ Auth: send `Authorization: Bearer <token>` from `POST /api/auth/login`.
 | POST   | `/api/admin/businesses/:id/suspend`        | Suspend                    |
 | POST   | `/api/admin/businesses/:id/reactivate`     | Reactivate                 |
 | POST   | `/api/admin/businesses/:id/extend`         | Extend by `{ days }`       |
+| POST   | `/api/admin/businesses/:id/slug`           | Change store link `{ slug }`|
 | GET    | `/api/admin/payments?status=`              | Payments queue             |
 | POST   | `/api/admin/payments/:id/approve`          | Approve a payment/renewal  |
 | POST   | `/api/admin/payments/:id/reject`           | Reject a payment           |
