@@ -45,7 +45,7 @@
         return;
       }
       var btn = e.target.querySelector('button[type=submit]');
-      btn.disabled = true; btn.textContent = 'Signing in…';
+      btn.disabled = true; btn.innerHTML = '<span class="kd-spinner"></span> Signing in…';
       try {
         var user = await KadeApi.login(em.value.trim(), pw.value);
         location.href = user.role === 'SUPER_ADMIN' ? 'admin/index.html' : 'dashboard/index.html';

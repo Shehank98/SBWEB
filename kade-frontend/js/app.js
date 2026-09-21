@@ -33,7 +33,16 @@
     if (p.stock <= p.lowAt) return '<span class="kd-badge kd-badge--warning">Low stock</span>';
     return '<span class="kd-badge kd-badge--success">In stock</span>';
   };
-  K.ph = function (p, small) { return '<div class="ph' + (small ? ' ph--sm' : '') + '" data-tone="' + K.esc(p.tone || 'f') + '" role="img" aria-label="' + K.esc(p.name) + ' (photo placeholder)">' + K.esc(K.initials(p.name)) + '</div>'; };
+  K.ph = function (p, small) {
+    // Real product photo when we have one; otherwise a tinted initials tile.
+    if (p && p.image) return '<img class="ph ph--img' + (small ? ' ph--sm' : '') + '" src="' + K.esc(p.image) + '" alt="' + K.esc(p.name) + '" loading="lazy" decoding="async">';
+    return '<div class="ph' + (small ? ' ph--sm' : '') + '" data-tone="' + K.esc(p.tone || 'f') + '" role="img" aria-label="' + K.esc(p.name) + ' (photo placeholder)">' + K.esc(K.initials(p.name)) + '</div>';
+  };
+
+  /* ---------- Loading spinner ---------- */
+  K.spinner = function () { return '<span class="kd-spinner" role="status" aria-label="Loading"></span>'; };
+  K.loading = function (el, msg) { if (el) el.innerHTML = '<div class="kd-loading">' + K.spinner() + '<p>' + K.esc(msg || 'Loading…') + '</p></div>'; };
+  K.btnLoading = function (btn, msg) { if (!btn) return function () {}; var html = btn.innerHTML; btn.disabled = true; btn.innerHTML = K.spinner() + ' ' + K.esc(msg || 'Please wait…'); return function () { btn.disabled = false; btn.innerHTML = html; }; };
 
   /* ---------- Toast ---------- */
   K.toast = function (msg) {

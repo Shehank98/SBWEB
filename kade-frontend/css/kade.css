@@ -165,6 +165,14 @@ dialog.drawer .dialog__body { max-height: none; flex: 1; }
 .ph[data-tone="e"] { background: var(--danger-soft); }
 .ph[data-tone="f"] { background: var(--surface-sunken); }
 .ph--sm { font-size: 16px; }
+.ph--img { object-fit: cover; background: var(--surface-sunken); }
+
+/* ---------- Loading spinner (respects reduced motion) ---------- */
+.kd-spinner { display: inline-block; box-sizing: border-box; width: 1.1em; height: 1.1em; vertical-align: -0.2em; border: 0.14em solid currentColor; border-right-color: transparent; border-radius: 50%; animation: kd-spin 0.6s linear infinite; }
+.kd-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 48px 16px; color: var(--ink-muted); grid-column: 1 / -1; }
+.kd-loading .kd-spinner { width: 36px; height: 36px; border-width: 3px; color: var(--brand); }
+@keyframes kd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .kd-spinner { animation-duration: 1.5s; } }
 
 /* ---------- Public site ---------- */
 .site-header { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }

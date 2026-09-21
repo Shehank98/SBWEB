@@ -155,12 +155,24 @@ async function main() {
       );
     }
 
+    // Sample photos (self-contained SVGs served by the app at /img/products).
+    const PRODUCT_IMG = {
+      'Linen Shirt': 'linen-shirt', 'Summer Dress': 'summer-dress', 'Cotton Kurta': 'cotton-kurta',
+      'Denim Jacket': 'denim-jacket', 'Canvas Tote': 'canvas-tote', 'Silk Scarf': 'silk-scarf',
+      'Leather Sandals': 'leather-sandals', 'Batik Sarong': 'batik-sarong',
+      'Chocolate Cake 1kg': 'chocolate-cake', 'Butter Cake 500g': 'butter-cake',
+      'Vanilla Cupcakes (6)': 'vanilla-cupcakes', 'Kimbula Banis (10)': 'kimbula-banis',
+      'Silicone Phone Case': 'silicone-phone-case', '33W Fast Charger': 'fast-charger',
+      'Wireless Earbuds': 'wireless-earbuds', 'Screen Guard': 'screen-guard',
+    };
+
     // Products.
     for (const p of products) {
+      const image = PRODUCT_IMG[p.name] ? `/img/products/${PRODUCT_IMG[p.name]}.svg` : null;
       await c.query(
-        `INSERT INTO products (business_id,category,name,description,price,sale_price,stock,low_at,options,tone)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [bizId[p.store], p.category, p.name, p.desc, p.price, p.sale ?? null, p.stock, p.lowAt, JSON.stringify(p.options || {}), p.tone]
+        `INSERT INTO products (business_id,category,name,description,price,sale_price,stock,low_at,options,tone,image_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        [bizId[p.store], p.category, p.name, p.desc, p.price, p.sale ?? null, p.stock, p.lowAt, JSON.stringify(p.options || {}), p.tone, image]
       );
     }
 

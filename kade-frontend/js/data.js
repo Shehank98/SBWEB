@@ -41,6 +41,19 @@
     { id: 'p304', store: 'kandy-mobile', name: 'Screen Guard', category: 'Cases', price: 900, stock: 60, lowAt: 10, tone: 'c', options: { Model: ['Galaxy A15', 'Galaxy A35', 'Redmi 13'] }, desc: 'Tempered glass, easy-fit frame included.' }
   ];
 
+  /* Sample product photos (self-contained SVGs under /img/products, served at the site root).
+     Attached by name so every page that renders a product shows a real image. */
+  var PRODUCT_IMG = {
+    'Linen Shirt': 'linen-shirt', 'Summer Dress': 'summer-dress', 'Cotton Kurta': 'cotton-kurta',
+    'Denim Jacket': 'denim-jacket', 'Canvas Tote': 'canvas-tote', 'Silk Scarf': 'silk-scarf',
+    'Leather Sandals': 'leather-sandals', 'Batik Sarong': 'batik-sarong',
+    'Chocolate Cake 1kg': 'chocolate-cake', 'Butter Cake 500g': 'butter-cake',
+    'Vanilla Cupcakes (6)': 'vanilla-cupcakes', 'Kimbula Banis (10)': 'kimbula-banis',
+    'Silicone Phone Case': 'silicone-phone-case', '33W Fast Charger': 'fast-charger',
+    'Wireless Earbuds': 'wireless-earbuds', 'Screen Guard': 'screen-guard'
+  };
+  products.forEach(function (p) { if (PRODUCT_IMG[p.name]) p.image = '/img/products/' + PRODUCT_IMG[p.name] + '.svg'; });
+
   /* Orders for ABC Fashion (the demo business the dashboard signs in as) */
   function order(n, days, customer, phone, city, items, status, pay, note) {
     var sub = items.reduce(function (s, i) { return s + i.price * i.qty; }, 0);
