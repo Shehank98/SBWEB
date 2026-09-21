@@ -275,3 +275,86 @@ dashboardRouter.put(
     res.json({ ok: true });
   })
 );
+
+// ---- Coupons (Business/Pro plans) ----
+async function requireCouponsPlan(businessId) {
+  const plan = (
+    await query(
+      `SELECT pl.id FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
+        WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
+      [businessId]
+    )
+  ).rows[0];
+  if (!plan || plan.id === 'starter') throw badRequest('Coupons are available on the Business and Pro plans.');
+}
+
+function parseCoupon(body) {
+  const code = String(body.code || '').trim().toUpperCase();
+  if (!/^[A-Z0-9][A-Z0-9-]{1,23}$/.test(code)) throw badRequest('Use 2–24 letters, numbers or hyphens for the code.');
+  const type = body.type === 'fixed' ? 'fixed' : 'percent';
+  const value = Number(body.value);
+  if (type === 'percent' && !(value >= 1 && value <= 100)) throw badRequest('Percent must be between 1 and 100.');
+  if (type === 'fixed' && !(value > 0)) throw badRequest('Enter a discount amount above zero.');
+  const minOrder = Math.max(0, Number(body.minOrder) || 0);
+  const usageLimit = body.usageLimit === '' || body.usageLimit == null ? null : Math.max(1, Number(body.usageLimit));
+  let expiresOn = body.expiresOn || null; if (expiresOn === '') expiresOn = null;
+  const status = body.status === 'DISABLED' ? 'DISABLED' : 'ACTIVE';
+  return { code, type, value: Math.round(value), minOrder, usageLimit, expiresOn, status };
+}
+
+dashboardRouter.get(
+  '/coupons',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    await requireCouponsPlan(b);
+    const { rows } = await query('SELECT * FROM coupons WHERE business_id = $1 ORDER BY created_at DESC', [b]);
+    res.json({ coupons: rows.map(S.coupon) });
+  })
+);
+
+dashboardRouter.post(
+  '/coupons',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    await requireCouponsPlan(b);
+    const c = parseCoupon(req.body || {});
+    const { rows } = await query(
+      `INSERT INTO coupons (business_id, code, type, value, min_order, usage_limit, expires_on, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [b, c.code, c.type, c.value, c.minOrder, c.usageLimit, c.expiresOn, c.status]
+    );
+    res.status(201).json({ coupon: S.coupon(rows[0]) });
+  })
+);
+
+dashboardRouter.put(
+  '/coupons/:id',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    await requireCouponsPlan(b);
+    const existing = (await query('SELECT * FROM coupons WHERE id = $1 AND business_id = $2', [req.params.id, b])).rows[0];
+    if (!existing) throw notFound('Coupon not found.');
+    const merged = Object.assign(
+      { code: existing.code, type: existing.type, value: existing.value, minOrder: existing.min_order, usageLimit: existing.usage_limit, expiresOn: existing.expires_on, status: existing.status },
+      req.body || {}
+    );
+    const c = parseCoupon(merged);
+    const { rows } = await query(
+      `UPDATE coupons SET code=$3, type=$4, value=$5, min_order=$6, usage_limit=$7, expires_on=$8, status=$9
+        WHERE id=$1 AND business_id=$2 RETURNING *`,
+      [req.params.id, b, c.code, c.type, c.value, c.minOrder, c.usageLimit, c.expiresOn, c.status]
+    );
+    res.json({ coupon: S.coupon(rows[0]) });
+  })
+);
+
+dashboardRouter.delete(
+  '/coupons/:id',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    await requireCouponsPlan(b);
+    const r = await query('DELETE FROM coupons WHERE id = $1 AND business_id = $2', [req.params.id, b]);
+    if (!r.rowCount) throw notFound('Coupon not found.');
+    res.json({ ok: true });
+  })
+);

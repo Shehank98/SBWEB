@@ -63,11 +63,27 @@ export function order(row, items) {
     address: row.address || '',
     items: (items || []).map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
     subtotal: row.subtotal,
+    discount: row.discount || 0,
+    coupon: row.coupon_code || null,
     delivery: row.delivery_fee,
     total: row.total,
     status: row.status,
     payment: row.payment_method,
     note: row.note || '',
+  };
+}
+
+export function coupon(row) {
+  return {
+    id: row.id,
+    code: row.code,
+    type: row.type,
+    value: row.value,
+    minOrder: row.min_order,
+    expiresOn: iso(row.expires_on),
+    usageLimit: row.usage_limit,
+    used: row.used_count,
+    status: row.status,
   };
 }
 

@@ -90,7 +90,7 @@ const payments = [
 async function main() {
   await withTransaction(async (c) => {
     // Clear (order matters for FKs).
-    await c.query(`TRUNCATE notifications, order_status_history, order_items, orders, products, categories,
+    await c.query(`TRUNCATE notifications, order_status_history, order_items, orders, coupons, products, categories,
                    payments, subscriptions, stores, users, businesses RESTART IDENTITY CASCADE`);
 
     // Plans (upsert).
@@ -189,6 +189,19 @@ async function main() {
         await c.query(`INSERT INTO order_items (order_id,name,qty,price) VALUES ($1,$2,$3,$4)`, [created.id, it.name, it.qty, it.price]);
       }
       await c.query(`INSERT INTO order_status_history (order_id,status,created_at) VALUES ($1,$2,$3)`, [created.id, o.status, o.date]);
+    }
+
+    // Demo coupons for ABC Fashion (a Business-plan store).
+    const demoCoupons = [
+      { code: 'WELCOME10', type: 'percent', value: 10, min_order: 0, usage_limit: null, expires_on: null, used_count: 12 },
+      { code: 'SHIP500', type: 'fixed', value: 500, min_order: 5000, usage_limit: 100, expires_on: daysAhead(20), used_count: 8 },
+    ];
+    for (const dc of demoCoupons) {
+      await c.query(
+        `INSERT INTO coupons (business_id, code, type, value, min_order, usage_limit, expires_on, used_count)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [bizId['abc-fashion'], dc.code, dc.type, dc.value, dc.min_order, dc.usage_limit, dc.expires_on, dc.used_count]
+      );
     }
 
     // Payments.

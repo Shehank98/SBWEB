@@ -23,7 +23,7 @@
       K.loadStore(function (s, products) {
       document.title = 'Your cart | ' + s.name;
       var main = K.$('#main'), DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
-      var method = 'delivery', pay = s.payments.cod ? 'cod' : 'bank', step = 1;
+      var method = 'delivery', pay = s.payments.cod ? 'cod' : 'bank', step = 1, applied = null;
 
       function lines() {
         return K.cart.get(s.slug).map(function (i) { var p = products.filter(function (x) { return x.id === i.pid; })[0]; return p ? { i: i, p: p } : null; }).filter(Boolean);
@@ -32,7 +32,14 @@
         var sub = lines().reduce(function (n, l) { return n + K.priceOf(l.p) * l.i.qty; }, 0);
         var free = s.delivery.freeAbove > 0 && sub >= s.delivery.freeAbove;
         var fee = method === 'pickup' || free ? 0 : s.delivery.fee;
-        return { sub: sub, fee: fee, free: free, total: sub + fee };
+        var discount = applied ? Math.min(applied.discount, sub) : 0;
+        return { sub: sub, fee: fee, free: free, discount: discount, total: Math.max(0, sub - discount) + fee };
+      }
+      function applyLocal(code, sub) {
+        var c = String(code).toUpperCase();
+        if (c === 'WELCOME10') return { valid: true, code: 'WELCOME10', discount: Math.round(sub * 0.1) };
+        if (c === 'SHIP500') return sub >= 5000 ? { valid: true, code: 'SHIP500', discount: 500 } : { valid: false, message: 'Spend at least Rs. 5,000 to use this code.' };
+        return { valid: false, message: 'That code is not valid.' };
       }
       function optTxt(o) { var k = Object.keys(o || {}); return k.length ? k.map(function (g) { return o[g]; }).join(', ') : ''; }
 
@@ -75,7 +82,12 @@
           '<fieldset style="border:0;padding:0;margin:0"><legend class="kd-label">Payment</legend><div class="choice" style="margin-top:8px">' + payOpts.map(function (o) { return '<label><input type="radio" name="pay" value="' + o[0] + '"' + (pay === o[0] ? ' checked' : '') + '><span><strong>' + o[1] + '</strong><br><span class="muted">' + o[2] + '</span></span></label>'; }).join('') + '</div></fieldset>' +
           (pay === 'bank' ? '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Shop bank account</p><p style="margin-top:4px">' + K.esc(s.bank) + '</p></div></div>' : '') +
           '<div class="kd-field"><label class="kd-label" for="nt">Note for the shop (optional)</label><textarea class="kd-input" id="nt"></textarea></div>' +
-          '<div class="totals" aria-live="polite"><div><span>Subtotal</span><span class="price-sm">' + K.rs(m.sub) + '</span></div><div><span>' + (method === 'pickup' ? 'Pickup' : 'Delivery') + '</span><span class="price-sm">' + (m.fee ? K.rs(m.fee) : 'Free') + '</span></div>' +
+          (applied
+            ? '<div class="kd-banner kd-banner--success"><div><p class="kd-banner__title">Code ' + K.esc(applied.code) + ' applied</p><p style="margin-top:4px">' + K.rs(m.discount) + ' off your order.</p></div><button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" id="removeCoupon">Remove</button></div>'
+            : '<div class="kd-field"><label class="kd-label" for="coupon">Coupon code (optional)</label><div class="row" style="gap:8px"><input class="kd-input" id="coupon" autocapitalize="characters" autocomplete="off" placeholder="WELCOME10" style="flex:1"><button type="button" class="kd-btn kd-btn--secondary" id="applyCoupon">Apply</button></div><span class="kd-help" id="couponMsg"></span></div>') +
+          '<div class="totals" aria-live="polite"><div><span>Subtotal</span><span class="price-sm">' + K.rs(m.sub) + '</span></div>' +
+          (m.discount ? '<div><span>Discount (' + K.esc(applied.code) + ')</span><span class="price-sm">-' + K.rs(m.discount) + '</span></div>' : '') +
+          '<div><span>' + (method === 'pickup' ? 'Pickup' : 'Delivery') + '</span><span class="price-sm">' + (m.fee ? K.rs(m.fee) : 'Free') + '</span></div>' +
           (method === 'delivery' && !m.free && s.delivery.freeAbove > 0 ? '<p class="muted" style="font-size:14px">Add ' + K.rs(s.delivery.freeAbove - m.sub) + ' more for free delivery.</p>' : '') +
           '<div class="grand"><span>Total</span><span class="price">' + K.rs(m.total) + '</span></div></div>' +
           '</section>' +
@@ -99,9 +111,22 @@
       }
       function focusStep() { var sec = K.$('[data-cstep="' + step + '"]'); var f = sec && K.$('input, select, textarea', sec); if (f) f.focus(); window.scrollTo({ top: 0 }); }
 
+      function applyCode() {
+        var input = K.$('#coupon'), msg = K.$('#couponMsg'), code = input ? input.value.trim() : '';
+        if (!code) { if (msg) { msg.textContent = 'Enter a code.'; msg.style.color = 'var(--danger)'; } return; }
+        var sub = money().sub;
+        function ok(res) { if (res.valid) { applied = { code: res.code, discount: res.discount }; var f = saveForm(); view(); restore(f); showStep(3); } else if (msg) { msg.textContent = res.message || 'That code is not valid.'; msg.style.color = 'var(--danger)'; } }
+        if (window.KadeApi && KadeApi.enabled) {
+          var restore2 = K.btnLoading(K.$('#applyCoupon'), 'Checking…');
+          KadeApi.applyCoupon(s.slug, code, sub).then(function (r) { if (r.valid) ok(r); else { restore2(); if (msg) { msg.textContent = r.message; msg.style.color = 'var(--danger)'; } } }).catch(function (ex) { restore2(); if (msg) { msg.textContent = ex.message || 'Could not apply the code.'; msg.style.color = 'var(--danger)'; } });
+        } else ok(applyLocal(code, sub));
+      }
+
       main.addEventListener('click', function (e) {
         var t = e.target.closest('button'); if (!t) return;
         if (t.id === 'co-back') { showStep(step - 1); focusStep(); return; }
+        if (t.id === 'applyCoupon') { applyCode(); return; }
+        if (t.id === 'removeCoupon') { applied = null; var fr = saveForm(); view(); restore(fr); showStep(3); return; }
         var items = K.cart.get(s.slug), n;
         if ((n = t.getAttribute('data-inc')) != null) items[n].qty = Math.min(items[n].qty + 1, 20);
         else if ((n = t.getAttribute('data-dec')) != null) items[n].qty = Math.max(items[n].qty - 1, 1);
@@ -138,6 +163,7 @@
             customer: v('fn'), phone: v('ph'), whatsapp: v('wa'),
             address: v('ad'), city: method === 'pickup' ? 'Pickup' : v('ct'), district: v('ds'),
             delivery: method === 'pickup' ? 'Pickup' : 'Delivery', payment: payLabel, note: v('nt'),
+            coupon: applied ? applied.code : '',
             items: ls.map(function (l) { return { pid: l.p.id, qty: l.i.qty, variant: optTxt(l.i.opts) }; })
           }).then(function (res) {
             K.cart.clear(s.slug); K.updateCartCount();

@@ -78,6 +78,7 @@
     getStore(slug) { return req('GET', '/api/store/' + encodeURIComponent(slug)); },
     getStoreProduct(slug, id) { return req('GET', '/api/store/' + encodeURIComponent(slug) + '/product/' + id); },
     placeOrder(slug, order) { return req('POST', '/api/store/' + encodeURIComponent(slug) + '/orders', order); },
+    applyCoupon(slug, code, subtotal) { return req('POST', '/api/store/' + encodeURIComponent(slug) + '/coupon', { code: code, subtotal: subtotal }); },
 
     // ---- Owner dashboard (token required) ----
     myProducts() { return req('GET', '/api/products'); },
@@ -107,6 +108,10 @@
     },
     myStore() { return req('GET', '/api/dashboard/store'); },
     updateStore(store) { return req('PUT', '/api/dashboard/store', store); },
+    coupons() { return req('GET', '/api/dashboard/coupons'); },
+    createCoupon(c) { return req('POST', '/api/dashboard/coupons', c); },
+    updateCoupon(id, c) { return req('PUT', '/api/dashboard/coupons/' + id, c); },
+    deleteCoupon(id) { return req('DELETE', '/api/dashboard/coupons/' + id); },
 
     // ---- Admin (SUPER_ADMIN token required) ----
     adminStats() { return req('GET', '/api/admin/stats'); },

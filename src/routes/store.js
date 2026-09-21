@@ -4,6 +4,7 @@ import { wrap, badRequest, notFound } from '../utils/http.js';
 import { orderCode } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
+import { evalCoupon } from '../services/coupons.js';
 
 export const storeRouter = Router();
 
@@ -55,6 +56,20 @@ storeRouter.get(
   })
 );
 
+// POST /api/store/:slug/coupon — validate a coupon code against a subtotal.
+storeRouter.post(
+  '/:slug/coupon',
+  wrap(async (req, res) => {
+    const st = await loadStore(req.params.slug);
+    if (!LIVE.has(st.business_status)) throw badRequest('This store is not available right now.');
+    const subtotal = Math.max(0, Math.floor(Number(req.body && req.body.subtotal) || 0));
+    const result = await evalCoupon(null, st.biz_id, req.body && req.body.code, subtotal);
+    res.json(result.valid
+      ? { valid: true, code: result.code, discount: result.discount, message: result.message }
+      : { valid: false, discount: 0, message: result.message });
+  })
+);
+
 // POST /api/store/:slug/orders — customer checkout. No auth. Prices are re-read from
 // the DB (never trusted from the client) and snapshotted onto the order.
 storeRouter.post(
@@ -82,9 +97,17 @@ storeRouter.post(
     }
 
     const fee = st.delivery_free_above && subtotal >= st.delivery_free_above ? 0 : st.delivery_fee;
-    const total = subtotal + fee;
 
     const order = await withTransaction(async (client) => {
+      // Apply a coupon if one was sent and is valid (re-checked server-side).
+      let discount = 0;
+      let couponCode = null;
+      if (body.coupon) {
+        const cp = await evalCoupon(client, st.biz_id, body.coupon, subtotal);
+        if (cp.valid) { discount = cp.discount; couponCode = cp.code; }
+      }
+      const total = Math.max(0, subtotal - discount) + fee;
+
       // Retry a couple of times on the (rare) order-code collision.
       let created = null;
       for (let attempt = 0; attempt < 5 && !created; attempt++) {
@@ -92,11 +115,11 @@ storeRouter.post(
           created = (
             await client.query(
               `INSERT INTO orders (business_id, code, customer_name, phone, whatsapp, address, city, district,
-                                   delivery_method, payment_method, subtotal, delivery_fee, total, note)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+                                   delivery_method, payment_method, subtotal, delivery_fee, total, note, coupon_code, discount)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
               [st.biz_id, orderCode(), customer, phone, body.whatsapp || null, body.address || null,
                body.city || null, body.district || null, body.delivery || 'Delivery',
-               body.payment || 'Cash on delivery', subtotal, fee, total, body.note || null]
+               body.payment || 'Cash on delivery', subtotal, fee, total, body.note || null, couponCode, discount]
             )
           ).rows[0];
         } catch (e) {
@@ -104,6 +127,8 @@ storeRouter.post(
         }
       }
       if (!created) throw badRequest('Could not place the order, please try again.');
+
+      if (couponCode) await client.query('UPDATE coupons SET used_count = used_count + 1 WHERE business_id=$1 AND code=$2', [st.biz_id, couponCode]);
 
       for (const l of lines) {
         await client.query(

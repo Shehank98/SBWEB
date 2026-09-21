@@ -196,6 +196,29 @@ CREATE TABLE IF NOT EXISTS order_status_history (
 CREATE INDEX IF NOT EXISTS idx_osh_order ON order_status_history(order_id);
 
 -- ---------------------------------------------------------------------------
+-- Coupons (Business/Pro plans). Applied by customers at checkout.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS coupons (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id  UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  code         TEXT NOT NULL,                  -- stored uppercase
+  type         TEXT NOT NULL DEFAULT 'percent',-- 'percent' | 'fixed'
+  value        INTEGER NOT NULL,               -- percent 1..100, or rupees
+  min_order    INTEGER NOT NULL DEFAULT 0,     -- minimum subtotal to qualify
+  expires_on   DATE,                           -- NULL = no expiry
+  usage_limit  INTEGER,                        -- NULL = unlimited
+  used_count   INTEGER NOT NULL DEFAULT 0,
+  status       TEXT NOT NULL DEFAULT 'ACTIVE', -- ACTIVE | DISABLED
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (business_id, code)
+);
+CREATE INDEX IF NOT EXISTS idx_coupons_business ON coupons(business_id);
+
+-- Discount columns on orders (idempotent for existing databases).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount INTEGER NOT NULL DEFAULT 0;
+
+-- ---------------------------------------------------------------------------
 -- Notifications outbox — Apps Script (or any worker) polls status = 'PENDING'
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS notifications (

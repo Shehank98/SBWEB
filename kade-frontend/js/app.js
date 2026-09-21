@@ -191,6 +191,7 @@
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
     cart: '<path d="M3 4h2l2.4 11h10.200L20 8H6.200"/><circle cx="9" cy="19" r="1.500"/><circle cx="17" cy="19" r="1.500"/>',
     chart: '<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="4" width="3" height="14"/>',
+    tag: '<path d="M3 11l8-8 10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
     upload: '<path d="M12 15V4m0 0L8 8m4-4l4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
     file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'
   };
@@ -205,7 +206,7 @@
     var pendingPay = api ? 0 : D.payments.filter(function (p) { return p.status === 'PENDING'; }).length;
     var items = kind === 'admin'
       ? [['index', 'Overview', 'home'], ['businesses', 'Businesses', 'shop', pendingApprovals], ['payments', 'Payments', 'receipt', pendingPay]]
-      : [['index', 'Overview', 'home'], ['orders', 'Orders', 'bag', pendingOrders], ['products', 'Products', 'box'], ['reports', 'Reports', 'chart'], ['subscription', 'Subscription', 'card'], ['settings', 'Store settings', 'gear']];
+      : [['index', 'Overview', 'home'], ['orders', 'Orders', 'bag', pendingOrders], ['products', 'Products', 'box'], ['reports', 'Reports', 'chart'], ['coupons', 'Coupons', 'tag'], ['subscription', 'Subscription', 'card'], ['settings', 'Store settings', 'gear']];
     var nav = items.map(function (i) {
       return '<a href="' + i[0] + '.html"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
     }).join('');
