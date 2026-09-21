@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Staff | Kade dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+        <div class="page-head"><div><h1>Staff</h1><p id="sub">Give your team their own login with limited access.</p></div><button class="kd-btn kd-btn--primary" type="button" id="add" hidden>Add staff</button></div>
+        <div id="body"></div>
+        <dialog id="dlg" aria-labelledby="st"><form id="sf" novalidate>
+          <div class="dialog__head"><h2 class="heading" id="st">Add staff</h2></div>
+          <div class="dialog__body">
+            <div class="kd-field"><label class="kd-label" for="s-name">Full name</label><input class="kd-input" id="s-name" autocomplete="name"></div>
+            <div class="kd-field"><label class="kd-label" for="s-email">Email</label><input class="kd-input" id="s-email" type="email" autocomplete="email"><span class="kd-help" id="s-email-help">They sign in with this email.</span></div>
+            <div class="kd-field"><label class="kd-label" for="s-pass">Password</label><input class="kd-input" id="s-pass" type="password" autocomplete="new-password"><span class="kd-help" id="s-pass-help">At least 8 characters.</span></div>
+            <fieldset style="border:0;padding:0;margin:0"><legend class="kd-label" style="margin-bottom:8px">What can they access?</legend><div class="stack" id="perms"></div></fieldset>
+            <label class="kd-switch" id="statusRow" hidden><span class="kd-check__text"><strong>Active</strong><span class="muted">Turn off to block sign-in without deleting.</span></span><input type="checkbox" role="switch" id="s-status" checked></label>
+          </div>
+          <div class="dialog__foot"><button class="kd-btn kd-btn--ghost" type="button" id="s-cancel">Cancel</button><button class="kd-btn kd-btn--primary" type="submit">Save</button></div>
+        </form></dialog>
+      </main>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      if (!K.guard('owner', 'staff')) return;
+      K.shell('dashboard', 'staff');
+      var API = !!(window.KadeApi && KadeApi.enabled);
+      var SECTIONS = [['orders', 'Orders'], ['products', 'Products'], ['reports', 'Reports'], ['coupons', 'Coupons']];
+      var body = K.$('#body'), dlg = K.$('#dlg'), editing = null, staff = [];
+      var f = function (id) { return K.$('#s-' + id); };
+
+      K.$('#perms').innerHTML = SECTIONS.map(function (s) { return '<label class="kd-check"><input type="checkbox" value="' + s[0] + '"><span class="kd-check__text"><span>' + s[1] + '</span></span></label>'; }).join('');
+      function chosenPerms() { return K.$$('#perms input:checked').map(function (i) { return i.value; }); }
+      function setPerms(list) { K.$$('#perms input').forEach(function (i) { i.checked = (list || []).indexOf(i.value) >= 0; }); }
+      function permLabels(list) { return (list || []).map(function (p) { var s = SECTIONS.filter(function (x) { return x[0] === p; })[0]; return s ? s[1] : p; }); }
+
+      function upsell() {
+        K.$('#sub').textContent = 'Upgrade to Pro to add staff.';
+        body.innerHTML = '<section class="kd-card panel" style="text-align:center;max-width:560px;margin:24px auto"><h2 class="heading">Staff accounts are a Pro feature</h2><p class="muted" style="margin-top:8px">Upgrade to <strong>Pro</strong> to give your team their own logins with limited access to orders, products, reports and coupons.</p><div class="row" style="justify-content:center;margin-top:16px"><a class="kd-btn kd-btn--primary" href="subscription.html">Upgrade to Pro</a></div></section>';
+      }
+      function render() {
+        K.$('#add').hidden = false;
+        if (!staff.length) { body.innerHTML = '<div class="empty kd-card"><h2>No staff yet</h2><p class="muted">Add a team member and choose what they can see.</p></div>'; return; }
+        body.innerHTML = '<section class="kd-card" aria-label="Staff"><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Access</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody>' +
+          staff.map(function (m) {
+            var chips = permLabels(m.permissions).map(function (l) { return '<span class="kd-badge kd-badge--info" style="margin:2px">' + K.esc(l) + '</span>'; }).join('') || '<span class="muted">No sections</span>';
+            return '<tr><td><strong>' + K.esc(m.name) + '</strong></td><td>' + K.esc(m.email) + '</td><td>' + chips + '</td><td>' + (m.status === 'ACTIVE' ? '<span class="kd-badge kd-badge--success">Active</span>' : '<span class="kd-badge kd-badge--neutral">Blocked</span>') + '</td>' +
+              '<td><div class="actions"><button class="kd-btn kd-btn--secondary kd-btn--sm" data-edit="' + m.id + '">Edit</button><button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-del="' + m.id + '">Remove</button></div></td></tr>';
+          }).join('') + '</tbody></table></div></section>';
+      }
+
+      function openDlg(m) {
+        editing = m; K.$('#st').textContent = m ? 'Edit staff' : 'Add staff';
+        f('name').value = m ? m.name : ''; f('email').value = m ? m.email : ''; f('email').disabled = !!m;
+        f('pass').value = ''; K.$('#s-pass-help').textContent = m ? 'Leave blank to keep the current password.' : 'At least 8 characters.';
+        setPerms(m ? m.permissions : ['orders']);
+        K.$('#statusRow').hidden = !m; f('status').checked = m ? m.status === 'ACTIVE' : true;
+        dlg.showModal(); f('name').focus();
+      }
+      K.$('#add').addEventListener('click', function () { openDlg(null); });
+      K.$('#s-cancel').addEventListener('click', function () { dlg.close(); });
+      body.addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        var id = b.getAttribute('data-edit') || b.getAttribute('data-del');
+        var m = staff.filter(function (x) { return x.id === id; })[0]; if (!m) return;
+        if (b.getAttribute('data-edit')) openDlg(m);
+        else K.confirm({ title: 'Remove ' + m.name + '?', body: 'They will no longer be able to sign in.', confirmLabel: 'Remove staff', danger: true }).then(function (ok) { if (ok) del(m); });
+      });
+
+      K.$('#sf').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var name = f('name').value.trim(), email = f('email').value.trim(), pass = f('pass').value, perms = chosenPerms();
+        if (!name) { K.toast('Enter a name.'); f('name').focus(); return; }
+        if (!editing && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { K.toast('Enter a valid email.'); f('email').focus(); return; }
+        if (!editing && pass.length < 8) { K.toast('Password must be at least 8 characters.'); f('pass').focus(); return; }
+        if (editing && pass && pass.length < 8) { K.toast('Password must be at least 8 characters.'); f('pass').focus(); return; }
+        var payload = editing
+          ? { name: name, permissions: perms, status: f('status').checked ? 'ACTIVE' : 'DISABLED' }
+          : { name: name, email: email, password: pass, permissions: perms };
+        if (editing && pass) payload.password = pass;
+        save(payload);
+      });
+
+      function save(payload) {
+        if (API) {
+          var p = editing ? KadeApi.updateStaff(editing.id, payload) : KadeApi.createStaff(payload);
+          p.then(function () { dlg.close(); K.toast(editing ? 'Staff updated' : 'Staff added'); return load(); }).catch(function (ex) { K.toast(ex.message || 'Could not save.'); });
+        } else {
+          if (editing) { Object.assign(editing, { name: payload.name, permissions: payload.permissions, status: payload.status || editing.status }); }
+          else { staff.unshift({ id: 's' + Date.now(), name: payload.name, email: payload.email, permissions: payload.permissions, status: 'ACTIVE' }); }
+          dlg.close(); render(); K.toast(editing ? 'Staff updated' : 'Staff added');
+        }
+      }
+      function del(m) {
+        if (API) { KadeApi.deleteStaff(m.id).then(function () { K.toast('Staff removed'); return load(); }).catch(function (ex) { K.toast(ex.message || 'Could not remove.'); }); }
+        else { staff.splice(staff.indexOf(m), 1); render(); K.toast('Staff removed'); }
+      }
+
+      function load() {
+        if (API) { return KadeApi.staff().then(function (r) { staff = r.staff; render(); }).catch(function (ex) { if (ex && ex.status === 400) upsell(); else body.innerHTML = '<p class="muted">Could not load staff.</p>'; }); }
+        staff = [
+          { id: 's1', name: 'Sanduni Fernando', email: 'sanduni@abc-fashion.lk', permissions: ['orders'], status: 'ACTIVE' },
+          { id: 's2', name: 'Ravi Kumar', email: 'ravi@abc-fashion.lk', permissions: ['orders', 'products'], status: 'ACTIVE' }
+        ];
+        render(); return Promise.resolve();
+      }
+
+      if (API) K.loading(body, 'Loading staff…');
+      load();
+    })();
+  </script>
+</body>
+</html>

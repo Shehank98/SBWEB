@@ -59,7 +59,8 @@ Express REST API  ──►  PostgreSQL   (all tenant data, business_id-scoped)
 Source layout (repo root):
 
 ```
-kade-frontend/           static site, served by the same Node app
+kade-frontend_V2/        static site (the current UI), served by the same Node app
+kade-frontend/           the original UI (kept for reference)
 src/
   server.js              app bootstrap + route mounting + static frontend
   config.js              env -> typed config

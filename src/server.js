@@ -7,7 +7,7 @@ import { UPLOAD_DIR } from './services/uploads.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FRONTEND_DIR = path.join(__dirname, '..', 'kade-frontend');
+const FRONTEND_DIR = path.join(__dirname, '..', 'kade-frontend_V2');
 
 import { authRouter } from './routes/auth.js';
 import { plansRouter } from './routes/plans.js';

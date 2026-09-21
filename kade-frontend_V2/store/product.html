@@ -12,14 +12,17 @@
   <div id="store-header"></div>
   <main id="main" class="container"></main>
   <div id="store-footer"></div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
   <script src="../js/app.js"></script>
   <script src="../js/store.js"></script>
   <script>
     (function () {
-      var K = Kade, D = KadeData, s = K.storeInit(); if (!s) return;
+      var K = Kade, D = KadeData;
+      K.loadStore(function (s, products) {
       var id = new URLSearchParams(location.search).get('p');
-      var p = D.products.filter(function (x) { return x.id === id && x.store === s.slug; })[0];
+      var p = products.filter(function (x) { return x.id === id; })[0];
       var main = K.$('#main');
       if (!p) { main.innerHTML = '<div class="empty"><h1 class="heading">We could not find that product</h1><a class="kd-btn kd-btn--primary" href="' + K.sUrl('index.html') + '">See all products</a></div>'; return; }
       document.title = p.name + ' | ' + s.name;
@@ -41,12 +44,12 @@
         '<div class="option-group"><span class="kd-label">Share this product</span><div class="share-row"><a class="kd-btn kd-btn--secondary kd-btn--sm" id="shWa" target="_blank" rel="noopener">WhatsApp</a><a class="kd-btn kd-btn--secondary kd-btn--sm" id="shFb" target="_blank" rel="noopener">Facebook</a><button class="kd-btn kd-btn--secondary kd-btn--sm" id="copy" type="button">Copy link</button></div></div>' +
         '</div></div>' +
         '<section class="stack" style="padding-bottom:48px" aria-labelledby="more"><h2 class="heading" id="more">More from ' + K.esc(s.name) + '</h2><div class="product-grid" id="related" style="padding-bottom:0"></div></section>';
-      var sync = function () {
+      function sync() {
         K.$('#qty').textContent = qty;
         K.$('#wa').href = K.wa(s, waMsg());
         K.$('#shWa').href = 'https://wa.me/?text=' + encodeURIComponent(p.name + ' at ' + s.name + ': ' + pageUrl);
         K.$('#shFb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl);
-      };
+      }
       K.$$('.kd-chip[data-g]').forEach(function (b) {
         b.addEventListener('click', function () {
           var g = b.getAttribute('data-g'); chosen[g] = b.getAttribute('data-v');
@@ -65,14 +68,10 @@
         var done = function () { K.toast('Link copied'); };
         if (navigator.clipboard) navigator.clipboard.writeText(pageUrl).then(done, function () { K.toast('Copy the link from the address bar'); }); else K.toast('Copy the link from the address bar');
       });
-      var rel = D.products.filter(function (x) { return x.store === s.slug && x.id !== p.id; }).slice(0, 4);
+      var rel = products.filter(function (x) { return x.id !== p.id; }).slice(0, 4);
       K.$('#related').innerHTML = rel.map(function (r) { return '<article class="kd-card kd-product"><a class="product-link" href="' + K.sUrl('product.html', '&p=' + r.id) + '"><div class="kd-product__media">' + K.ph(r) + '</div><div class="kd-product__body"><h3 class="kd-product__name">' + K.esc(r.name) + '</h3>' + K.priceHtml(r) + '</div></a></article>'; }).join('');
-      var bar = document.createElement('div'); bar.className = 'buy-bar';
-      bar.innerHTML = '<div class="buy-bar__price"><span class="muted" style="font-size:13px">Total</span><b class="price" id="bb-t"></b></div><button type="button" class="kd-btn kd-btn--accent" id="bb-add"' + (out ? ' disabled' : '') + '>' + (out ? 'Sold out' : 'Add to cart') + '</button>';
-      document.body.appendChild(bar);
-      K.$('#bb-add').addEventListener('click', function () { K.$('#add').click(); var e = K.$('#optErr'); if (!e.hidden) e.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
-      var _sync = sync; sync = function () { _sync(); K.$('#bb-t').textContent = K.rs(total()); };
       sync();
+      }, { cartBar: true });
     })();
   </script>
 </body>

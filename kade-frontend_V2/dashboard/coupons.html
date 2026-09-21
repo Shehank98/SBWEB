@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coupons | Kade dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+        <div class="page-head"><div><h1>Coupons</h1><p id="sub">Create discount codes customers apply at checkout.</p></div><button class="kd-btn kd-btn--primary" type="button" id="add" hidden>New coupon</button></div>
+        <div id="body"></div>
+        <dialog id="dlg" aria-labelledby="ct"><form id="cf" novalidate>
+          <div class="dialog__head"><h2 class="heading" id="ct">New coupon</h2></div>
+          <div class="dialog__body">
+            <div class="kd-field"><label class="kd-label" for="c-code">Code</label><input class="kd-input" id="c-code" autocapitalize="characters" autocomplete="off" placeholder="WELCOME10"><span class="kd-help">Customers type this at checkout. Letters, numbers and hyphens.</span></div>
+            <div class="form-grid form-grid--2" style="gap:16px">
+              <div class="kd-field"><label class="kd-label" for="c-type">Discount type</label><select class="kd-select" id="c-type"><option value="percent">Percent off</option><option value="fixed">Fixed amount (Rs.)</option></select></div>
+              <div class="kd-field"><label class="kd-label" for="c-value">Amount</label><input class="kd-input" id="c-value" type="number" inputmode="numeric" min="1"><span class="kd-help" id="c-value-help">A number from 1 to 100.</span></div>
+              <div class="kd-field"><label class="kd-label" for="c-min">Minimum order (Rs.)</label><input class="kd-input" id="c-min" type="number" inputmode="numeric" min="0" value="0"></div>
+              <div class="kd-field"><label class="kd-label" for="c-limit">Usage limit (optional)</label><input class="kd-input" id="c-limit" type="number" inputmode="numeric" min="1" placeholder="Unlimited"></div>
+              <div class="kd-field"><label class="kd-label" for="c-exp">Expires on (optional)</label><input class="kd-input" id="c-exp" type="date"></div>
+            </div>
+            <label class="kd-switch"><span class="kd-check__text"><strong>Active</strong><span class="muted">Turn off to pause without deleting.</span></span><input type="checkbox" role="switch" id="c-status" checked></label>
+          </div>
+          <div class="dialog__foot"><button class="kd-btn kd-btn--ghost" type="button" id="c-cancel">Cancel</button><button class="kd-btn kd-btn--primary" type="submit">Save coupon</button></div>
+        </form></dialog>
+      </main>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      if (!K.guard('owner', 'coupons')) return;
+      K.shell('dashboard', 'coupons');
+      var API = !!(window.KadeApi && KadeApi.enabled);
+      var body = K.$('#body'), dlg = K.$('#dlg'), editing = null;
+      var f = function (id) { return K.$('#c-' + id); };
+      var coupons = [];
+
+      function upsell() {
+        K.$('#sub').textContent = 'Upgrade to unlock coupons.';
+        body.innerHTML = '<section class="kd-card panel" style="text-align:center;max-width:560px;margin:24px auto"><h2 class="heading">Coupons are a Business feature</h2><p class="muted" style="margin-top:8px">Upgrade to <strong>Business</strong> or <strong>Pro</strong> to create discount codes your customers apply at checkout.</p><div class="row" style="justify-content:center;margin-top:16px"><a class="kd-btn kd-btn--primary" href="subscription.html">See plans</a></div></section>';
+      }
+      function discountText(c) { return c.type === 'percent' ? c.value + '% off' : K.rs(c.value) + ' off'; }
+      function render() {
+        K.$('#add').hidden = false;
+        if (!coupons.length) { body.innerHTML = '<div class="empty kd-card"><h2>No coupons yet</h2><p class="muted">Create a code like WELCOME10 to give customers a discount.</p></div>'; return; }
+        body.innerHTML = '<section class="kd-card" aria-label="Coupons"><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Code</th><th scope="col">Discount</th><th scope="col" class="kd-num">Min order</th><th scope="col" class="kd-num">Uses</th><th scope="col">Expires</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody>' +
+          coupons.map(function (c) {
+            return '<tr><td><strong>' + K.esc(c.code) + '</strong></td><td>' + discountText(c) + '</td><td class="kd-num">' + (c.minOrder ? K.rs(c.minOrder) : '—') + '</td><td class="kd-num">' + c.used + (c.usageLimit ? ' / ' + c.usageLimit : '') + '</td><td>' + (c.expiresOn ? K.fmtDate(c.expiresOn) : 'No expiry') + '</td><td>' + (c.status === 'ACTIVE' ? '<span class="kd-badge kd-badge--success">Active</span>' : '<span class="kd-badge kd-badge--neutral">Paused</span>') + '</td>' +
+              '<td><div class="actions"><button class="kd-btn kd-btn--secondary kd-btn--sm" data-edit="' + c.id + '">Edit</button><button class="kd-btn kd-btn--ghost kd-btn--sm" data-toggle="' + c.id + '">' + (c.status === 'ACTIVE' ? 'Pause' : 'Activate') + '</button><button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-del="' + c.id + '">Delete</button></div></td></tr>';
+          }).join('') + '</tbody></table></div></section>';
+      }
+
+      function valueHelp() { f('value-help').textContent = f('type').value === 'percent' ? 'A number from 1 to 100.' : 'Amount in rupees, e.g. 500.'; }
+      f('type').addEventListener('change', valueHelp);
+      function openDlg(c) {
+        editing = c; K.$('#ct').textContent = c ? 'Edit coupon' : 'New coupon';
+        f('code').value = c ? c.code : ''; f('type').value = c ? c.type : 'percent'; f('value').value = c ? c.value : ''; f('min').value = c ? c.minOrder : 0; f('limit').value = c && c.usageLimit ? c.usageLimit : ''; f('exp').value = c && c.expiresOn ? c.expiresOn : ''; f('status').checked = c ? c.status === 'ACTIVE' : true;
+        valueHelp(); dlg.showModal(); f('code').focus();
+      }
+      K.$('#add').addEventListener('click', function () { openDlg(null); });
+      K.$('#c-cancel').addEventListener('click', function () { dlg.close(); });
+      body.addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        var id = b.getAttribute('data-edit') || b.getAttribute('data-toggle') || b.getAttribute('data-del');
+        var c = coupons.filter(function (x) { return x.id === id; })[0]; if (!c) return;
+        if (b.getAttribute('data-edit')) openDlg(c);
+        else if (b.getAttribute('data-toggle')) save(c, { status: c.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' }, c.id, true);
+        else if (b.getAttribute('data-del')) K.confirm({ title: 'Delete ' + c.code + '?', body: 'Customers will no longer be able to use this code.', confirmLabel: 'Delete coupon', danger: true }).then(function (ok) { if (ok) del(c); });
+      });
+
+      K.$('#cf').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var payload = { code: f('code').value.trim().toUpperCase(), type: f('type').value, value: +f('value').value, minOrder: +f('min').value || 0, usageLimit: f('limit').value ? +f('limit').value : '', expiresOn: f('exp').value || '', status: f('status').checked ? 'ACTIVE' : 'DISABLED' };
+        if (!/^[A-Z0-9][A-Z0-9-]{1,23}$/.test(payload.code)) { K.toast('Use 2–24 letters, numbers or hyphens for the code.'); f('code').focus(); return; }
+        if (payload.type === 'percent' && !(payload.value >= 1 && payload.value <= 100)) { K.toast('Percent must be between 1 and 100.'); f('value').focus(); return; }
+        if (payload.type === 'fixed' && !(payload.value > 0)) { K.toast('Enter an amount above zero.'); f('value').focus(); return; }
+        save(editing, payload, editing ? editing.id : null);
+      });
+
+      function save(target, payload, id, quiet) {
+        if (API) {
+          var p = id ? KadeApi.updateCoupon(id, payload) : KadeApi.createCoupon(payload);
+          p.then(function () { if (!quiet) dlg.close(); K.toast(id ? 'Coupon updated' : 'Coupon created'); return load(); }).catch(function (ex) { K.toast(ex.message || 'Could not save the coupon.'); });
+        } else {
+          if (id && target) { Object.assign(target, { code: payload.code, type: payload.type, value: payload.value, minOrder: payload.minOrder, usageLimit: payload.usageLimit || null, expiresOn: payload.expiresOn || null, status: payload.status }); }
+          else { coupons.unshift({ id: 'c' + Date.now(), code: payload.code, type: payload.type, value: payload.value, minOrder: payload.minOrder, usageLimit: payload.usageLimit || null, expiresOn: payload.expiresOn || null, used: 0, status: payload.status }); }
+          if (!quiet) dlg.close(); render(); K.toast(id ? 'Coupon updated' : 'Coupon created');
+        }
+      }
+      function del(c) {
+        if (API) { KadeApi.deleteCoupon(c.id).then(function () { K.toast('Coupon deleted'); return load(); }).catch(function (ex) { K.toast(ex.message || 'Could not delete.'); }); }
+        else { coupons.splice(coupons.indexOf(c), 1); render(); K.toast('Coupon deleted'); }
+      }
+
+      function load() {
+        if (API) { return KadeApi.coupons().then(function (r) { coupons = r.coupons; render(); }).catch(function (ex) { if (ex && ex.status === 400) upsell(); else body.innerHTML = '<p class="muted">Could not load coupons.</p>'; }); }
+        var override = (new URLSearchParams(location.search).get('as') || '').toLowerCase();
+        if (override === 'starter') { upsell(); return Promise.resolve(); }
+        coupons = [
+          { id: 'c1', code: 'WELCOME10', type: 'percent', value: 10, minOrder: 0, expiresOn: null, usageLimit: null, used: 12, status: 'ACTIVE' },
+          { id: 'c2', code: 'SHIP500', type: 'fixed', value: 500, minOrder: 5000, expiresOn: D.daysAhead(20), usageLimit: 100, used: 8, status: 'ACTIVE' }
+        ];
+        render(); return Promise.resolve();
+      }
+
+      if (API) K.loading(body, 'Loading coupons…');
+      load();
+    })();
+  </script>
+</body>
+</html>

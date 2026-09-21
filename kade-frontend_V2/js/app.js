@@ -33,7 +33,16 @@
     if (p.stock <= p.lowAt) return '<span class="kd-badge kd-badge--warning">Low stock</span>';
     return '<span class="kd-badge kd-badge--success">In stock</span>';
   };
-  K.ph = function (p, small) { return '<div class="ph' + (small ? ' ph--sm' : '') + '" data-tone="' + K.esc(p.tone || 'f') + '" role="img" aria-label="' + K.esc(p.name) + ' (photo placeholder)">' + K.esc(K.initials(p.name)) + '</div>'; };
+  K.ph = function (p, small) {
+    // Real product photo when we have one; otherwise a tinted initials tile.
+    if (p && p.image) return '<img class="ph ph--img' + (small ? ' ph--sm' : '') + '" src="' + K.esc(p.image) + '" alt="' + K.esc(p.name) + '" loading="lazy" decoding="async">';
+    return '<div class="ph' + (small ? ' ph--sm' : '') + '" data-tone="' + K.esc(p.tone || 'f') + '" role="img" aria-label="' + K.esc(p.name) + ' (photo placeholder)">' + K.esc(K.initials(p.name)) + '</div>';
+  };
+
+  /* ---------- Loading spinner ---------- */
+  K.spinner = function () { return '<span class="kd-spinner" role="status" aria-label="Loading"></span>'; };
+  K.loading = function (el, msg) { if (el) el.innerHTML = '<div class="kd-loading">' + K.spinner() + '<p>' + K.esc(msg || 'Loading…') + '</p></div>'; };
+  K.btnLoading = function (btn, msg) { if (!btn) return function () {}; var html = btn.innerHTML; btn.disabled = true; btn.innerHTML = K.spinner() + ' ' + K.esc(msg || 'Please wait…'); return function () { btn.disabled = false; btn.innerHTML = html; }; };
 
   /* ---------- Toast ---------- */
   K.toast = function (msg) {
@@ -54,6 +63,94 @@
       document.body.appendChild(d);
       d.addEventListener('close', function () { var ok = d.returnValue === 'ok'; var ta = d.querySelector('textarea'); var reason = ta ? ta.value : ''; d.remove(); resolve(o.reason ? (ok ? { reason: reason } : false) : ok); });
       d.showModal();
+    });
+  };
+
+  /* ---------- Drag & drop file upload ----------
+     Enhances an existing <input type="file"> into a professional dropzone while
+     keeping the input in the DOM, so its id/name/data-rule and the form still work.
+     Returns { file(), clear(), existing(url) }. */
+  K.dropzone = function (input, opts) {
+    opts = opts || {};
+    if (!input || input.__dz) return input && input.__dz;
+    var placeholder = null;
+    var zone = document.createElement('div');
+    zone.className = 'dropzone';
+    zone.setAttribute('role', 'button');
+    zone.setAttribute('tabindex', '0');
+    zone.setAttribute('aria-label', opts.aria || 'Upload a file. Drag and drop, or activate to browse.');
+    zone.innerHTML =
+      '<div class="dropzone__inner">' + K.icon('upload') +
+      '<p class="dropzone__title">' + K.esc(opts.title || 'Drag & drop your image here') + '</p>' +
+      '<p class="dropzone__hint">or <span class="dropzone__browse">browse files</span></p>' +
+      '<p class="dropzone__meta">' + K.esc(opts.hint || 'PNG or JPG, up to 8MB') + '</p></div>' +
+      '<div class="dropzone__preview" hidden></div>';
+    input.classList.add('visually-hidden');
+    input.setAttribute('tabindex', '-1');
+    input.setAttribute('aria-hidden', 'true');
+    input.parentNode.insertBefore(zone, input);
+    var inner = zone.querySelector('.dropzone__inner'), preview = zone.querySelector('.dropzone__preview');
+
+    function render() {
+      var f = input.files && input.files[0];
+      if (f) {
+        inner.hidden = true; preview.hidden = false; zone.classList.add('has-file');
+        var isImg = /^image\//.test(f.type);
+        preview.innerHTML = (isImg ? '<img alt="Selected image preview" src="' + URL.createObjectURL(f) + '">' : '<span class="dropzone__file">' + K.icon('file') + '</span>') +
+          '<span class="dropzone__info"><strong>' + K.esc(f.name) + '</strong><span class="muted">' + Math.max(1, Math.round(f.size / 1024)) + ' KB — click to replace</span></span>' +
+          '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm dropzone__remove">Remove</button>';
+      } else if (placeholder) {
+        inner.hidden = true; preview.hidden = false; zone.classList.add('has-file');
+        preview.innerHTML = '<img alt="Current image" src="' + K.esc(placeholder) + '"><span class="dropzone__info"><strong>Current image</strong><span class="muted">Click to choose a new one</span></span><button type="button" class="kd-btn kd-btn--ghost kd-btn--sm dropzone__remove">Remove</button>';
+      } else {
+        inner.hidden = false; preview.hidden = true; zone.classList.remove('has-file');
+      }
+      var rm = preview.querySelector('.dropzone__remove');
+      if (rm) rm.addEventListener('click', function (e) { e.stopPropagation(); setFile(null); });
+    }
+    function setFile(f) {
+      var dt = new DataTransfer(); if (f) dt.items.add(f);
+      input.files = dt.files; placeholder = null;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      render();
+    }
+    zone.addEventListener('click', function () { input.click(); });
+    zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+    input.addEventListener('change', render);
+    ['dragenter', 'dragover'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('is-drag'); }); });
+    ['dragleave', 'dragend'].forEach(function (ev) { zone.addEventListener(ev, function () { zone.classList.remove('is-drag'); }); });
+    zone.addEventListener('drop', function (e) { e.preventDefault(); zone.classList.remove('is-drag'); var f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) setFile(f); });
+
+    if (opts.existing) { placeholder = opts.existing; }
+    render();
+    var api = { input: input, file: function () { return input.files && input.files[0] ? input.files[0] : null; }, clear: function () { setFile(null); }, existing: function (url) { placeholder = url || null; render(); } };
+    input.__dz = api;
+    return api;
+  };
+
+  /* ---------- Prompt dialog (single text input, with validation) ---------- */
+  K.prompt = function (o) {
+    return new Promise(function (resolve) {
+      var d = document.createElement('dialog');
+      d.setAttribute('aria-labelledby', 'pr-title');
+      d.innerHTML = '<form><div class="dialog__head"><h2 class="heading" id="pr-title">' + K.esc(o.title) + '</h2></div>' +
+        '<div class="dialog__body"><div class="kd-field"><label class="kd-label" for="pr-input">' + K.esc(o.label || '') + '</label>' +
+        '<input class="kd-input" id="pr-input" value="' + K.esc(o.value || '') + '"' + (o.placeholder ? ' placeholder="' + K.esc(o.placeholder) + '"' : '') + ' autocapitalize="none" autocomplete="off" spellcheck="false">' +
+        (o.help ? '<span class="kd-help">' + K.esc(o.help) + '</span>' : '') + '<span class="kd-error" id="pr-err" hidden></span></div></div>' +
+        '<div class="dialog__foot"><button class="kd-btn kd-btn--ghost" type="button" id="pr-cancel" formnovalidate>Cancel</button><button class="kd-btn kd-btn--primary" type="submit">' + K.esc(o.confirmLabel || 'Save') + '</button></div></form>';
+      document.body.appendChild(d);
+      var input = d.querySelector('#pr-input'), errEl = d.querySelector('#pr-err'), form = d.querySelector('form'), done = false;
+      function finish(val) { done = true; d.close(); resolve(val); }
+      d.querySelector('#pr-cancel').addEventListener('click', function () { finish(null); });
+      input.addEventListener('input', function () { errEl.hidden = true; input.removeAttribute('aria-invalid'); });
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var val = input.value.trim(), msg = o.validate ? o.validate(val) : '';
+        if (msg) { errEl.hidden = false; errEl.textContent = msg; input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+        finish(val);
+      });
+      d.addEventListener('close', function () { if (!done) resolve(null); d.remove(); });
+      d.showModal(); input.focus(); input.select();
     });
   };
 
@@ -93,36 +190,60 @@
     shop: '<path d="M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9c0 1.7 1.3 3 2.7 3S9.3 10.7 9.3 9c0 1.7 1.3 3 2.7 3s2.7-1.300 2.7-3c0 1.700 1.300 3 2.700 3S20 10.700 20 9M9 20v-5h6v5"/>',
     receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-    cart: '<path d="M3 4h2l2.4 11h10.200L20 8H6.200"/><circle cx="9" cy="19" r="1.500"/><circle cx="17" cy="19" r="1.500"/>'
+    cart: '<path d="M3 4h2l2.4 11h10.200L20 8H6.200"/><circle cx="9" cy="19" r="1.500"/><circle cx="17" cy="19" r="1.500"/>',
+    chart: '<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="4" width="3" height="14"/>',
+    tag: '<path d="M3 11l8-8 10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+    users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17 20a5.5 5.5 0 0 0-3-4.9"/>',
+    upload: '<path d="M12 15V4m0 0L8 8m4-4l4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+    file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'
   };
   K.icon = function (n) { return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICON[n] + '</svg>'; };
 
   /* ---------- App shell (owner dashboard and admin) ---------- */
   K.shell = function (kind, active) {
-    var pendingOrders = K.orders().filter(function (o) { return o.status === 'PENDING'; }).length;
-    var pendingApprovals = D.businesses.filter(function (b) { return b.status === 'PENDING_APPROVAL'; }).length;
-    var pendingPay = D.payments.filter(function (p) { return p.status === 'PENDING'; }).length;
+    var api = !!(window.KadeApi && KadeApi.enabled);
+    var sess = api && KadeApi.currentUser ? KadeApi.currentUser() : null;
+    var pendingOrders = api ? 0 : K.orders().filter(function (o) { return o.status === 'PENDING'; }).length;
+    var pendingApprovals = api ? 0 : D.businesses.filter(function (b) { return b.status === 'PENDING_APPROVAL'; }).length;
+    var pendingPay = api ? 0 : D.payments.filter(function (p) { return p.status === 'PENDING'; }).length;
+    // Staff see only the sections they were granted; owners (and mock mode) see all.
+    var role = sess ? sess.role : null;
+    var perms = sess && sess.permissions ? sess.permissions : null;
+    function can(sec) { if (role !== 'BUSINESS_STAFF') return true; return (perms || []).indexOf(sec) >= 0; }
+    var ownerOnly = role !== 'BUSINESS_STAFF';
     var items = kind === 'admin'
       ? [['index', 'Overview', 'home'], ['businesses', 'Businesses', 'shop', pendingApprovals], ['payments', 'Payments', 'receipt', pendingPay]]
-      : [['index', 'Overview', 'home'], ['orders', 'Orders', 'bag', pendingOrders], ['products', 'Products', 'box'], ['subscription', 'Subscription', 'card'], ['settings', 'Store settings', 'gear']];
+      : [
+          ['index', 'Overview', 'home'],
+          can('orders') && ['orders', 'Orders', 'bag', pendingOrders],
+          can('products') && ['products', 'Products', 'box'],
+          can('reports') && ['reports', 'Reports', 'chart'],
+          can('coupons') && ['coupons', 'Coupons', 'tag'],
+          ownerOnly && ['subscription', 'Subscription', 'card'],
+          ownerOnly && ['staff', 'Staff', 'users'],
+          ownerOnly && ['settings', 'Store settings', 'gear']
+        ].filter(Boolean);
     var nav = items.map(function (i) {
       return '<a href="' + i[0] + '.html"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
     }).join('');
-    var ctx = kind === 'admin' ? 'Platform admin' : 'ABC Fashion';
+    var ctx = kind === 'admin' ? 'Platform admin' : ((sess && sess.storeName) ? sess.storeName : 'ABC Fashion');
+    var mySlug = (sess && sess.slug) ? sess.slug : 'abc-fashion';
     var foot = kind === 'admin'
-      ? '<a class="kd-link" href="../login.html">Log out</a>'
-      : '<a class="kd-link" href="../store/index.html?s=abc-fashion" target="_blank" rel="noopener">View my store</a><a class="kd-link" href="../login.html">Log out</a>';
+      ? '<a class="kd-link" href="../login.html" id="logout">Log out</a>'
+      : '<a class="kd-link" href="../store/index.html?s=' + K.esc(mySlug) + '" target="_blank" rel="noopener">View my store</a><a class="kd-link" href="../login.html" id="logout">Log out</a>';
     var sb = K.$('#sidebar');
     sb.innerHTML = '<div class="sidebar__brand"><a class="wordmark" href="../index.html">Kade</a><span class="sidebar__ctx">' + (kind === 'admin' ? 'Admin panel' : 'Owner dashboard') + '</span></div>' +
       '<nav class="nav" aria-label="Main">' + nav + '</nav><div class="sidebar__foot">' + foot + '</div>';
+    var lo = K.$('#logout'); if (lo) lo.addEventListener('click', function (e) { if (window.KadeApi && KadeApi.enabled) { e.preventDefault(); KadeApi.logout(); location.href = '../login.html'; } });
     var tb = K.$('#topbar');
-    tb.innerHTML = '<div class="row"><button class="kd-btn kd-btn--secondary menu-btn" type="button" aria-label="More" aria-expanded="false" aria-controls="sidebar">' + K.icon('menu') + '</button><strong>' + K.esc(ctx) + '</strong></div>' +
+    tb.innerHTML = '<div class="row"><button class="kd-btn kd-btn--secondary menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">' + K.icon('menu') + '</button><strong>' + K.esc(ctx) + '</strong></div>' +
       '<div class="row"><button class="kd-btn kd-btn--ghost" type="button" id="theme-toggle"></button></div>';
 
     /* Bottom tab bar on phones: the main destinations sit under the thumb */
-    var SHORT = { index: 'Home', orders: 'Orders', products: 'Products', subscription: 'Plan', settings: 'Store', businesses: 'Businesses', payments: 'Payments' };
+    var SHORT = { index: 'Home', orders: 'Orders', products: 'Products', reports: 'Reports', coupons: 'Coupons', staff: 'Staff', subscription: 'Plan', settings: 'Store', businesses: 'Businesses', payments: 'Payments' };
+    var oldTab = K.$('.tabbar'); if (oldTab) oldTab.remove();
     var tabbar = document.createElement('nav'); tabbar.className = 'tabbar'; tabbar.setAttribute('aria-label', 'Primary');
-    tabbar.innerHTML = items.map(function (i) { return '<a href="' + i[0] + '.html"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + SHORT[i[0]] + '</span>' + (i[3] ? '<b class="tcount" aria-label="' + i[3] + ' waiting">' + i[3] + '</b>' : '') + '</a>'; }).join('');
+    tabbar.innerHTML = items.slice(0, 5).map(function (i) { return '<a href="' + i[0] + '.html"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + (SHORT[i[0]] || i[1]) + '</span>' + (i[3] ? '<b class="tcount" aria-label="' + i[3] + ' waiting">' + i[3] + '</b>' : '') + '</a>'; }).join('');
     document.body.appendChild(tabbar);
     /* Tables become cards on phones: copy each column heading onto its cell */
     function labelTables() {
@@ -132,7 +253,8 @@
       });
     }
     labelTables();
-    if (window.MutationObserver) new MutationObserver(labelTables).observe(K.$('.app'), { childList: true, subtree: true });
+    if (window.MutationObserver && K.$('.app')) new MutationObserver(labelTables).observe(K.$('.app'), { childList: true, subtree: true });
+
     var btn = K.$('.menu-btn'), scrim = null;
     function close() { sb.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); if (scrim) { scrim.remove(); scrim = null; } }
     btn.addEventListener('click', function () {
@@ -150,6 +272,19 @@
       paint();
     });
     paint();
+  };
+
+  /* Auth guard for protected pages. In mock mode (file://) it allows through so the
+     offline prototype still works. Returns false after redirecting. */
+  K.guard = function (kind, section) {
+    if (!(window.KadeApi && KadeApi.enabled)) return true;
+    var u = KadeApi.token() ? KadeApi.currentUser() : null;
+    if (!u) { location.replace('../login.html'); return false; }
+    if (kind === 'admin' && u.role !== 'SUPER_ADMIN') { location.replace('../login.html'); return false; }
+    if (kind === 'owner' && u.role === 'SUPER_ADMIN') { location.replace('../admin/index.html'); return false; }
+    // Staff may only open sections they were granted; everything else sends them home.
+    if (section && u.role === 'BUSINESS_STAFF' && (u.permissions || []).indexOf(section) < 0) { location.replace('index.html'); return false; }
+    return true;
   };
 
   /* All orders for the demo business: seeded ones plus any placed through the demo storefront in this browser. */

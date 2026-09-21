@@ -9,7 +9,7 @@
   var plans = [
     { id: 'starter',  name: 'Starter',  price: 1500, durationDays: 30, maxProducts: 100,  features: ['Up to 100 products', 'Your own store link', 'Order dashboard', 'Email order alerts'] },
     { id: 'business', name: 'Business', price: 2500, durationDays: 30, maxProducts: 500,  features: ['Up to 500 products', 'Store colour presets', 'Coupons and discounts', 'Sales reports'] },
-    { id: 'pro',      name: 'Pro',      price: 5000, durationDays: 30, maxProducts: null, features: ['Unlimited products', 'Your own domain', 'Staff accounts', 'Advanced reports'] }
+    { id: 'pro',      name: 'Pro',      price: 5000, durationDays: 30, maxProducts: null, features: ['Unlimited products', 'Priority support', 'Staff accounts', 'Advanced reports'] }
   ];
 
   var stores = {
@@ -40,6 +40,19 @@
     { id: 'p303', store: 'kandy-mobile', name: 'Wireless Earbuds', category: 'Audio', price: 6800, sale: 5900, stock: 7, lowAt: 5, tone: 'f', options: { Colour: ['Black', 'White'] }, desc: 'Bluetooth 5.3 earbuds with a charging case.' },
     { id: 'p304', store: 'kandy-mobile', name: 'Screen Guard', category: 'Cases', price: 900, stock: 60, lowAt: 10, tone: 'c', options: { Model: ['Galaxy A15', 'Galaxy A35', 'Redmi 13'] }, desc: 'Tempered glass, easy-fit frame included.' }
   ];
+
+  /* Sample product photos (self-contained SVGs under /img/products, served at the site root).
+     Attached by name so every page that renders a product shows a real image. */
+  var PRODUCT_IMG = {
+    'Linen Shirt': 'linen-shirt', 'Summer Dress': 'summer-dress', 'Cotton Kurta': 'cotton-kurta',
+    'Denim Jacket': 'denim-jacket', 'Canvas Tote': 'canvas-tote', 'Silk Scarf': 'silk-scarf',
+    'Leather Sandals': 'leather-sandals', 'Batik Sarong': 'batik-sarong',
+    'Chocolate Cake 1kg': 'chocolate-cake', 'Butter Cake 500g': 'butter-cake',
+    'Vanilla Cupcakes (6)': 'vanilla-cupcakes', 'Kimbula Banis (10)': 'kimbula-banis',
+    'Silicone Phone Case': 'silicone-phone-case', '33W Fast Charger': 'fast-charger',
+    'Wireless Earbuds': 'wireless-earbuds', 'Screen Guard': 'screen-guard'
+  };
+  products.forEach(function (p) { if (PRODUCT_IMG[p.name]) p.image = '/img/products/' + PRODUCT_IMG[p.name] + '.svg'; });
 
   /* Orders for ABC Fashion (the demo business the dashboard signs in as) */
   function order(n, days, customer, phone, city, items, status, pay, note) {

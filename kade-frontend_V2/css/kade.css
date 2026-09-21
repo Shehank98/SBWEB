@@ -425,3 +425,39 @@ body.has-cartbar { padding-bottom: 84px; }
   .app .kd-table td[data-label="Status"], .app .kd-table td[data-label="Total"] { }
   .app .row.row--between > h2 { padding: 0 !important; }
 }
+
+/* ---------- Wired-frontend additions: image tiles, spinner, dropzone, locked ---------- */
+.ph--img { object-fit: cover; background: var(--surface-sunken); }
+
+/* Loading spinner (respects reduced motion) */
+.kd-spinner { display: inline-block; box-sizing: border-box; width: 1.1em; height: 1.1em; vertical-align: -0.2em; border: 0.14em solid currentColor; border-right-color: transparent; border-radius: 50%; animation: kd-spin 0.6s linear infinite; }
+.kd-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 48px 16px; color: var(--ink-muted); grid-column: 1 / -1; }
+.kd-loading .kd-spinner { width: 36px; height: 36px; border-width: 3px; color: var(--brand); }
+@keyframes kd-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .kd-spinner { animation-duration: 1.5s; } }
+
+/* Drag & drop upload */
+.dropzone { border: 2px dashed var(--line); border-radius: 14px; background: var(--surface-sunken); padding: 24px 20px; text-align: center; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.dropzone:hover { border-color: var(--brand); }
+.dropzone:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.dropzone.is-drag { border-color: var(--brand); background: var(--brand-soft); }
+.dropzone.has-file { text-align: left; padding: 16px; }
+.dropzone__inner { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--ink-muted); }
+.dropzone__inner svg { width: 34px; height: 34px; color: var(--brand); margin-bottom: 4px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.dropzone__file svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.dropzone__title { margin: 0; font-weight: 600; color: var(--ink); }
+.dropzone__hint { margin: 0; font-size: 14px; }
+.dropzone__browse { color: var(--brand); text-decoration: underline; }
+.dropzone__meta { margin: 4px 0 0; font-size: 13px; color: var(--ink-muted); }
+.dropzone__preview { display: flex; align-items: center; gap: 12px; }
+.dropzone__preview img, .dropzone__file { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: var(--surface); flex: none; }
+.dropzone__file { display: flex; align-items: center; justify-content: center; color: var(--brand); }
+.dropzone__file svg { width: 28px; height: 28px; }
+.dropzone__info { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.dropzone__info strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropzone__remove { flex: none; color: var(--danger); }
+
+/* Locked (plan-gated) card */
+.kd-card.locked { border: 1px dashed var(--line); background: var(--surface-sunken); }
+.locked__body { text-align: center; padding: 8px 8px 16px; }
+.locked__body .row { justify-content: center; }
