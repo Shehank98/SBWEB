@@ -1,0 +1,190 @@
+import { Router } from 'express';
+import multer from 'multer';
+import { query, withTransaction } from '../db/pool.js';
+import { authenticate, requireBusiness } from '../middleware/auth.js';
+import { wrap, badRequest, notFound } from '../utils/http.js';
+import { saveUpload } from '../services/uploads.js';
+import * as S from '../services/serialize.js';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
+export const dashboardRouter = Router();
+
+dashboardRouter.use(authenticate, requireBusiness);
+const bid = (req) => req.user.business_id;
+
+const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+
+// ---- Overview: today's sales, order/product counts, low stock, last 7 days ----
+dashboardRouter.get(
+  '/overview',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const today = (
+      await query(
+        `SELECT COALESCE(SUM(total),0) s, COUNT(*) c FROM orders
+          WHERE business_id=$1 AND created_at::date = CURRENT_DATE AND status <> 'CANCELLED'`,
+        [b]
+      )
+    ).rows[0];
+    const orders = (await query(`SELECT COUNT(*) c FROM orders WHERE business_id=$1`, [b])).rows[0];
+    const products = (await query(`SELECT COUNT(*) c FROM products WHERE business_id=$1`, [b])).rows[0];
+    const lowStock = (
+      await query(`SELECT COUNT(*) c FROM products WHERE business_id=$1 AND stock <= low_at`, [b])
+    ).rows[0];
+    const sales7 = (
+      await query(
+        `SELECT d::date AS date, COALESCE(SUM(o.total),0) AS value
+           FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day') d
+           LEFT JOIN orders o ON o.business_id=$1 AND o.created_at::date = d::date AND o.status <> 'CANCELLED'
+          GROUP BY d ORDER BY d`,
+        [b]
+      )
+    ).rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: Number(r.value) }));
+
+    res.json({
+      todaySales: Number(today.s),
+      todayOrders: Number(today.c),
+      orders: Number(orders.c),
+      products: Number(products.c),
+      lowStock: Number(lowStock.c),
+      sales7,
+    });
+  })
+);
+
+// ---- Orders list ----
+dashboardRouter.get(
+  '/orders',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const { rows } = await query(`SELECT * FROM orders WHERE business_id=$1 ORDER BY created_at DESC`, [b]);
+    const ids = rows.map((r) => r.id);
+    let itemsByOrder = {};
+    if (ids.length) {
+      const items = (await query(`SELECT * FROM order_items WHERE order_id = ANY($1)`, [ids])).rows;
+      itemsByOrder = items.reduce((m, i) => { (m[i.order_id] = m[i.order_id] || []).push(i); return m; }, {});
+    }
+    res.json({ orders: rows.map((r) => S.order(r, itemsByOrder[r.id])) });
+  })
+);
+
+// ---- Change order status (validated against the workflow) ----
+dashboardRouter.put(
+  '/orders/:code/status',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const status = (req.body && req.body.status || '').toUpperCase();
+    if (!ORDER_FLOW.includes(status)) throw badRequest('Unknown order status.');
+    const order = (await query('SELECT * FROM orders WHERE business_id=$1 AND code=$2', [b, req.params.code])).rows[0];
+    if (!order) throw notFound('Order not found.');
+    await withTransaction(async (client) => {
+      await client.query('UPDATE orders SET status=$3 WHERE business_id=$1 AND code=$2', [b, req.params.code, status]);
+      await client.query(
+        'INSERT INTO order_status_history (order_id, status, changed_by) VALUES ($1,$2,$3)',
+        [order.id, status, req.user.sub]
+      );
+    });
+    res.json({ ok: true, status });
+  })
+);
+
+// ---- Subscription view (owner-facing) ----
+dashboardRouter.get(
+  '/subscription',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const sub = (
+      await query(
+        `SELECT s.*, pl.name plan_name, pl.price, pl.duration_days, pl.max_products, pl.features
+           FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
+          WHERE s.business_id=$1 ORDER BY s.created_at DESC LIMIT 1`,
+        [b]
+      )
+    ).rows[0];
+    const biz = (await query('SELECT status FROM businesses WHERE id=$1', [b])).rows[0];
+    const payments = (
+      await query(`SELECT * FROM payments WHERE business_id=$1 ORDER BY submitted_at DESC`, [b])
+    ).rows.map((p) => ({
+      id: p.id, amount: p.amount, method: p.method, ref: p.reference || '',
+      status: p.status, submitted: p.submitted_at.toISOString().slice(0, 10), reason: p.reason || undefined,
+    }));
+    res.json({
+      status: biz ? biz.status : null,
+      plan: sub ? { id: sub.plan_id, name: sub.plan_name, price: sub.price, durationDays: sub.duration_days, maxProducts: sub.max_products, features: sub.features } : null,
+      startDate: sub && sub.start_date ? sub.start_date.toISOString().slice(0, 10) : null,
+      expiryDate: sub && sub.expiry_date ? sub.expiry_date.toISOString().slice(0, 10) : null,
+      payments,
+    });
+  })
+);
+
+// ---- Submit a renewal payment slip ----
+dashboardRouter.post(
+  '/subscription/renew',
+  upload.single('slip'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const sub = (await query('SELECT * FROM subscriptions WHERE business_id=$1 ORDER BY created_at DESC LIMIT 1', [b])).rows[0];
+    const planId = (req.body && req.body.planId) || (sub ? sub.plan_id : null);
+    if (!planId) throw badRequest('Choose a plan to renew.');
+    const plan = (await query('SELECT * FROM plans WHERE id=$1', [planId])).rows[0];
+    if (!plan) throw badRequest('Unknown plan.');
+    let slipUrl = null;
+    if (req.file) slipUrl = await saveUpload(req.file, 'slips');
+    await query(
+      `INSERT INTO payments (business_id, subscription_id, plan_id, amount, method, reference, slip_url, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'PENDING')`,
+      [b, sub ? sub.id : null, planId, plan.price, req.body.method || 'Bank transfer', req.body.ref || null, slipUrl]
+    );
+    res.status(201).json({ ok: true, message: 'Renewal submitted. We will confirm your payment shortly.' });
+  })
+);
+
+// ---- Store settings (read + update) ----
+dashboardRouter.get(
+  '/store',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const store = (await query('SELECT * FROM stores WHERE business_id=$1', [b])).rows[0];
+    if (!store) throw notFound('Store not found.');
+    const cats = (await query('SELECT name FROM categories WHERE business_id=$1 ORDER BY sort_order, name', [b])).rows.map((r) => r.name);
+    const biz = (await query('SELECT status FROM businesses WHERE id=$1', [b])).rows[0];
+    res.json({ store: { ...S.storePublic(store, cats), status: biz ? biz.status : store.status } });
+  })
+);
+
+dashboardRouter.put(
+  '/store',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const s = req.body || {};
+    const store = (await query('SELECT * FROM stores WHERE business_id=$1', [b])).rows[0];
+    if (!store) throw notFound('Store not found.');
+    const d = s.delivery || {};
+    const p = s.payments || {};
+    await query(
+      `UPDATE stores SET name=$2, tagline=$3, about=$4, preset=$5, phone=$6, whatsapp=$7, address=$8, city=$9,
+              delivery_fee=$10, delivery_free_above=$11, pickup=$12, pay_cod=$13, pay_bank=$14, pay_online=$15, bank_details=$16
+        WHERE business_id=$1`,
+      [b, s.name || store.name, s.tagline || null, s.about || null, s.preset || store.preset,
+       s.phone || null, s.whatsapp || null, s.address || null, s.city || null,
+       d.fee != null ? d.fee : store.delivery_fee, d.freeAbove != null ? d.freeAbove : store.delivery_free_above,
+       d.pickup != null ? d.pickup : store.pickup,
+       p.cod != null ? p.cod : store.pay_cod, p.bank != null ? p.bank : store.pay_bank, p.online != null ? p.online : store.pay_online,
+       s.bank != null ? s.bank : store.bank_details]
+    );
+
+    // Replace category list if provided.
+    if (Array.isArray(s.categories)) {
+      await withTransaction(async (client) => {
+        await client.query('DELETE FROM categories WHERE business_id=$1', [b]);
+        let i = 0;
+        for (const name of s.categories) {
+          if (!name || !String(name).trim()) continue;
+          await client.query('INSERT INTO categories (business_id, name, sort_order) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [b, String(name).trim(), i++]);
+        }
+      });
+    }
+    res.json({ ok: true });
+  })
+);

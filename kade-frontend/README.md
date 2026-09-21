@@ -3,6 +3,12 @@
 Plain HTML, CSS and JavaScript. No build step. It uses mock data, so it runs without a server, but pages read
 `?s=` query strings and `localStorage`, so serve it over HTTP:
 
+> **Backend is now available.** The real multi-tenant API (Express + PostgreSQL, JWT auth, subscriptions,
+> Firebase uploads, Apps Script email outbox) lives in [`../backend/`](../backend/README.md).
+> `login.html` and `register.html` are already wired to it, and `js/api.js` has a client method for every
+> endpoint. To connect the rest, set `window.KADE_API_BASE` in `js/config.js` and follow
+> [`../FRONTEND-INTEGRATION.md`](../FRONTEND-INTEGRATION.md). Leave the base empty to keep running on mock data.
+
     cd kade-frontend
     python3 -m http.server 8000     # then open http://localhost:8000
 

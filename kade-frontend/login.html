@@ -23,20 +23,36 @@
         </form>
         <p class="muted" style="margin-top:16px">New here? <a class="kd-link" href="register.html">Open your shop</a></p>
       </div>
-      <div class="kd-banner kd-banner--info">
-        <div><p class="kd-banner__title">Prototype shortcuts</p><p style="margin-top:4px">There is no server yet. Any email containing "admin" opens the admin panel; anything else opens the owner dashboard for ABC Fashion.</p></div>
+      <div class="kd-banner kd-banner--info" id="hint">
+        <div><p class="kd-banner__title">Demo logins</p><p style="margin-top:4px">With the API connected, sign in as admin (<strong>admin@kade.lk</strong>) or a store owner (<strong>abc-fashion@kade.lk</strong>). Without an API configured, any email containing "admin" opens the admin panel; anything else opens the owner dashboard.</p></div>
         <div class="row"><a class="kd-btn kd-btn--secondary kd-btn--sm" href="dashboard/index.html">Owner dashboard</a><a class="kd-btn kd-btn--secondary kd-btn--sm" href="admin/index.html">Admin panel</a></div>
       </div>
     </div>
   </main>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
   <script>
-    document.getElementById('form').addEventListener('submit', function (e) {
+    document.getElementById('form').addEventListener('submit', async function (e) {
       e.preventDefault();
       var em = document.getElementById('email'), pw = document.getElementById('pw'), err = document.getElementById('err');
+      err.hidden = true;
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value) || !pw.value) {
         err.hidden = false; err.textContent = 'Enter your email and password.'; (em.value ? pw : em).focus(); return;
       }
-      location.href = /admin/i.test(em.value) ? 'admin/index.html' : 'dashboard/index.html';
+      // No API configured: keep the offline prototype behaviour.
+      if (!window.KadeApi || !KadeApi.enabled) {
+        location.href = /admin/i.test(em.value) ? 'admin/index.html' : 'dashboard/index.html';
+        return;
+      }
+      var btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true; btn.textContent = 'Signing in…';
+      try {
+        var user = await KadeApi.login(em.value.trim(), pw.value);
+        location.href = user.role === 'SUPER_ADMIN' ? 'admin/index.html' : 'dashboard/index.html';
+      } catch (ex) {
+        err.hidden = false; err.textContent = ex.message || 'Could not sign in.';
+        btn.disabled = false; btn.textContent = 'Log in';
+      }
     });
   </script>
 </body>

@@ -1,0 +1,118 @@
+/* Kade API client — the single place the frontend talks to the backend.
+ *
+ * Set the backend base URL below (or define window.KADE_API_BASE before this script,
+ * e.g. from an environment-injected <script>). Leave it empty ('') to keep the pages
+ * running on the mock data in js/data.js — every page still works offline for demos.
+ *
+ * Usage:
+ *   const { store, products } = await KadeApi.getStore('abc-fashion');
+ *   await KadeApi.login(email, password);
+ *   const { products } = await KadeApi.myProducts();      // uses the saved token
+ */
+(function () {
+  var BASE = (window.KADE_API_BASE || '').replace(/\/$/, '');
+  var TOKEN_KEY = 'kade-token';
+  var USER_KEY = 'kade-user';
+
+  function token() { try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; } }
+  function setSession(t, user) {
+    try {
+      if (t) localStorage.setItem(TOKEN_KEY, t);
+      if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+    } catch (e) { /* private mode */ }
+  }
+  function currentUser() { try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch (e) { return null; } }
+  function clearSession() { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch (e) {} }
+
+  // Core fetch wrapper. Attaches the bearer token and unwraps JSON / errors.
+  async function req(method, path, body, isForm) {
+    var headers = {};
+    var t = token();
+    if (t) headers['Authorization'] = 'Bearer ' + t;
+    var opts = { method: method, headers: headers };
+    if (body != null) {
+      if (isForm) { opts.body = body; } // FormData: let the browser set the boundary
+      else { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+    }
+    var res = await fetch(BASE + path, opts);
+    var data = null;
+    try { data = await res.json(); } catch (e) { /* no body */ }
+    if (!res.ok) {
+      var msg = (data && data.error) || ('Request failed (' + res.status + ')');
+      var err = new Error(msg); err.status = res.status; err.details = data && data.details;
+      throw err;
+    }
+    return data;
+  }
+
+  var KadeApi = {
+    base: BASE,
+    enabled: !!BASE,           // pages check this to decide API vs. mock
+    token: token,
+    currentUser: currentUser,
+    clearSession: clearSession,
+
+    // ---- Auth ----
+    async login(email, password) {
+      var d = await req('POST', '/api/auth/login', { email: email, password: password });
+      setSession(d.token, d.user);
+      return d.user;
+    },
+    logout() { clearSession(); },
+    // register(fields, fileMap) — fields is a plain object; fileMap like { slip: File }.
+    async register(fields, fileMap) {
+      var fd = new FormData();
+      Object.keys(fields).forEach(function (k) { if (fields[k] != null) fd.append(k, fields[k]); });
+      if (fileMap) Object.keys(fileMap).forEach(function (k) { if (fileMap[k]) fd.append(k, fileMap[k]); });
+      return req('POST', '/api/auth/register', fd, true);
+    },
+
+    // ---- Public ----
+    plans() { return req('GET', '/api/plans'); },
+    getStore(slug) { return req('GET', '/api/store/' + encodeURIComponent(slug)); },
+    getStoreProduct(slug, id) { return req('GET', '/api/store/' + encodeURIComponent(slug) + '/product/' + id); },
+    placeOrder(slug, order) { return req('POST', '/api/store/' + encodeURIComponent(slug) + '/orders', order); },
+
+    // ---- Owner dashboard (token required) ----
+    myProducts() { return req('GET', '/api/products'); },
+    createProduct(fields, imageFile) {
+      var fd = new FormData();
+      Object.keys(fields).forEach(function (k) { fd.append(k, k === 'options' ? JSON.stringify(fields[k]) : fields[k]); });
+      if (imageFile) fd.append('image', imageFile);
+      return req('POST', '/api/products', fd, true);
+    },
+    updateProduct(id, fields, imageFile) {
+      var fd = new FormData();
+      Object.keys(fields).forEach(function (k) { fd.append(k, k === 'options' ? JSON.stringify(fields[k]) : fields[k]); });
+      if (imageFile) fd.append('image', imageFile);
+      return req('PUT', '/api/products/' + id, fd, true);
+    },
+    deleteProduct(id) { return req('DELETE', '/api/products/' + id); },
+    overview() { return req('GET', '/api/dashboard/overview'); },
+    myOrders() { return req('GET', '/api/dashboard/orders'); },
+    setOrderStatus(code, status) { return req('PUT', '/api/dashboard/orders/' + encodeURIComponent(code) + '/status', { status: status }); },
+    subscription() { return req('GET', '/api/dashboard/subscription'); },
+    renew(fields, slipFile) {
+      var fd = new FormData();
+      Object.keys(fields).forEach(function (k) { fd.append(k, fields[k]); });
+      if (slipFile) fd.append('slip', slipFile);
+      return req('POST', '/api/dashboard/subscription/renew', fd, true);
+    },
+    myStore() { return req('GET', '/api/dashboard/store'); },
+    updateStore(store) { return req('PUT', '/api/dashboard/store', store); },
+
+    // ---- Admin (SUPER_ADMIN token required) ----
+    adminStats() { return req('GET', '/api/admin/stats'); },
+    adminBusinesses(status) { return req('GET', '/api/admin/businesses' + (status ? '?status=' + status : '')); },
+    adminApprove(id) { return req('POST', '/api/admin/businesses/' + id + '/approve'); },
+    adminReject(id, reason) { return req('POST', '/api/admin/businesses/' + id + '/reject', { reason: reason }); },
+    adminSuspend(id) { return req('POST', '/api/admin/businesses/' + id + '/suspend'); },
+    adminReactivate(id) { return req('POST', '/api/admin/businesses/' + id + '/reactivate'); },
+    adminExtend(id, days) { return req('POST', '/api/admin/businesses/' + id + '/extend', { days: days }); },
+    adminPayments(status) { return req('GET', '/api/admin/payments' + (status ? '?status=' + status : '')); },
+    adminApprovePayment(id) { return req('POST', '/api/admin/payments/' + id + '/approve'); },
+    adminRejectPayment(id, reason) { return req('POST', '/api/admin/payments/' + id + '/reject', { reason: reason }); },
+  };
+
+  window.KadeApi = KadeApi;
+})();
