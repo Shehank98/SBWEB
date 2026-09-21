@@ -20,7 +20,7 @@
       var K = Kade, D = KadeData, s = K.storeInit(); if (!s) return;
       document.title = 'Your cart | ' + s.name;
       var main = K.$('#main'), DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
-      var method = 'delivery', pay = s.payments.cod ? 'cod' : 'bank';
+      var method = 'delivery', pay = s.payments.cod ? 'cod' : 'bank', step = 1;
 
       function lines() {
         return K.cart.get(s.slug).map(function (i) { var p = D.products.filter(function (x) { return x.id === i.pid; })[0]; return p ? { i: i, p: p } : null; }).filter(Boolean);
@@ -46,31 +46,59 @@
               '<div class="cart-line__row"><div class="qty" role="group" aria-label="Quantity of ' + K.esc(l.p.name) + '"><button type="button" data-dec="' + n + '" aria-label="Decrease quantity">&minus;</button><output>' + l.i.qty + '</output><button type="button" data-inc="' + n + '" aria-label="Increase quantity">+</button></div><span class="price-sm">' + K.rs(K.priceOf(l.p) * l.i.qty) + '</span></div>' +
               '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" data-rm="' + n + '" style="margin-top:4px;padding-left:0">Remove</button></div></div>';
           }).join('') + '</section>' +
-          '<form class="kd-card panel stack-lg" id="co" novalidate style="padding:24px"><h2 class="heading">Delivery details</h2>' +
-          '<div class="form-grid form-grid--2">' +
+          '<form class="kd-card panel stack-lg" id="co" novalidate style="padding:24px"><h2 class="heading">Checkout</h2>' +
+          '<ol class="stepper" id="co-steps" aria-label="Checkout progress"><li aria-current="step">1. Contact</li><li>2. Delivery</li><li>3. Payment</li></ol>' +
+
+          /* Step 1 — contact */
+          '<section data-cstep="1" class="form-grid form-grid--2" aria-label="Contact details">' +
           '<div class="kd-field span-2"><label class="kd-label" for="fn">Full name</label><input class="kd-input" id="fn" data-rule="required" autocomplete="name"></div>' +
           '<div class="kd-field"><label class="kd-label" for="ph">Phone</label><input class="kd-input" id="ph" type="tel" inputmode="tel" data-rule="phone" placeholder="077 123 4567" autocomplete="tel"></div>' +
           '<div class="kd-field"><label class="kd-label" for="wa">WhatsApp (optional)</label><input class="kd-input" id="wa" type="tel" inputmode="tel" placeholder="Same as phone"></div>' +
+          '</section>' +
+
+          /* Step 2 — delivery / pickup */
+          '<section data-cstep="2" class="form-grid form-grid--2" aria-label="Delivery" hidden>' +
           '<fieldset class="span-2" style="border:0;padding:0;margin:0"><legend class="kd-label">How do you want it?</legend><div class="choice" style="margin-top:8px">' +
           '<label><input type="radio" name="method" value="delivery"' + (method === 'delivery' ? ' checked' : '') + '><span><strong>Delivery</strong><br><span class="muted">' + (s.delivery.freeAbove > 0 ? K.rs(s.delivery.fee) + ', free above ' + K.rs(s.delivery.freeAbove) : K.rs(s.delivery.fee)) + '</span></span></label>' +
           (s.delivery.pickup ? '<label><input type="radio" name="method" value="pickup"' + (method === 'pickup' ? ' checked' : '') + '><span><strong>Pick up from the shop</strong><br><span class="muted">' + K.esc(s.address) + '. Free.</span></span></label>' : '') + '</div></fieldset>' +
           (method === 'delivery' ? '<div class="kd-field span-2"><label class="kd-label" for="ad">Delivery address</label><input class="kd-input" id="ad" data-rule="required" autocomplete="street-address"></div>' +
             '<div class="kd-field"><label class="kd-label" for="ct">Town or city</label><input class="kd-input" id="ct" data-rule="required" autocomplete="address-level2"></div>' +
-            '<div class="kd-field"><label class="kd-label" for="ds">District</label><select class="kd-select" id="ds" data-rule="required"><option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('') + '</select></div>' : '') +
-          '<fieldset class="span-2" style="border:0;padding:0;margin:0"><legend class="kd-label">Payment</legend><div class="choice" style="margin-top:8px">' + payOpts.map(function (o) { return '<label><input type="radio" name="pay" value="' + o[0] + '"' + (pay === o[0] ? ' checked' : '') + '><span><strong>' + o[1] + '</strong><br><span class="muted">' + o[2] + '</span></span></label>'; }).join('') + '</div></fieldset>' +
-          (pay === 'bank' ? '<div class="kd-banner kd-banner--info span-2"><div><p class="kd-banner__title">Shop bank account</p><p style="margin-top:4px">' + K.esc(s.bank) + '</p></div></div>' : '') +
-          '<div class="kd-field span-2"><label class="kd-label" for="nt">Note for the shop (optional)</label><textarea class="kd-input" id="nt"></textarea></div></div>' +
+            '<div class="kd-field"><label class="kd-label" for="ds">District</label><select class="kd-select" id="ds" data-rule="required"><option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('') + '</select></div>'
+            : '<p class="muted span-2">Collect your order from ' + K.esc(s.address) + '.</p>') +
+          '</section>' +
+
+          /* Step 3 — payment + review */
+          '<section data-cstep="3" class="stack-lg" aria-label="Payment" hidden>' +
+          '<fieldset style="border:0;padding:0;margin:0"><legend class="kd-label">Payment</legend><div class="choice" style="margin-top:8px">' + payOpts.map(function (o) { return '<label><input type="radio" name="pay" value="' + o[0] + '"' + (pay === o[0] ? ' checked' : '') + '><span><strong>' + o[1] + '</strong><br><span class="muted">' + o[2] + '</span></span></label>'; }).join('') + '</div></fieldset>' +
+          (pay === 'bank' ? '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Shop bank account</p><p style="margin-top:4px">' + K.esc(s.bank) + '</p></div></div>' : '') +
+          '<div class="kd-field"><label class="kd-label" for="nt">Note for the shop (optional)</label><textarea class="kd-input" id="nt"></textarea></div>' +
           '<div class="totals" aria-live="polite"><div><span>Subtotal</span><span class="price-sm">' + K.rs(m.sub) + '</span></div><div><span>' + (method === 'pickup' ? 'Pickup' : 'Delivery') + '</span><span class="price-sm">' + (m.fee ? K.rs(m.fee) : 'Free') + '</span></div>' +
           (method === 'delivery' && !m.free && s.delivery.freeAbove > 0 ? '<p class="muted" style="font-size:14px">Add ' + K.rs(s.delivery.freeAbove - m.sub) + ' more for free delivery.</p>' : '') +
           '<div class="grand"><span>Total</span><span class="price">' + K.rs(m.total) + '</span></div></div>' +
-          '<button class="kd-btn kd-btn--primary kd-btn--block" type="submit">Place order</button></form></div>';
+          '</section>' +
+
+          '<div class="row row--between" style="margin-top:8px"><button type="button" class="kd-btn kd-btn--ghost" id="co-back" hidden>Back</button><span style="flex:1"></span><button class="kd-btn kd-btn--primary" id="co-next" type="submit">Continue</button></div>' +
+          '</form></div>';
+        showStep(step);
       }
 
       function saveForm() { var f = {}; K.$$('#co input:not([type=radio]), #co select, #co textarea').forEach(function (e) { f[e.id] = e.value; }); return f; }
       function restore(f) { Object.keys(f || {}).forEach(function (k) { var e = document.getElementById(k); if (e) e.value = f[k]; }); }
 
+      /* Stepped checkout: show one step at a time (Contact -> Delivery -> Payment). */
+      function showStep(n) {
+        step = Math.max(1, Math.min(3, n));
+        K.$$('#co [data-cstep]').forEach(function (sec) { sec.hidden = +sec.getAttribute('data-cstep') !== step; });
+        K.$$('#co-steps li').forEach(function (li, i) { li.className = (i + 1 < step ? 'done' : ''); if (i + 1 === step) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current'); });
+        var back = K.$('#co-back'), next = K.$('#co-next');
+        if (back) back.hidden = step === 1;
+        if (next) next.textContent = step === 3 ? 'Place order' : 'Continue';
+      }
+      function focusStep() { var sec = K.$('[data-cstep="' + step + '"]'); var f = sec && K.$('input, select, textarea', sec); if (f) f.focus(); window.scrollTo({ top: 0 }); }
+
       main.addEventListener('click', function (e) {
         var t = e.target.closest('button'); if (!t) return;
+        if (t.id === 'co-back') { showStep(step - 1); focusStep(); return; }
         var items = K.cart.get(s.slug), n;
         if ((n = t.getAttribute('data-inc')) != null) items[n].qty = Math.min(items[n].qty + 1, 20);
         else if ((n = t.getAttribute('data-dec')) != null) items[n].qty = Math.max(items[n].qty - 1, 1);
@@ -89,11 +117,15 @@
       }
       main.addEventListener('submit', function (e) {
         e.preventDefault(); var first = null;
-        K.$$('#co [data-rule]').forEach(function (inp) {
+        /* Validate only the fields on the current step. */
+        var sec = K.$('[data-cstep="' + step + '"]');
+        K.$$('[data-rule]', sec).forEach(function (inp) {
           var msg = inp.getAttribute('data-rule') === 'phone' ? (/^(\+94|0)\d{9}$/.test(inp.value.replace(/[\s-]/g, '')) ? '' : 'Enter a phone number like 077 123 4567.') : (inp.value.trim() ? '' : 'This field is needed.');
           err(inp, msg); if (msg && !first) first = inp;
         });
         if (first) { first.focus(); return; }
+        /* Steps 1-2: advance. Step 3: place the order. */
+        if (step < 3) { showStep(step + 1); focusStep(); return; }
         var ls = lines(), m = money(), v = function (id) { var x = document.getElementById(id); return x ? x.value.trim() : ''; };
         var n = 10453 + K.newOrders.get().length;
         var order = { id: 'ORD-' + n, business: s.slug, date: D.today, customer: v('fn'), phone: v('ph'), city: method === 'pickup' ? 'Pickup' : v('ct'), address: v('ad'), items: ls.map(function (l) { var o = optTxt(l.i.opts); return { name: l.p.name + (o ? ' (' + o + ')' : ''), qty: l.i.qty, price: K.priceOf(l.p) }; }), subtotal: m.sub, delivery: m.fee, total: m.total, status: 'PENDING', payment: pay === 'cod' ? 'Cash on delivery' : 'Bank transfer', note: v('nt') };
