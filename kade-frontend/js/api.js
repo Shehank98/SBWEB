@@ -112,6 +112,10 @@
     createCoupon(c) { return req('POST', '/api/dashboard/coupons', c); },
     updateCoupon(id, c) { return req('PUT', '/api/dashboard/coupons/' + id, c); },
     deleteCoupon(id) { return req('DELETE', '/api/dashboard/coupons/' + id); },
+    staff() { return req('GET', '/api/dashboard/staff'); },
+    createStaff(s) { return req('POST', '/api/dashboard/staff', s); },
+    updateStaff(id, s) { return req('PUT', '/api/dashboard/staff/' + id, s); },
+    deleteStaff(id) { return req('DELETE', '/api/dashboard/staff/' + id); },
 
     // ---- Admin (SUPER_ADMIN token required) ----
     adminStats() { return req('GET', '/api/admin/stats'); },

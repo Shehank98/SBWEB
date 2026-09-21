@@ -31,3 +31,20 @@ export function requireBusiness(req, _res, next) {
   if (!req.user.business_id) return next(forbidden('This account is not linked to a store.'));
   next();
 }
+
+// Only the store owner (or admin) — used for subscription, settings and staff.
+export function requireOwner(req, _res, next) {
+  if (!req.user) return next(unauthorized());
+  if (req.user.role === 'SUPER_ADMIN' || req.user.role === 'BUSINESS_OWNER') return next();
+  next(forbidden('Only the store owner can do this.'));
+}
+
+// Staff must hold the named permission; owners and admins always pass.
+export function requirePermission(section) {
+  return (req, _res, next) => {
+    if (!req.user) return next(unauthorized());
+    if (req.user.role === 'SUPER_ADMIN' || req.user.role === 'BUSINESS_OWNER') return next();
+    if (req.user.role === 'BUSINESS_STAFF' && (req.user.permissions || []).includes(section)) return next();
+    next(forbidden('Your staff account does not have access to this.'));
+  };
+}

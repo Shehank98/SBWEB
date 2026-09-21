@@ -47,7 +47,7 @@
   <script>
     (function () {
       var K = Kade, D = KadeData;
-      if (!K.guard('owner')) return;
+      if (!K.guard('owner', 'products')) return;
       K.shell('dashboard', 'products');
       var API = !!(window.KadeApi && KadeApi.enabled);
       var imgZone = K.dropzone(K.$('#f-img'), { title: 'Drag & drop a product photo', hint: 'Square photos look best. PNG or JPG, up to 8MB', aria: 'Upload a product photo' });

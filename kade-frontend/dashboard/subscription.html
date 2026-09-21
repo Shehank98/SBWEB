@@ -44,7 +44,7 @@
   <script>
     (function () {
       var K = Kade, D = KadeData;
-      if (!K.guard('owner')) return;
+      if (!K.guard('owner', 'subscription')) return;
       K.shell('dashboard', 'subscription');
       var API = !!(window.KadeApi && KadeApi.enabled);
       var slipZone = K.dropzone(K.$('#slip'), { title: 'Drag & drop your payment slip', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your payment slip' });

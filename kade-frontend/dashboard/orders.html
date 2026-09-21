@@ -32,7 +32,7 @@
   <script>
     (function () {
       var K = Kade, D = KadeData;
-      if (!K.guard('owner')) return;
+      if (!K.guard('owner', 'orders')) return;
       K.shell('dashboard', 'orders');
       var API = !!(window.KadeApi && KadeApi.enabled);
       var sess = API ? KadeApi.currentUser() : null;

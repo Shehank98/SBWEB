@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { query, withTransaction } from '../db/pool.js';
-import { authenticate, requireBusiness } from '../middleware/auth.js';
-import { wrap, badRequest, notFound } from '../utils/http.js';
+import { authenticate, requireBusiness, requireOwner, requirePermission } from '../middleware/auth.js';
+import { wrap, badRequest, notFound, conflict } from '../utils/http.js';
 import { saveUpload } from '../services/uploads.js';
+import { hashPassword } from '../utils/auth.js';
 import * as S from '../services/serialize.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -55,6 +56,7 @@ dashboardRouter.get(
 // ---- Reports / analytics (Business and Pro plans only) ----
 dashboardRouter.get(
   '/reports',
+  requirePermission('reports'),
   wrap(async (req, res) => {
     const b = bid(req);
     const plan = (
@@ -142,6 +144,7 @@ dashboardRouter.get(
 // ---- Orders list ----
 dashboardRouter.get(
   '/orders',
+  requirePermission('orders'),
   wrap(async (req, res) => {
     const b = bid(req);
     const { rows } = await query(`SELECT * FROM orders WHERE business_id=$1 ORDER BY created_at DESC`, [b]);
@@ -158,6 +161,7 @@ dashboardRouter.get(
 // ---- Change order status (validated against the workflow) ----
 dashboardRouter.put(
   '/orders/:code/status',
+  requirePermission('orders'),
   wrap(async (req, res) => {
     const b = bid(req);
     const status = (req.body && req.body.status || '').toUpperCase();
@@ -178,6 +182,7 @@ dashboardRouter.put(
 // ---- Subscription view (owner-facing) ----
 dashboardRouter.get(
   '/subscription',
+  requireOwner,
   wrap(async (req, res) => {
     const b = bid(req);
     const sub = (
@@ -208,6 +213,7 @@ dashboardRouter.get(
 // ---- Submit a renewal payment slip ----
 dashboardRouter.post(
   '/subscription/renew',
+  requireOwner,
   upload.single('slip'),
   wrap(async (req, res) => {
     const b = bid(req);
@@ -242,6 +248,7 @@ dashboardRouter.get(
 
 dashboardRouter.put(
   '/store',
+  requireOwner,
   wrap(async (req, res) => {
     const b = bid(req);
     const s = req.body || {};
@@ -304,6 +311,7 @@ function parseCoupon(body) {
 
 dashboardRouter.get(
   '/coupons',
+  requirePermission('coupons'),
   wrap(async (req, res) => {
     const b = bid(req);
     await requireCouponsPlan(b);
@@ -314,6 +322,7 @@ dashboardRouter.get(
 
 dashboardRouter.post(
   '/coupons',
+  requirePermission('coupons'),
   wrap(async (req, res) => {
     const b = bid(req);
     await requireCouponsPlan(b);
@@ -329,6 +338,7 @@ dashboardRouter.post(
 
 dashboardRouter.put(
   '/coupons/:id',
+  requirePermission('coupons'),
   wrap(async (req, res) => {
     const b = bid(req);
     await requireCouponsPlan(b);
@@ -350,11 +360,114 @@ dashboardRouter.put(
 
 dashboardRouter.delete(
   '/coupons/:id',
+  requirePermission('coupons'),
   wrap(async (req, res) => {
     const b = bid(req);
     await requireCouponsPlan(b);
     const r = await query('DELETE FROM coupons WHERE id = $1 AND business_id = $2', [req.params.id, b]);
     if (!r.rowCount) throw notFound('Coupon not found.');
+    res.json({ ok: true });
+  })
+);
+
+// ---- Staff accounts (Pro plan, owner only) ----
+const STAFF_SECTIONS = ['orders', 'products', 'reports', 'coupons'];
+async function requireProPlan(businessId) {
+  const plan = (
+    await query(
+      `SELECT pl.id FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
+        WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
+      [businessId]
+    )
+  ).rows[0];
+  if (!plan || plan.id !== 'pro') throw badRequest('Staff accounts are a Pro feature.');
+}
+function cleanPerms(input) {
+  const arr = Array.isArray(input) ? input : [];
+  return STAFF_SECTIONS.filter((s) => arr.includes(s));
+}
+function staffOut(u) {
+  return {
+    id: u.id, name: u.name, email: u.email,
+    permissions: u.permissions || [], status: u.status,
+    createdAt: u.created_at ? u.created_at.toISOString().slice(0, 10) : null,
+  };
+}
+
+dashboardRouter.get(
+  '/staff',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    await requireProPlan(b);
+    const { rows } = await query(
+      `SELECT * FROM users WHERE business_id = $1 AND role = 'BUSINESS_STAFF' ORDER BY created_at`,
+      [b]
+    );
+    res.json({ staff: rows.map(staffOut), sections: STAFF_SECTIONS });
+  })
+);
+
+dashboardRouter.post(
+  '/staff',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    await requireProPlan(b);
+    const body = req.body || {};
+    const name = String(body.name || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    if (!name) throw badRequest("Enter the staff member's name.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw badRequest('Enter a valid email.');
+    if (password.length < 8) throw badRequest('Password must be at least 8 characters.');
+    const dupe = await query('SELECT 1 FROM users WHERE lower(email) = lower($1)', [email]);
+    if (dupe.rowCount) throw conflict('That email is already in use.');
+    const perms = cleanPerms(body.permissions);
+    const { rows } = await query(
+      `INSERT INTO users (business_id, name, email, password_hash, role, permissions)
+       VALUES ($1,$2,$3,$4,'BUSINESS_STAFF',$5) RETURNING *`,
+      [b, name, email, await hashPassword(password), JSON.stringify(perms)]
+    );
+    res.status(201).json({ staff: staffOut(rows[0]) });
+  })
+);
+
+dashboardRouter.put(
+  '/staff/:id',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    await requireProPlan(b);
+    const existing = (
+      await query(`SELECT * FROM users WHERE id = $1 AND business_id = $2 AND role = 'BUSINESS_STAFF'`, [req.params.id, b])
+    ).rows[0];
+    if (!existing) throw notFound('Staff member not found.');
+    const body = req.body || {};
+    const name = body.name != null ? String(body.name).trim() : existing.name;
+    const perms = body.permissions != null ? cleanPerms(body.permissions) : (existing.permissions || []);
+    const status = body.status === 'DISABLED' ? 'DISABLED' : 'ACTIVE';
+    let passHash = existing.password_hash;
+    if (body.password) {
+      if (String(body.password).length < 8) throw badRequest('Password must be at least 8 characters.');
+      passHash = await hashPassword(String(body.password));
+    }
+    const { rows } = await query(
+      `UPDATE users SET name=$3, permissions=$4, status=$5, password_hash=$6 WHERE id=$1 AND business_id=$2 RETURNING *`,
+      [req.params.id, b, name, JSON.stringify(perms), status, passHash]
+    );
+    res.json({ staff: staffOut(rows[0]) });
+  })
+);
+
+dashboardRouter.delete(
+  '/staff/:id',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    await requireProPlan(b);
+    const r = await query(`DELETE FROM users WHERE id = $1 AND business_id = $2 AND role = 'BUSINESS_STAFF'`, [req.params.id, b]);
+    if (!r.rowCount) throw notFound('Staff member not found.');
     res.json({ ok: true });
   })
 );

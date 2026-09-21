@@ -28,7 +28,7 @@
   <script>
     (function () {
       var K = Kade, D = KadeData;
-      if (!K.guard('owner')) return;
+      if (!K.guard('owner', 'reports')) return;
       K.shell('dashboard', 'reports');
       var API = !!(window.KadeApi && KadeApi.enabled);
       var body = K.$('#body');

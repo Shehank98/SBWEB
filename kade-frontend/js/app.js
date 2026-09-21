@@ -192,6 +192,7 @@
     cart: '<path d="M3 4h2l2.4 11h10.200L20 8H6.200"/><circle cx="9" cy="19" r="1.500"/><circle cx="17" cy="19" r="1.500"/>',
     chart: '<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="4" width="3" height="14"/>',
     tag: '<path d="M3 11l8-8 10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+    users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17 20a5.5 5.5 0 0 0-3-4.9"/>',
     upload: '<path d="M12 15V4m0 0L8 8m4-4l4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
     file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'
   };
@@ -204,9 +205,23 @@
     var pendingOrders = api ? 0 : K.orders().filter(function (o) { return o.status === 'PENDING'; }).length;
     var pendingApprovals = api ? 0 : D.businesses.filter(function (b) { return b.status === 'PENDING_APPROVAL'; }).length;
     var pendingPay = api ? 0 : D.payments.filter(function (p) { return p.status === 'PENDING'; }).length;
+    // Staff see only the sections they were granted; owners (and mock mode) see all.
+    var role = sess ? sess.role : null;
+    var perms = sess && sess.permissions ? sess.permissions : null;
+    function can(sec) { if (role !== 'BUSINESS_STAFF') return true; return (perms || []).indexOf(sec) >= 0; }
+    var ownerOnly = role !== 'BUSINESS_STAFF';
     var items = kind === 'admin'
       ? [['index', 'Overview', 'home'], ['businesses', 'Businesses', 'shop', pendingApprovals], ['payments', 'Payments', 'receipt', pendingPay]]
-      : [['index', 'Overview', 'home'], ['orders', 'Orders', 'bag', pendingOrders], ['products', 'Products', 'box'], ['reports', 'Reports', 'chart'], ['coupons', 'Coupons', 'tag'], ['subscription', 'Subscription', 'card'], ['settings', 'Store settings', 'gear']];
+      : [
+          ['index', 'Overview', 'home'],
+          can('orders') && ['orders', 'Orders', 'bag', pendingOrders],
+          can('products') && ['products', 'Products', 'box'],
+          can('reports') && ['reports', 'Reports', 'chart'],
+          can('coupons') && ['coupons', 'Coupons', 'tag'],
+          ownerOnly && ['subscription', 'Subscription', 'card'],
+          ownerOnly && ['staff', 'Staff', 'users'],
+          ownerOnly && ['settings', 'Store settings', 'gear']
+        ].filter(Boolean);
     var nav = items.map(function (i) {
       return '<a href="' + i[0] + '.html"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
     }).join('');
@@ -243,12 +258,14 @@
 
   /* Auth guard for protected pages. In mock mode (file://) it allows through so the
      offline prototype still works. Returns false after redirecting. */
-  K.guard = function (kind) {
+  K.guard = function (kind, section) {
     if (!(window.KadeApi && KadeApi.enabled)) return true;
     var u = KadeApi.token() ? KadeApi.currentUser() : null;
     if (!u) { location.replace('../login.html'); return false; }
     if (kind === 'admin' && u.role !== 'SUPER_ADMIN') { location.replace('../login.html'); return false; }
     if (kind === 'owner' && u.role === 'SUPER_ADMIN') { location.replace('../admin/index.html'); return false; }
+    // Staff may only open sections they were granted; everything else sends them home.
+    if (section && u.role === 'BUSINESS_STAFF' && (u.permissions || []).indexOf(section) < 0) { location.replace('index.html'); return false; }
     return true;
   };
 

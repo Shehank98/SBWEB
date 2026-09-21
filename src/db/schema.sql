@@ -218,6 +218,10 @@ CREATE INDEX IF NOT EXISTS idx_coupons_business ON coupons(business_id);
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount INTEGER NOT NULL DEFAULT 0;
 
+-- Staff permissions: which dashboard sections a BUSINESS_STAFF user may use
+-- (e.g. ["orders","products"]). Owners have full access regardless.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '[]'::jsonb;
+
 -- ---------------------------------------------------------------------------
 -- Notifications outbox — Apps Script (or any worker) polls status = 'PENDING'
 -- ---------------------------------------------------------------------------

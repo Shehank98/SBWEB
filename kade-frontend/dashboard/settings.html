@@ -63,7 +63,7 @@
   <script>
     (function () {
       var K = Kade, D = KadeData;
-      if (!K.guard('owner')) return;
+      if (!K.guard('owner', 'settings')) return;
       K.shell('dashboard', 'settings');
       var API = !!(window.KadeApi && KadeApi.enabled);
       var PRESETS = [['tea', 'Tea', '#0f5b4a', '#e8a317', '#d9eee5'], ['sapphire', 'Sapphire', '#1b4f9c', '#f2b73f', '#dbe6f7'], ['cinnamon', 'Cinnamon', '#8a3b12', '#f0c36a', '#f4e2d6'], ['orchid', 'Orchid', '#7a2e5c', '#f4b6c2', '#f3dfeb'], ['ink', 'Ink', '#1f2624', '#d9a441', '#e6e9e7']];

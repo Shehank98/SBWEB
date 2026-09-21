@@ -43,7 +43,7 @@
   <script>
     (function () {
       var K = Kade, D = KadeData;
-      if (!K.guard('owner')) return;
+      if (!K.guard('owner', 'coupons')) return;
       K.shell('dashboard', 'coupons');
       var API = !!(window.KadeApi && KadeApi.enabled);
       var body = K.$('#body'), dlg = K.$('#dlg'), editing = null;

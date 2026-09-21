@@ -137,6 +137,7 @@ authRouter.post(
         storeName,
         planId,
         businessStatus,
+        permissions: user.role === 'BUSINESS_STAFF' ? (user.permissions || []) : null,
       },
     });
   })

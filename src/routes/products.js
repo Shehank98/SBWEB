@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { query } from '../db/pool.js';
-import { authenticate, requireBusiness } from '../middleware/auth.js';
+import { authenticate, requireBusiness, requirePermission } from '../middleware/auth.js';
 import { wrap, badRequest, notFound, forbidden } from '../utils/http.js';
 import { saveUpload } from '../services/uploads.js';
 import * as S from '../services/serialize.js';
@@ -9,7 +9,7 @@ import * as S from '../services/serialize.js';
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 export const productsRouter = Router();
 
-productsRouter.use(authenticate, requireBusiness);
+productsRouter.use(authenticate, requireBusiness, requirePermission('products'));
 
 // The business_id ALWAYS comes from the token, never the request body — this is the
 // line that keeps one tenant from touching another's catalogue.

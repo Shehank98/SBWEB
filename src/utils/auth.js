@@ -17,6 +17,7 @@ export function signToken(user) {
     role: user.role,
     business_id: user.business_id || null,
     name: user.name,
+    permissions: user.role === 'BUSINESS_STAFF' ? (user.permissions || []) : null,
   };
   return jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 }
