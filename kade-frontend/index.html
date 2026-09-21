@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kade: your shop, open tonight</title>
+  <meta name="description" content="Kade gives small Sri Lankan businesses their own online store. Add products, share one link on WhatsApp, and receive orders on your phone.">
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="container">
+      <a class="wordmark" href="index.html" aria-label="Kade home">Kade</a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="#pricing">Pricing</a>
+        <a href="login.html">Log in</a>
+        <a class="kd-btn kd-btn--primary" href="register.html">Open my shop</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="container hero__grid">
+        <div>
+          <h1>Your shop, open tonight.</h1>
+          <p class="hero__lead">Kade gives your small business its own online store. Add your products, share one link on WhatsApp or Facebook, and get orders on your phone.</p>
+          <div class="hero__cta">
+            <a class="kd-btn kd-btn--primary" href="register.html">Open my shop</a>
+            <a class="kd-btn kd-btn--secondary" href="store/index.html?s=abc-fashion">See a demo store</a>
+          </div>
+        </div>
+        <div class="hero__art" aria-hidden="true">
+          <svg class="awning" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+            <g id="awn"></g>
+            <rect class="w" x="40" y="150" width="190" height="130" rx="16"/>
+            <rect class="c" x="262" y="150" width="98" height="130" rx="16"/>
+            <rect class="b" x="60" y="172" width="70" height="88" rx="10"/>
+            <rect class="a" x="140" y="172" width="70" height="88" rx="10"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="section band" aria-labelledby="how">
+      <div class="container">
+        <h2 class="section-title" id="how">Four steps to your first order</h2>
+        <ol class="steps">
+          <li><h3>Register</h3><p>Tell us about your business and pick a plan.</p></li>
+          <li><h3>Pay and get approved</h3><p>Send your bank transfer slip. We check it and email you when your store is ready.</p></li>
+          <li><h3>Add your products</h3><p>Upload photos, set prices and stock from your phone or computer.</p></li>
+          <li><h3>Share your link</h3><p>Post your store link in WhatsApp, Facebook and Instagram.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="why">
+      <div class="container">
+        <h2 class="section-title" id="why">Made for shops like yours</h2>
+        <div class="features">
+          <div><h3>Works on any phone</h3><p>Customers browse and order from the link you send them. No app to install.</p></div>
+          <div><h3>Orders you can act on</h3><p>See every new order in your dashboard, confirm it, and track it until delivery.</p></div>
+          <div><h3>Cash on delivery or bank transfer</h3><p>Choose which payment methods your customers can use.</p></div>
+          <div><h3>Your own store link</h3><p>Pick a short name like <span class="slug-preview">kade.lk/store/<strong>your-shop</strong></span> and share it anywhere.</p></div>
+          <div><h3>Stock that stays honest</h3><p>Sold-out items switch off automatically, and you see low stock before it runs out.</p></div>
+          <div><h3>Pause without losing anything</h3><p>If a month is missed, your store pauses. Products, photos and orders stay safe until you renew.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section band" id="pricing" aria-labelledby="pricing-title">
+      <div class="container">
+        <h2 class="section-title" id="pricing-title">Simple monthly plans</h2>
+        <p class="section-lead">Pay by bank transfer. Change plans any time you renew.</p>
+        <div class="plans" id="plans"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container row row--between">
+      <span>Kade. Online shops for small businesses in Sri Lanka.</span>
+      <span><a class="kd-link" href="login.html">Log in</a></span>
+    </div>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      // Awning: 8 alternating stripes with scalloped edge
+      var g = '';
+      for (var i = 0; i < 8; i++) {
+        var x = i * 50, c = i % 2 ? 'b' : 'a';
+        g += '<rect class="' + c + '" x="' + x + '" y="0" width="50" height="92"/><path class="' + c + '" d="M' + x + ' 90a25 25 0 0 0 50 0z"/>';
+      }
+      document.getElementById('awn').innerHTML = g;
+      document.getElementById('plans').innerHTML = D.plans.map(function (p) {
+        return '<article class="plan' + (p.id === 'business' ? ' plan--featured' : '') + '"><div><h3 class="heading">' + K.esc(p.name) + '</h3></div>' +
+          '<div class="plan__price"><strong>' + K.rs(p.price) + '</strong><span>/ ' + p.durationDays + ' days</span></div>' +
+          '<ul>' + p.features.map(function (f) { return '<li>' + K.esc(f) + '</li>'; }).join('') + '</ul>' +
+          '<a class="kd-btn ' + (p.id === 'business' ? 'kd-btn--primary' : 'kd-btn--secondary') + ' kd-btn--block" href="register.html?plan=' + p.id + '">Choose ' + K.esc(p.name) + '</a></article>';
+      }).join('');
+    })();
+  </script>
+</body>
+</html>

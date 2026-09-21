@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open your shop | Kade</title>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="container"><a class="wordmark" href="index.html" aria-label="Kade home">Kade</a><nav class="site-nav" aria-label="Main"><a href="login.html">Log in</a></nav></div></header>
+
+  <main id="main" class="auth">
+    <div class="kd-card auth__card auth__card--wide" id="card">
+      <h1>Open your shop</h1>
+      <p class="muted" style="margin-top:8px">Three short steps. You can finish in about five minutes.</p>
+      <ol class="stepper" id="stepper" aria-label="Progress">
+        <li aria-current="step">1. Your business</li><li>2. You and your store link</li><li>3. Plan and payment</li>
+      </ol>
+
+      <form id="form" novalidate>
+        <!-- Step 1 -->
+        <section data-step="1" class="form-grid form-grid--2" aria-labelledby="s1">
+          <h2 class="heading span-2" id="s1">Your business</h2>
+          <div class="kd-field span-2"><label class="kd-label" for="bizName">Business name</label><input class="kd-input" id="bizName" name="bizName" data-rule="required" autocomplete="organization"></div>
+          <div class="kd-field"><label class="kd-label" for="bizType">Business type</label>
+            <select class="kd-select" id="bizType" data-rule="required"><option value="">Choose one</option><option>Fashion and clothing</option><option>Food and bakery</option><option>Electronics and mobile</option><option>Beauty and health</option><option>Home and garden</option><option>Books and stationery</option><option>Other</option></select></div>
+          <div class="kd-field"><label class="kd-label" for="district">District</label>
+            <select class="kd-select" id="district" data-rule="required"></select></div>
+          <div class="kd-field"><label class="kd-label" for="city">Town or city</label><input class="kd-input" id="city" data-rule="required" autocomplete="address-level2"></div>
+          <div class="kd-field"><label class="kd-label" for="bizPhone">Business phone</label><input class="kd-input" id="bizPhone" type="tel" inputmode="tel" placeholder="077 123 4567" data-rule="phone" autocomplete="tel"><span class="kd-help">Customers will see this on your store.</span></div>
+          <div class="kd-field span-2"><label class="kd-label" for="bizWa">WhatsApp number</label><input class="kd-input" id="bizWa" type="tel" inputmode="tel" placeholder="077 123 4567" data-rule="phone"><span class="kd-help">Customers use this to message you about orders.</span></div>
+        </section>
+
+        <!-- Step 2 -->
+        <section data-step="2" class="form-grid form-grid--2" aria-labelledby="s2" hidden>
+          <h2 class="heading span-2" id="s2">You and your store link</h2>
+          <div class="kd-field span-2"><label class="kd-label" for="ownerName">Your full name</label><input class="kd-input" id="ownerName" data-rule="required" autocomplete="name"></div>
+          <div class="kd-field"><label class="kd-label" for="ownerEmail">Email</label><input class="kd-input" id="ownerEmail" type="email" data-rule="email" autocomplete="email"><span class="kd-help">We send your approval and order alerts here.</span></div>
+          <div class="kd-field"><label class="kd-label" for="password">Password</label><input class="kd-input" id="password" type="password" data-rule="password" autocomplete="new-password"><span class="kd-help">At least 8 characters.</span></div>
+          <div class="kd-field span-2"><label class="kd-label" for="slug">Store link name</label><input class="kd-input" id="slug" data-rule="slug" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="slugHelp"><span class="kd-help slug-preview" id="slugHelp">Your link: <span id="slugOut"></span></span></div>
+        </section>
+
+        <!-- Step 3 -->
+        <section data-step="3" class="stack" aria-labelledby="s3" hidden>
+          <h2 class="heading" id="s3">Plan and payment</h2>
+          <fieldset class="choice" style="border:0;padding:0;margin:0"><legend class="kd-label" style="margin-bottom:8px">Choose a plan</legend><div id="planChoices" class="choice"></div></fieldset>
+          <div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Pay by bank transfer</p><p style="margin-top:4px">Send <strong id="payAmt"></strong> to Commercial Bank, Kade (Pvt) Ltd, account 1000 2000 3000. Then upload the slip below.</p></div></div>
+          <div class="kd-field"><label class="kd-label" for="slip">Payment slip</label><input class="kd-input" id="slip" type="file" accept="image/*,application/pdf" data-rule="file" style="padding-top:10px"><span class="kd-help">A photo or PDF of your bank transfer receipt.</span></div>
+          <div class="kd-field"><label class="kd-label" for="ref">Bank reference (optional)</label><input class="kd-input" id="ref"></div>
+          <label class="kd-check"><input type="checkbox" id="terms" data-rule="checked"><span class="kd-check__text"><span>I agree to the terms and understand my store is activated after payment is checked.</span></span></label>
+          <p class="kd-error" id="termsErr" hidden></p>
+        </section>
+
+        <div class="row row--between" style="margin-top:24px">
+          <button type="button" class="kd-btn kd-btn--ghost" id="back" hidden>Back</button>
+          <span style="flex:1"></span>
+          <button type="submit" class="kd-btn kd-btn--primary" id="next">Continue</button>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      var DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
+      K.$('#district').innerHTML = '<option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('');
+      var taken = Object.keys(D.stores).concat(D.businesses.map(function (b) { return b.slug; }));
+      var step = 1, form = K.$('#form'), sections = K.$$('[data-step]'), stepper = K.$$('#stepper li');
+
+      var wantPlan = new URLSearchParams(location.search).get('plan') || 'business';
+      K.$('#planChoices').innerHTML = D.plans.map(function (p) {
+        return '<label><input type="radio" name="plan" value="' + p.id + '"' + (p.id === wantPlan ? ' checked' : '') + '><span><strong>' + K.esc(p.name) + '</strong> <span class="price">' + K.rs(p.price) + ' / ' + p.durationDays + ' days</span><br><span class="muted">' + K.esc(p.features.slice(0, 2).join(', ')) + '</span></span></label>';
+      }).join('');
+      function plan() { var v = K.$('input[name=plan]:checked').value; return D.plans.filter(function (p) { return p.id === v; })[0]; }
+      function payAmt() { K.$('#payAmt').textContent = K.rs(plan().price); }
+      K.$$('input[name=plan]').forEach(function (r) { r.addEventListener('change', payAmt); }); payAmt();
+
+      function slugify(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+      var slugEdited = false, slugEl = K.$('#slug');
+      function paintSlug() { K.$('#slugOut').innerHTML = K.host + '/store/<strong>' + K.esc(slugEl.value || 'your-shop') + '</strong>'; }
+      slugEl.addEventListener('input', function () { slugEdited = true; slugEl.value = slugEl.value.toLowerCase(); paintSlug(); });
+      K.$('#bizName').addEventListener('input', function () { if (!slugEdited) { slugEl.value = slugify(this.value); paintSlug(); } });
+      paintSlug();
+
+      var RULES = {
+        required: function (v) { return v.trim() ? '' : 'This field is needed.'; },
+        phone: function (v) { return /^(\+94|0)\d{9}$/.test(v.replace(/[\s-]/g, '')) ? '' : 'Enter a Sri Lankan number, like 077 123 4567.'; },
+        email: function (v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? '' : 'Enter an email like name@example.com.'; },
+        password: function (v) { return v.length >= 8 ? '' : 'Use at least 8 characters.'; },
+        slug: function (v) {
+          if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(v) || v.length < 3) return 'Use 3 or more lowercase letters, numbers and hyphens only.';
+          return taken.indexOf(v) >= 0 ? 'That link name is taken. Try adding your town.' : '';
+        }
+      };
+      function setErr(input, msg) {
+        var f = input.closest('.kd-field'); if (!f) return;
+        var e = f.querySelector('.kd-error'); if (e) e.remove();
+        f.classList.toggle('kd-field--error', !!msg); input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+        if (msg) { e = document.createElement('span'); e.className = 'kd-error'; e.id = input.id + 'Err'; e.textContent = msg; f.appendChild(e); input.setAttribute('aria-describedby', ((input.getAttribute('aria-describedby') || '').replace(/\S*Err/, '') + ' ' + e.id).trim()); }
+      }
+      function validate(sec) {
+        var first = null;
+        K.$$('[data-rule]', sec).forEach(function (inp) {
+          var r = inp.getAttribute('data-rule'), msg = '';
+          if (r === 'file') msg = inp.files.length ? '' : 'Upload your payment slip.';
+          else if (r === 'checked') { msg = inp.checked ? '' : 'Please tick the box to continue.'; var t = K.$('#termsErr'); t.hidden = !msg; t.textContent = msg; if (msg && !first) first = inp; return; }
+          else msg = RULES[r](inp.value);
+          setErr(inp, msg); if (msg && !first) first = inp;
+        });
+        if (first) first.focus();
+        return !first;
+      }
+      K.$$('[data-rule]').forEach(function (i) { i.addEventListener('input', function () { if (i.getAttribute('aria-invalid') === 'true') { var r = i.getAttribute('data-rule'); if (RULES[r]) setErr(i, RULES[r](i.value)); } }); });
+
+      function show(n) {
+        step = n;
+        sections.forEach(function (s) { s.hidden = +s.getAttribute('data-step') !== n; });
+        stepper.forEach(function (li, i) { li.className = i + 1 < n ? 'done' : ''; if (i + 1 === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current'); });
+        K.$('#back').hidden = n === 1; K.$('#next').textContent = n === 3 ? 'Submit application' : 'Continue';
+        window.scrollTo({ top: 0 }); var h = K.$('[data-step="' + n + '"] h2'); if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+      }
+      K.$('#back').addEventListener('click', function () { show(step - 1); });
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!validate(K.$('[data-step="' + step + '"]'))) return;
+        if (step < 3) return show(step + 1);
+        var p = plan();
+        K.$('#card').innerHTML = '<div class="stack-lg" role="status"><h1>Application received</h1><p>Thank you, ' + K.esc(K.$('#ownerName').value.split(' ')[0]) + '. We are checking your payment slip for <strong>' + K.esc(K.$('#bizName').value) + '</strong>.</p>' +
+          '<div class="kd-card panel"><dl class="dl"><dt>Status</dt><dd>' + K.badge('sub', 'PENDING_APPROVAL') + '</dd><dt>Plan</dt><dd>' + K.esc(p.name) + ' (' + K.rs(p.price) + ' / ' + p.durationDays + ' days)</dd><dt>Your store link</dt><dd class="slug-preview">' + K.host + '/store/<strong>' + K.esc(slugEl.value) + '</strong></dd></dl></div>' +
+          '<p class="muted">We will email <strong>' + K.esc(K.$('#ownerEmail').value) + '</strong> as soon as your store is ready. You can then log in and add products.</p><div class="row"><a class="kd-btn kd-btn--primary" href="login.html">Go to log in</a><a class="kd-btn kd-btn--ghost" href="index.html">Back to home</a></div></div>';
+        window.scrollTo({ top: 0 }); K.$('#card h1').setAttribute('tabindex', '-1'); K.$('#card h1').focus();
+      });
+    })();
+  </script>
+</body>
+</html>

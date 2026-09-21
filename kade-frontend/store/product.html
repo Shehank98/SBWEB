@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product</title>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to product</a>
+  <div id="store-header"></div>
+  <main id="main" class="container"></main>
+  <div id="store-footer"></div>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/store.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData, s = K.storeInit(); if (!s) return;
+      var id = new URLSearchParams(location.search).get('p');
+      var p = D.products.filter(function (x) { return x.id === id && x.store === s.slug; })[0];
+      var main = K.$('#main');
+      if (!p) { main.innerHTML = '<div class="empty"><h1 class="heading">We could not find that product</h1><a class="kd-btn kd-btn--primary" href="' + K.sUrl('index.html') + '">See all products</a></div>'; return; }
+      document.title = p.name + ' | ' + s.name;
+      var groups = Object.keys(p.options || {}), chosen = {}, qty = 1, out = p.stock <= 0, low = !out && p.stock <= p.lowAt;
+      var pageUrl = location.href;
+      function total() { return K.priceOf(p) * qty; }
+      function optText() { return groups.map(function (g) { return g + ': ' + (chosen[g] || '-'); }).join(', '); }
+      function waMsg() { return 'Hello ' + s.name + ', I would like to order:\n\n' + p.name + (groups.length ? '\n' + optText() : '') + '\nQuantity: ' + qty + '\nTotal: ' + K.rs(total()) + '\n\n' + pageUrl; }
+      main.innerHTML =
+        '<nav class="crumbs" aria-label="Breadcrumb"><a href="' + K.sUrl('index.html') + '">Home</a><span aria-hidden="true">/</span><span>' + K.esc(p.category) + '</span></nav>' +
+        '<div class="pdp"><div class="pdp__media">' + K.ph(p) + '</div><div class="stack-lg">' +
+        '<div class="stack" style="gap:8px"><h1>' + K.esc(p.name) + '</h1>' + K.priceHtml(p) + '<div>' + (out ? '<span class="kd-badge kd-badge--danger">Out of stock</span>' : low ? '<span class="kd-badge kd-badge--warning">Only ' + p.stock + ' left</span>' : '<span class="kd-badge kd-badge--success">In stock</span>') + '</div></div>' +
+        '<p>' + K.esc(p.desc) + '</p>' +
+        groups.map(function (g) { return '<div class="option-group" role="group" aria-labelledby="og-' + g + '"><span class="kd-label" id="og-' + g + '">' + K.esc(g) + '</span><div class="option-row">' + p.options[g].map(function (v) { return '<button type="button" class="kd-chip" aria-pressed="false" data-g="' + K.esc(g) + '" data-v="' + K.esc(v) + '">' + K.esc(v) + '</button>'; }).join('') + '</div></div>'; }).join('') +
+        '<p class="kd-error" id="optErr" role="alert" hidden></p>' +
+        '<div class="option-group"><span class="kd-label" id="qlabel">Quantity</span><div class="qty" role="group" aria-labelledby="qlabel"><button type="button" id="minus" aria-label="Decrease quantity">&minus;</button><output id="qty" aria-live="polite">1</output><button type="button" id="plus" aria-label="Increase quantity">+</button></div></div>' +
+        '<div class="stack" style="gap:12px"><button class="kd-btn kd-btn--accent kd-btn--block" id="add"' + (out ? ' disabled' : '') + '>' + (out ? 'Sold out' : 'Add to cart') + '</button>' +
+        '<a class="kd-btn kd-btn--secondary kd-btn--block wa-btn" id="wa" target="_blank" rel="noopener">Order on WhatsApp</a></div>' +
+        '<div class="option-group"><span class="kd-label">Share this product</span><div class="share-row"><a class="kd-btn kd-btn--secondary kd-btn--sm" id="shWa" target="_blank" rel="noopener">WhatsApp</a><a class="kd-btn kd-btn--secondary kd-btn--sm" id="shFb" target="_blank" rel="noopener">Facebook</a><button class="kd-btn kd-btn--secondary kd-btn--sm" id="copy" type="button">Copy link</button></div></div>' +
+        '</div></div>' +
+        '<section class="stack" style="padding-bottom:48px" aria-labelledby="more"><h2 class="heading" id="more">More from ' + K.esc(s.name) + '</h2><div class="product-grid" id="related" style="padding-bottom:0"></div></section>';
+      function sync() {
+        K.$('#qty').textContent = qty;
+        K.$('#wa').href = K.wa(s, waMsg());
+        K.$('#shWa').href = 'https://wa.me/?text=' + encodeURIComponent(p.name + ' at ' + s.name + ': ' + pageUrl);
+        K.$('#shFb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl);
+      }
+      K.$$('.kd-chip[data-g]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var g = b.getAttribute('data-g'); chosen[g] = b.getAttribute('data-v');
+          K.$$('.kd-chip[data-g="' + g + '"]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+          K.$('#optErr').hidden = true; sync();
+        });
+      });
+      K.$('#minus').addEventListener('click', function () { if (qty > 1) { qty--; sync(); } });
+      K.$('#plus').addEventListener('click', function () { if (qty < Math.min(p.stock, 20)) { qty++; sync(); } else K.toast('That is all we have in stock'); });
+      K.$('#add').addEventListener('click', function () {
+        var missing = groups.filter(function (g) { return !chosen[g]; });
+        if (missing.length) { var e = K.$('#optErr'); e.hidden = false; e.textContent = 'Choose ' + missing.map(function (m) { return m.toLowerCase(); }).join(' and ') + ' first.'; return; }
+        K.cart.add(s.slug, { pid: p.id, opts: JSON.parse(JSON.stringify(chosen)), qty: qty }); K.updateCartCount(); K.toast('Added to your cart');
+      });
+      K.$('#copy').addEventListener('click', function () {
+        var done = function () { K.toast('Link copied'); };
+        if (navigator.clipboard) navigator.clipboard.writeText(pageUrl).then(done, function () { K.toast('Copy the link from the address bar'); }); else K.toast('Copy the link from the address bar');
+      });
+      var rel = D.products.filter(function (x) { return x.store === s.slug && x.id !== p.id; }).slice(0, 4);
+      K.$('#related').innerHTML = rel.map(function (r) { return '<article class="kd-card kd-product"><a class="product-link" href="' + K.sUrl('product.html', '&p=' + r.id) + '"><div class="kd-product__media">' + K.ph(r) + '</div><div class="kd-product__body"><h3 class="kd-product__name">' + K.esc(r.name) + '</h3>' + K.priceHtml(r) + '</div></a></article>'; }).join('');
+      sync();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Overview | Kade admin</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+
+        <div class="page-head"><div><h1>Platform overview</h1><p>Businesses, subscriptions and revenue at a glance.</p></div></div>
+        <div class="tiles tiles--3" id="tiles"></div>
+        <div class="grid-2">
+          <section class="kd-card panel" aria-labelledby="c1"><h2 id="c1">Subscription revenue by month</h2><div id="chart"></div></section>
+          <section class="kd-card panel" aria-labelledby="c2"><h2 id="c2">Waiting for approval</h2><div id="pending"></div></section>
+        </div>
+        <section class="kd-card panel" aria-labelledby="c3"><h2 id="c3">Renewals to chase</h2><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Business</th><th scope="col">Plan</th><th scope="col">Status</th><th scope="col">Ends</th></tr></thead><tbody id="chase"></tbody></table></div></section>
+      </main>
+    </div>
+  </div>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      K.shell('admin', 'index');
+
+      function addDays(iso, n) { var d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
+      function activate(b) { var base = b.expiry && b.expiry > D.today ? b.expiry : D.today; b.expiry = addDays(base, 30); b.status = 'ACTIVE'; }
+
+      var B = D.businesses;
+      function tiles() {
+        var live = B.filter(function (b) { return b.status === 'ACTIVE' || b.status === 'EXPIRING'; }).length;
+        var t = [['Businesses', B.length, 'All registered'], ['Live stores', live, 'Open to customers'], ['Pending approval', B.filter(function (b) { return b.status === 'PENDING_APPROVAL'; }).length, 'Need a decision'],
+          ['Suspended', B.filter(function (b) { return b.status === 'SUSPENDED'; }).length, 'Waiting to renew'], ['Revenue this month', K.rs(D.revenueMonths[D.revenueMonths.length - 1].value), 'From subscriptions'], ['Orders on the platform', B.reduce(function (n, b) { return n + b.orders; }, 0).toLocaleString('en-US'), 'Across all stores']];
+        K.$('#tiles').innerHTML = t.map(function (x) { return '<div class="kd-card stat"><span class="stat__label">' + x[0] + '</span><span class="stat__value">' + x[1] + '</span><span class="stat__delta">' + x[2] + '</span></div>'; }).join('');
+      }
+      function pending() {
+        var list = B.filter(function (b) { return b.status === 'PENDING_APPROVAL'; });
+        K.$('#pending').innerHTML = list.length ? '<ul class="list">' + list.map(function (b) { return '<li><span><strong>' + K.esc(b.name) + '</strong><span class="sub muted" style="display:block;font-size:13px">' + K.esc(b.owner) + ', ' + K.esc(b.plan) + ' plan</span></span><span class="row" style="gap:8px"><button class="kd-btn kd-btn--primary kd-btn--sm" data-ok="' + b.id + '">Approve</button></span></li>'; }).join('') + '</ul><a class="kd-link" href="businesses.html">Review all</a>' : '<p class="muted">No applications are waiting.</p>';
+      }
+      function chase() {
+        var list = B.filter(function (b) { return b.status === 'EXPIRING' || b.status === 'GRACE_PERIOD' || b.status === 'SUSPENDED'; });
+        K.$('#chase').innerHTML = list.map(function (b) { var d = K.daysUntil(b.expiry); return '<tr><td><strong>' + K.esc(b.name) + '</strong><span class="sub">' + K.esc(b.owner) + '</span></td><td>' + K.esc(b.plan) + '</td><td>' + K.badge('sub', b.status) + '</td><td>' + K.fmtDate(b.expiry) + '<span class="sub">' + (d >= 0 ? 'in ' + d + ' days' : Math.abs(d) + ' days ago') + '</span></td></tr>'; }).join('');
+      }
+      K.$('#pending').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-ok]'); if (!b) return; var biz = B.filter(function (x) { return x.id === b.getAttribute('data-ok'); })[0];
+        activate(biz); tiles(); pending(); chase(); K.toast(biz.name + ' approved. The "store is ready" email is queued.');
+      });
+      K.bars(K.$('#chart'), D.revenueMonths, { label: 'Subscription revenue per month, in rupees', xLabel: 'Month', yLabel: 'Revenue' });
+      tiles(); pending(); chase();
+
+    })();
+  </script>
+</body>
+</html>

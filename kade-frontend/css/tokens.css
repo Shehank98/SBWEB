@@ -1,0 +1,98 @@
+/* Generated from the Kade design system tokens.json. Do not hand-edit values. */
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+
+:root,
+[data-theme="light"] {
+  --surface: #faf7f0;
+  --surface-raised: #ffffff;
+  --surface-sunken: #efe9dc;
+  --ink: #17211d;
+  --ink-muted: #4a5650;
+  --line: #ddd5c4;
+  --line-strong: #767f79;
+  --brand: #0f5b4a;
+  --on-brand: #ffffff;
+  --brand-soft: #d9eee5;
+  --accent: #e8a317;
+  --on-accent: #17211d;
+  --success: #1b6b3f;
+  --success-soft: #dcf0e3;
+  --warning: #7a4f00;
+  --warning-soft: #fbecc8;
+  --danger: #b3261e;
+  --on-danger: #ffffff;
+  --danger-soft: #fbe2de;
+  --info: #1f5aa6;
+  --info-soft: #dce8f8;
+  --focus: #1a56c4;
+  --shadow-1: 0 1px 2px rgba(23, 33, 29, 0.08);
+  --shadow-2: 0 8px 24px rgba(23, 33, 29, 0.14);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --surface: #121916;
+  --surface-raised: #1a2420;
+  --surface-sunken: #0d1210;
+  --ink: #eef2ee;
+  --ink-muted: #a7b3ac;
+  --line: #2a3630;
+  --line-strong: #7c8982;
+  --brand: #52c2a2;
+  --on-brand: #08201a;
+  --brand-soft: #173a30;
+  --accent: #f2b73f;
+  --on-accent: #1a1400;
+  --success: #6fcf97;
+  --success-soft: #173525;
+  --warning: #f0c060;
+  --warning-soft: #3a2d0d;
+  --danger: #ff8a80;
+  --on-danger: #2a0806;
+  --danger-soft: #421d1a;
+  --info: #8ab4f8;
+  --info-soft: #182b47;
+  --focus: #8ab4ff;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --size-touch: 44px;
+  --size-content: 1120px;
+  --font-display: "Bricolage Grotesque", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif;
+  --font-sans: "Figtree", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+
+/* Type styles */
+.display-xl { font-family: var(--font-display); font-size: 48px; line-height: 52px; font-weight: 700; letter-spacing: -0.02em; }
+.display-lg { font-family: var(--font-display); font-size: 34px; line-height: 38px; font-weight: 700; letter-spacing: -0.015em; }
+.display-md { font-family: var(--font-display); font-size: 26px; line-height: 30px; font-weight: 600; letter-spacing: -0.01em; }
+.heading { font-family: var(--font-sans); font-size: 18px; line-height: 26px; font-weight: 600; }
+.body { font-family: var(--font-sans); font-size: 16px; line-height: 24px; font-weight: 400; }
+.body-sm { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 400; }
+.label { font-family: var(--font-sans); font-size: 14px; line-height: 18px; font-weight: 600; }
+.caption { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.02em; }
+.price { font-family: var(--font-mono); font-size: 18px; line-height: 24px; font-weight: 500; }
+.price-sm { font-family: var(--font-mono); font-size: 14px; line-height: 20px; font-weight: 500; }
+
+/* Storefront theme presets: override exactly five tokens (see guidelines/10-storefront-themes.md) */
+[data-preset="tea"]       { --brand:#0f5b4a; --on-brand:#ffffff; --brand-soft:#d9eee5; --accent:#e8a317; --on-accent:#17211d; }
+[data-preset="sapphire"]  { --brand:#1b4f9c; --on-brand:#ffffff; --brand-soft:#dbe6f7; --accent:#f2b73f; --on-accent:#17211d; }
+[data-preset="cinnamon"]  { --brand:#8a3b12; --on-brand:#ffffff; --brand-soft:#f4e2d6; --accent:#f0c36a; --on-accent:#17211d; }
+[data-preset="orchid"]    { --brand:#7a2e5c; --on-brand:#ffffff; --brand-soft:#f3dfeb; --accent:#f4b6c2; --on-accent:#17211d; }
+[data-preset="ink"]       { --brand:#1f2624; --on-brand:#ffffff; --brand-soft:#e6e9e7; --accent:#d9a441; --on-accent:#17211d; }
