@@ -10,7 +10,7 @@
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header"><div class="container"><a class="wordmark" href="index.html" aria-label="Kade home">Kade</a><nav class="site-nav" aria-label="Main"><a href="login.html">Log in</a></nav></div></header>
+  <header class="site-header"><div class="container"><a class="wordmark" href="index" aria-label="Kade home">Kade</a><nav class="site-nav" aria-label="Main"><a href="login">Log in</a></nav></div></header>
 
   <main id="main" class="auth">
     <div class="kd-card auth__card auth__card--wide" id="card">
@@ -132,7 +132,7 @@
       function showSuccess(p) {
         K.$('#card').innerHTML = '<div class="stack-lg" role="status"><h1>Application received</h1><p>Thank you, ' + K.esc(K.$('#ownerName').value.split(' ')[0]) + '. We are checking your payment slip for <strong>' + K.esc(K.$('#bizName').value) + '</strong>.</p>' +
           '<div class="kd-card panel"><dl class="dl"><dt>Status</dt><dd>' + K.badge('sub', 'PENDING_APPROVAL') + '</dd><dt>Plan</dt><dd>' + K.esc(p.name) + ' (' + K.rs(p.price) + ' / ' + p.durationDays + ' days)</dd><dt>Your store link</dt><dd class="slug-preview">' + K.host + '/store/<strong>' + K.esc(slugEl.value) + '</strong></dd></dl></div>' +
-          '<p class="muted">We will email <strong>' + K.esc(K.$('#ownerEmail').value) + '</strong> as soon as your store is ready. You can then log in and add products.</p><div class="row"><a class="kd-btn kd-btn--primary" href="login.html">Go to log in</a><a class="kd-btn kd-btn--ghost" href="index.html">Back to home</a></div></div>';
+          '<p class="muted">We will email <strong>' + K.esc(K.$('#ownerEmail').value) + '</strong> as soon as your store is ready. You can then log in and add products.</p><div class="row"><a class="kd-btn kd-btn--primary" href="login">Go to log in</a><a class="kd-btn kd-btn--ghost" href="index">Back to home</a></div></div>';
         window.scrollTo({ top: 0 }); K.$('#card h1').setAttribute('tabindex', '-1'); K.$('#card h1').focus();
       }
       form.addEventListener('submit', async function (e) {

@@ -76,7 +76,7 @@
       function fill() {
         preset = S.preset || 'orchid';
         $('url').innerHTML = K.host + '/store/<strong>' + K.esc(S.slug) + '</strong>';
-        $('open').href = '../store/index.html?s=' + S.slug;
+        $('open').href = '../store/index?s=' + S.slug;
         ['name', 'tagline', 'about', 'phone', 'address'].forEach(function (k) { $(k).value = S[k] || ''; });
         $('wa').value = S.whatsapp || '';
         $('cod').checked = !!S.payments.cod; $('bank').checked = !!S.payments.bank; $('online').checked = !!S.payments.online; $('bankTxt').value = S.bank || '';

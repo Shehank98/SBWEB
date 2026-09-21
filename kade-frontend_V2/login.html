@@ -10,7 +10,7 @@
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header"><div class="container"><a class="wordmark" href="index.html" aria-label="Kade home">Kade</a><nav class="site-nav" aria-label="Main"><a class="kd-btn kd-btn--secondary" href="register.html">Open my shop</a></nav></div></header>
+  <header class="site-header"><div class="container"><a class="wordmark" href="index" aria-label="Kade home">Kade</a><nav class="site-nav" aria-label="Main"><a class="kd-btn kd-btn--secondary" href="register">Open my shop</a></nav></div></header>
   <main id="main" class="auth">
     <div class="stack-lg" style="width:100%;max-width:480px">
       <div class="kd-card auth__card">
@@ -21,11 +21,7 @@
           <div class="kd-error" id="err" role="alert" hidden></div>
           <button class="kd-btn kd-btn--primary kd-btn--block" type="submit">Log in</button>
         </form>
-        <p class="muted" style="margin-top:16px">New here? <a class="kd-link" href="register.html">Open your shop</a></p>
-      </div>
-      <div class="kd-banner kd-banner--info" id="hint">
-        <div><p class="kd-banner__title">Demo logins</p><p style="margin-top:4px">With the API connected, sign in as admin (<strong>admin@kade.lk</strong>) or a store owner (<strong>abc-fashion@kade.lk</strong>). Without an API configured, any email containing "admin" opens the admin panel; anything else opens the owner dashboard.</p></div>
-        <div class="row"><a class="kd-btn kd-btn--secondary kd-btn--sm" href="dashboard/index.html">Owner dashboard</a><a class="kd-btn kd-btn--secondary kd-btn--sm" href="admin/index.html">Admin panel</a></div>
+        <p class="muted" style="margin-top:16px">New here? <a class="kd-link" href="register">Open your shop</a></p>
       </div>
     </div>
   </main>
@@ -39,16 +35,13 @@
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value) || !pw.value) {
         err.hidden = false; err.textContent = 'Enter your email and password.'; (em.value ? pw : em).focus(); return;
       }
-      // No API configured: keep the offline prototype behaviour.
-      if (!window.KadeApi || !KadeApi.enabled) {
-        location.href = /admin/i.test(em.value) ? 'admin/index.html' : 'dashboard/index.html';
-        return;
-      }
+      // Authentication is server-side only: the API verifies the password and issues
+      // a token. There is no client-side shortcut.
       var btn = e.target.querySelector('button[type=submit]');
       btn.disabled = true; btn.innerHTML = '<span class="kd-spinner"></span> Signing in…';
       try {
         var user = await KadeApi.login(em.value.trim(), pw.value);
-        location.href = user.role === 'SUPER_ADMIN' ? 'admin/index.html' : 'dashboard/index.html';
+        location.href = user.role === 'SUPER_ADMIN' ? 'admin/index' : 'dashboard/index';
       } catch (ex) {
         err.hidden = false; err.textContent = ex.message || 'Could not sign in.';
         btn.disabled = false; btn.textContent = 'Log in';

@@ -46,13 +46,13 @@
       function view() {
         var ls = lines();
         if (!ls.length) {
-          main.innerHTML = '<div class="empty"><h1 class="heading">Your cart is empty</h1><p class="muted">Find something you like and it will show up here.</p><a class="kd-btn kd-btn--primary" href="' + K.sUrl('index.html') + '">Browse products</a></div>'; return;
+          main.innerHTML = '<div class="empty"><h1 class="heading">Your cart is empty</h1><p class="muted">Find something you like and it will show up here.</p><a class="kd-btn kd-btn--primary" href="' + K.sUrl('index') + '">Browse products</a></div>'; return;
         }
         var m = money();
         var payOpts = [['cod', 'Cash on delivery', 'Pay the rider when your order arrives.'], ['bank', 'Bank transfer', 'Send the amount to the shop account and share the slip on WhatsApp.']].filter(function (o) { return s.payments[o[0]]; });
         main.innerHTML = '<h1 class="display-md" style="padding-top:24px">Your cart</h1><div class="cart-layout">' +
           '<section class="kd-card" aria-label="Items in your cart">' + ls.map(function (l, n) {
-            return '<div class="cart-line"><div class="cart-line__img">' + K.ph(l.p, true) + '</div><div><a class="kd-link" href="' + K.sUrl('product.html', '&p=' + l.p.id) + '">' + K.esc(l.p.name) + '</a><div class="muted" style="font-size:14px">' + K.esc(optTxt(l.i.opts)) + '</div>' +
+            return '<div class="cart-line"><div class="cart-line__img">' + K.ph(l.p, true) + '</div><div><a class="kd-link" href="' + K.sUrl('product', '&p=' + l.p.id) + '">' + K.esc(l.p.name) + '</a><div class="muted" style="font-size:14px">' + K.esc(optTxt(l.i.opts)) + '</div>' +
               '<div class="cart-line__row"><div class="qty" role="group" aria-label="Quantity of ' + K.esc(l.p.name) + '"><button type="button" data-dec="' + n + '" aria-label="Decrease quantity">&minus;</button><output>' + l.i.qty + '</output><button type="button" data-inc="' + n + '" aria-label="Increase quantity">+</button></div><span class="price-sm">' + K.rs(K.priceOf(l.p) * l.i.qty) + '</span></div>' +
               '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" data-rm="' + n + '" style="margin-top:4px;padding-left:0">Remove</button></div></div>';
           }).join('') + '</section>' +
@@ -64,6 +64,7 @@
           '<div class="kd-field span-2"><label class="kd-label" for="fn">Full name</label><input class="kd-input" id="fn" data-rule="required" autocomplete="name"></div>' +
           '<div class="kd-field"><label class="kd-label" for="ph">Phone</label><input class="kd-input" id="ph" type="tel" inputmode="tel" data-rule="phone" placeholder="077 123 4567" autocomplete="tel"></div>' +
           '<div class="kd-field"><label class="kd-label" for="wa">WhatsApp (optional)</label><input class="kd-input" id="wa" type="tel" inputmode="tel" placeholder="Same as phone"></div>' +
+          '<div class="kd-field span-2"><label class="kd-label" for="em">Email (optional)</label><input class="kd-input" id="em" type="email" inputmode="email" placeholder="you@example.com" autocomplete="email"><span class="kd-help">For order updates by email.</span></div>' +
           '</section>' +
 
           /* Step 2 — delivery / pickup */
@@ -160,7 +161,7 @@
         if (window.KadeApi && KadeApi.enabled) {
           var restore = K.btnLoading(K.$('#co-next'), 'Placing order…');
           KadeApi.placeOrder(s.slug, {
-            customer: v('fn'), phone: v('ph'), whatsapp: v('wa'),
+            customer: v('fn'), phone: v('ph'), whatsapp: v('wa'), email: v('em'),
             address: v('ad'), city: method === 'pickup' ? 'Pickup' : v('ct'), district: v('ds'),
             delivery: method === 'pickup' ? 'Pickup' : 'Delivery', payment: payLabel, note: v('nt'),
             coupon: applied ? applied.code : '',
@@ -182,7 +183,7 @@
         var msg = 'Hello ' + s.name + ', I placed order ' + order.id + ' (' + K.rs(order.total) + ').' + (pay === 'bank' ? ' I am sending the payment slip.' : '');
         main.innerHTML = '<div class="stack-lg" style="max-width:560px;margin:0 auto;padding:48px 0" role="status"><div class="kd-banner kd-banner--success"><div><p class="kd-banner__title">Order placed</p><p style="margin-top:4px">Your order number is <strong class="price-sm">' + K.esc(order.id) + '</strong>. ' + K.esc(s.name) + ' will confirm it shortly.</p></div></div>' +
           '<div class="kd-card panel"><h2 class="heading">Summary</h2><ul class="list">' + order.items.map(function (i) { return '<li><span>' + i.qty + ' &times; ' + K.esc(i.name) + '</span><span class="price-sm">' + K.rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul><div class="totals"><div><span>Delivery</span><span class="price-sm">' + (order.delivery ? K.rs(order.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span class="price">' + K.rs(order.total) + '</span></div></div><p class="muted">' + K.esc(order.payment) + (pay === 'bank' ? '. Send the amount to ' + K.esc(s.bank) + '.' : '.') + '</p></div>' +
-          '<div class="row"><a class="kd-btn kd-btn--primary" href="' + K.wa(s, msg) + '" target="_blank" rel="noopener">Message the shop on WhatsApp</a><a class="kd-btn kd-btn--ghost" href="' + K.sUrl('index.html') + '">Keep shopping</a></div></div>';
+          '<div class="row"><a class="kd-btn kd-btn--primary" href="' + K.wa(s, msg) + '" target="_blank" rel="noopener">Message the shop on WhatsApp</a><a class="kd-btn kd-btn--ghost" href="' + K.sUrl('index') + '">Keep shopping</a></div></div>';
         main.focus(); window.scrollTo({ top: 0 });
       }
       view();

@@ -42,7 +42,7 @@
       function chips() { K.$('#chips').innerHTML = cats.map(function (c) { return '<button type="button" class="kd-chip" aria-pressed="' + (c === cat) + '" data-c="' + K.esc(c) + '">' + K.esc(c) + '</button>'; }).join(''); }
       function card(p) {
         var out = p.stock <= 0, low = !out && p.stock <= p.lowAt, opts = Object.keys(p.options || {}).length > 0;
-        var href = K.sUrl('product.html', '&p=' + p.id);
+        var href = K.sUrl('product', '&p=' + p.id);
         var action = out ? '<button class="kd-btn kd-btn--secondary kd-btn--block" disabled>Sold out</button>'
           : opts ? '<a class="kd-btn kd-btn--accent kd-btn--block" href="' + href + '">Choose options</a>'
           : '<button class="kd-btn kd-btn--accent kd-btn--block" data-add="' + p.id + '">Add to cart</button>';

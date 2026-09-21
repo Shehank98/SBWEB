@@ -153,7 +153,7 @@
     return '<article class="plan' + (p.id === 'business' ? ' plan--featured' : '') + '"><h3 class="heading">' + K.esc(p.name) + '</h3>' +
       '<div class="plan__price"><strong>' + K.rs(p.price) + '</strong><span>/ ' + p.durationDays + ' days</span></div>' +
       '<ul>' + p.features.map(function (f) { return '<li>' + K.esc(f) + '</li>'; }).join('') + '</ul>' +
-      '<a class="kd-btn ' + (p.id === 'business' ? 'kd-btn--primary' : 'kd-btn--secondary') + ' kd-btn--block" href="register.html?plan=' + p.id + '">Choose ' + K.esc(p.name) + '</a></article>';
+      '<a class="kd-btn ' + (p.id === 'business' ? 'kd-btn--primary' : 'kd-btn--secondary') + ' kd-btn--block" href="register?plan=' + p.id + '">Choose ' + K.esc(p.name) + '</a></article>';
   }).join('');
   /* On phones, start the plan carousel centred on the middle plan */
   var pl = $('#plans');

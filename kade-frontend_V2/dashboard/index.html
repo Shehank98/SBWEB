@@ -17,7 +17,7 @@
       <header class="topbar" id="topbar"></header>
       <main class="main" id="main" tabindex="-1">
 
-        <div class="page-head"><div><h1 id="hello">Hello</h1><p id="lede">Here is how your store is doing today.</p></div><a class="kd-btn kd-btn--primary" href="products.html?new=1">Add product</a></div>
+        <div class="page-head"><div><h1 id="hello">Hello</h1><p id="lede">Here is how your store is doing today.</p></div><a class="kd-btn kd-btn--primary" href="products?new=1">Add product</a></div>
         <div id="sub-banner"></div>
         <div class="tiles" id="tiles"></div>
         <div class="grid-2">
@@ -25,7 +25,7 @@
           <section class="kd-card panel" aria-labelledby="c2"><h2 id="c2">Needs your attention</h2><div id="attention"></div></section>
         </div>
         <section class="kd-card" aria-labelledby="c3">
-          <div class="row row--between" style="padding:16px 16px 0"><h2 class="heading" id="c3">Recent orders</h2><a class="kd-link" href="orders.html">See all orders</a></div>
+          <div class="row row--between" style="padding:16px 16px 0"><h2 class="heading" id="c3">Recent orders</h2><a class="kd-link" href="orders">See all orders</a></div>
           <div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col" class="kd-num">Total</th></tr></thead><tbody id="recent"></tbody></table></div>
         </section>
       </main>
@@ -50,7 +50,7 @@
         K.$('#lede').textContent = 'Here is how ' + ctx.storeName + ' is doing today.';
         var days = ctx.expiry ? K.daysUntil(ctx.expiry) : 999;
         if (days <= 14) {
-          K.$('#sub-banner').innerHTML = '<div class="kd-banner kd-banner--' + (days <= 3 ? 'danger' : 'warning') + '"><div><p class="kd-banner__title">Your ' + K.esc(ctx.plan) + ' plan ends in ' + days + ' days</p><p style="margin-top:4px">Renew before ' + K.fmtDate(ctx.expiry) + ' so your store stays open for customers.</p></div><a class="kd-btn kd-btn--primary" href="subscription.html">Renew now</a></div>';
+          K.$('#sub-banner').innerHTML = '<div class="kd-banner kd-banner--' + (days <= 3 ? 'danger' : 'warning') + '"><div><p class="kd-banner__title">Your ' + K.esc(ctx.plan) + ' plan ends in ' + days + ' days</p><p style="margin-top:4px">Renew before ' + K.fmtDate(ctx.expiry) + ' so your store stays open for customers.</p></div><a class="kd-btn kd-btn--primary" href="subscription">Renew now</a></div>';
         }
         var todays = orders.filter(function (o) { return o.date === ctx.today && o.status !== 'CANCELLED'; });
         var sales = ctx.todaySales != null ? ctx.todaySales : todays.reduce(function (n, o) { return n + o.total; }, 0);
@@ -67,9 +67,9 @@
         var data = ctx.sales7.map(function (d) { var dt = new Date(d.date + 'T00:00:00'); return { label: dt.toLocaleDateString('en-GB', { weekday: 'short' }), title: dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }), value: d.value }; });
         K.bars(K.$('#chart'), data, { label: 'Sales per day for the last 7 days, in rupees', xLabel: 'Day', yLabel: 'Sales' });
         var pend = orders.filter(function (o) { return o.status === 'PENDING'; }).slice(0, 4);
-        K.$('#attention').innerHTML = '<ul class="list">' + pend.map(function (o) { return '<li><span><a class="kd-link" href="orders.html?o=' + o.id + '">#' + o.id + '</a><span class="sub muted" style="display:block;font-size:13px">' + K.esc(o.customer) + ', ' + K.rs(o.total) + '</span></span>' + K.badge('order', 'PENDING') + '</li>'; }).join('') +
-          low.slice(0, 3).map(function (p) { return '<li><span><a class="kd-link" href="products.html?q=' + encodeURIComponent(p.name) + '">' + K.esc(p.name) + '</a><span class="sub muted" style="display:block;font-size:13px">' + p.stock + ' left</span></span>' + K.stockBadge(p) + '</li>'; }).join('') + '</ul>' + (pend.length + low.length ? '' : '<p class="muted">Nothing needs attention right now.</p>');
-        K.$('#recent').innerHTML = orders.slice(0, 6).map(function (o) { return '<tr><td><a class="kd-link" href="orders.html?o=' + o.id + '">#' + o.id + '</a></td><td>' + K.esc(o.customer) + '<span class="sub">' + K.fmtDate(o.date) + '</span></td><td>' + K.badge('order', o.status) + '</td><td class="kd-num">' + K.rs(o.total) + '</td></tr>'; }).join('') || '<tr><td colspan="4" class="muted" style="padding:16px">No orders yet.</td></tr>';
+        K.$('#attention').innerHTML = '<ul class="list">' + pend.map(function (o) { return '<li><span><a class="kd-link" href="orders?o=' + o.id + '">#' + o.id + '</a><span class="sub muted" style="display:block;font-size:13px">' + K.esc(o.customer) + ', ' + K.rs(o.total) + '</span></span>' + K.badge('order', 'PENDING') + '</li>'; }).join('') +
+          low.slice(0, 3).map(function (p) { return '<li><span><a class="kd-link" href="products?q=' + encodeURIComponent(p.name) + '">' + K.esc(p.name) + '</a><span class="sub muted" style="display:block;font-size:13px">' + p.stock + ' left</span></span>' + K.stockBadge(p) + '</li>'; }).join('') + '</ul>' + (pend.length + low.length ? '' : '<p class="muted">Nothing needs attention right now.</p>');
+        K.$('#recent').innerHTML = orders.slice(0, 6).map(function (o) { return '<tr><td><a class="kd-link" href="orders?o=' + o.id + '">#' + o.id + '</a></td><td>' + K.esc(o.customer) + '<span class="sub">' + K.fmtDate(o.date) + '</span></td><td>' + K.badge('order', o.status) + '</td><td class="kd-num">' + K.rs(o.total) + '</td></tr>'; }).join('') || '<tr><td colspan="4" class="muted" style="padding:16px">No orders yet.</td></tr>';
       }
 
       if (API) {

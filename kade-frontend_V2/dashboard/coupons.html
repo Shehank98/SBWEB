@@ -52,7 +52,7 @@
 
       function upsell() {
         K.$('#sub').textContent = 'Upgrade to unlock coupons.';
-        body.innerHTML = '<section class="kd-card panel" style="text-align:center;max-width:560px;margin:24px auto"><h2 class="heading">Coupons are a Business feature</h2><p class="muted" style="margin-top:8px">Upgrade to <strong>Business</strong> or <strong>Pro</strong> to create discount codes your customers apply at checkout.</p><div class="row" style="justify-content:center;margin-top:16px"><a class="kd-btn kd-btn--primary" href="subscription.html">See plans</a></div></section>';
+        body.innerHTML = '<section class="kd-card panel" style="text-align:center;max-width:560px;margin:24px auto"><h2 class="heading">Coupons are a Business feature</h2><p class="muted" style="margin-top:8px">Upgrade to <strong>Business</strong> or <strong>Pro</strong> to create discount codes your customers apply at checkout.</p><div class="row" style="justify-content:center;margin-top:16px"><a class="kd-btn kd-btn--primary" href="subscription">See plans</a></div></section>';
       }
       function discountText(c) { return c.type === 'percent' ? c.value + '% off' : K.rs(c.value) + ' off'; }
       function render() {

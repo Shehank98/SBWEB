@@ -24,7 +24,7 @@
       var id = new URLSearchParams(location.search).get('p');
       var p = products.filter(function (x) { return x.id === id; })[0];
       var main = K.$('#main');
-      if (!p) { main.innerHTML = '<div class="empty"><h1 class="heading">We could not find that product</h1><a class="kd-btn kd-btn--primary" href="' + K.sUrl('index.html') + '">See all products</a></div>'; return; }
+      if (!p) { main.innerHTML = '<div class="empty"><h1 class="heading">We could not find that product</h1><a class="kd-btn kd-btn--primary" href="' + K.sUrl('index') + '">See all products</a></div>'; return; }
       document.title = p.name + ' | ' + s.name;
       var groups = Object.keys(p.options || {}), chosen = {}, qty = 1, out = p.stock <= 0, low = !out && p.stock <= p.lowAt;
       var pageUrl = location.href;
@@ -32,7 +32,7 @@
       function optText() { return groups.map(function (g) { return g + ': ' + (chosen[g] || '-'); }).join(', '); }
       function waMsg() { return 'Hello ' + s.name + ', I would like to order:\n\n' + p.name + (groups.length ? '\n' + optText() : '') + '\nQuantity: ' + qty + '\nTotal: ' + K.rs(total()) + '\n\n' + pageUrl; }
       main.innerHTML =
-        '<nav class="crumbs" aria-label="Breadcrumb"><a href="' + K.sUrl('index.html') + '">Home</a><span aria-hidden="true">/</span><span>' + K.esc(p.category) + '</span></nav>' +
+        '<nav class="crumbs" aria-label="Breadcrumb"><a href="' + K.sUrl('index') + '">Home</a><span aria-hidden="true">/</span><span>' + K.esc(p.category) + '</span></nav>' +
         '<div class="pdp"><div class="pdp__media">' + K.ph(p) + '</div><div class="stack-lg">' +
         '<div class="stack" style="gap:8px"><h1>' + K.esc(p.name) + '</h1>' + K.priceHtml(p) + '<div>' + (out ? '<span class="kd-badge kd-badge--danger">Out of stock</span>' : low ? '<span class="kd-badge kd-badge--warning">Only ' + p.stock + ' left</span>' : '<span class="kd-badge kd-badge--success">In stock</span>') + '</div></div>' +
         '<p>' + K.esc(p.desc) + '</p>' +
@@ -69,7 +69,7 @@
         if (navigator.clipboard) navigator.clipboard.writeText(pageUrl).then(done, function () { K.toast('Copy the link from the address bar'); }); else K.toast('Copy the link from the address bar');
       });
       var rel = products.filter(function (x) { return x.id !== p.id; }).slice(0, 4);
-      K.$('#related').innerHTML = rel.map(function (r) { return '<article class="kd-card kd-product"><a class="product-link" href="' + K.sUrl('product.html', '&p=' + r.id) + '"><div class="kd-product__media">' + K.ph(r) + '</div><div class="kd-product__body"><h3 class="kd-product__name">' + K.esc(r.name) + '</h3>' + K.priceHtml(r) + '</div></a></article>'; }).join('');
+      K.$('#related').innerHTML = rel.map(function (r) { return '<article class="kd-card kd-product"><a class="product-link" href="' + K.sUrl('product', '&p=' + r.id) + '"><div class="kd-product__media">' + K.ph(r) + '</div><div class="kd-product__body"><h3 class="kd-product__name">' + K.esc(r.name) + '</h3>' + K.priceHtml(r) + '</div></a></article>'; }).join('');
       sync();
       }, { cartBar: true });
     })();

@@ -12,7 +12,7 @@
   };
 
   function blocked(title, body) {
-    document.body.innerHTML = '<main class="unavailable"><div class="kd-card unavailable__card"><a class="wordmark" href="../index.html">Kade</a><h1 class="display-md">' + K.esc(title) + '</h1><p class="muted">' + K.esc(body) + '</p><a class="kd-btn kd-btn--secondary" href="../index.html">Back to Kade</a></div></main>';
+    document.body.innerHTML = '<main class="unavailable"><div class="kd-card unavailable__card"><a class="wordmark" href="../index">Kade</a><h1 class="display-md">' + K.esc(title) + '</h1><p class="muted">' + K.esc(body) + '</p><a class="kd-btn kd-btn--secondary" href="../index">Back to Kade</a></div></main>';
     document.title = title;
   }
   var NOT_FOUND = ['Store not found', 'Check the link you were sent, or ask the shop to share it again.'];
@@ -23,13 +23,13 @@
     opts = opts || {};
     K.applyStore(s);
     K.$('#store-header').outerHTML = '<header class="store-header"><div class="container"><span class="store-logo" aria-hidden="true">' + K.esc(K.initials(s.name)) + '</span>' +
-      '<a class="store-name" href="' + K.sUrl('index.html') + '">' + K.esc(s.name) + '</a>' +
-      '<a class="cart-link" href="' + K.sUrl('cart.html') + '">' + K.icon('cart').replace('<svg ', '<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" ') + '<span>Cart</span><span class="cart-count" id="cc">0</span></a></div></header>';
+      '<a class="store-name" href="' + K.sUrl('index') + '">' + K.esc(s.name) + '</a>' +
+      '<a class="cart-link" href="' + K.sUrl('cart') + '">' + K.icon('cart').replace('<svg ', '<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" ') + '<span>Cart</span><span class="cart-count" id="cc">0</span></a></div></header>';
     var pays = [s.payments.cod && 'Cash on delivery', s.payments.bank && 'Bank transfer', s.payments.online && 'Card payment'].filter(Boolean).join(', ');
     K.$('#store-footer').outerHTML = '<footer class="store-footer"><div class="container"><div class="row"><div class="stack" style="gap:4px;flex:1;min-width:200px"><strong>' + K.esc(s.name) + '</strong><span class="muted">' + K.esc(s.about) + '</span></div>' +
       '<div class="stack" style="gap:4px;flex:1;min-width:200px"><strong>Contact</strong><span>' + K.esc(s.address) + '</span>' + (s.phone ? '<a class="kd-link" href="tel:' + K.esc(s.phone.replace(/\s/g, '')) + '">' + K.esc(s.phone) + '</a>' : '') + '</div>' +
-      '<div class="stack" style="gap:4px;flex:1;min-width:200px"><strong>We accept</strong><span>' + K.esc(pays) + '</span></div></div><p class="muted" style="margin-top:24px">Store powered by <a class="kd-link" href="../index.html">Kade</a></p></div></footer>';
-    if (opts.cartBar && !K.$('#cartbar')) { var cb = document.createElement('a'); cb.id = 'cartbar'; cb.className = 'cart-bar'; cb.hidden = true; cb.href = K.sUrl('cart.html'); cb.innerHTML = '<span><strong id="cb-n"></strong> in your cart</span><span class="cart-bar__go"><b id="cb-t"></b> View cart</span>'; document.body.appendChild(cb); }
+      '<div class="stack" style="gap:4px;flex:1;min-width:200px"><strong>We accept</strong><span>' + K.esc(pays) + '</span></div></div><p class="muted" style="margin-top:24px">Store powered by <a class="kd-link" href="../index">Kade</a></p></div></footer>';
+    if (opts.cartBar && !K.$('#cartbar')) { var cb = document.createElement('a'); cb.id = 'cartbar'; cb.className = 'cart-bar'; cb.hidden = true; cb.href = K.sUrl('cart'); cb.innerHTML = '<span><strong id="cb-n"></strong> in your cart</span><span class="cart-bar__go"><b id="cb-t"></b> View cart</span>'; document.body.appendChild(cb); }
     K.updateCartCount();
   }
 
@@ -49,6 +49,7 @@
     if (window.KadeApi && KadeApi.enabled) {
       KadeApi.getStore(slug).then(function (res) {
         if (res.available === false) { blocked(UNAVAILABLE[0], UNAVAILABLE[1]); return; }
+        K.storeProducts = res.products || [];
         applyChrome(res.store, opts);
         cb(res.store, res.products || []);
       }).catch(function (e) {
@@ -59,8 +60,10 @@
       var s = D.stores[slug];
       if (!s) { blocked(NOT_FOUND[0], NOT_FOUND[1]); return; }
       if (s.status !== 'ACTIVE') { blocked(UNAVAILABLE[0], UNAVAILABLE[1]); return; }
+      var list = D.products.filter(function (p) { return p.store === slug; });
+      K.storeProducts = list;
       applyChrome(s, opts);
-      cb(s, D.products.filter(function (p) { return p.store === slug; }));
+      cb(s, list);
     }
   };
 

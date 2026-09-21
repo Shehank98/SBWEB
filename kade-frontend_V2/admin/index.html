@@ -57,7 +57,7 @@
       }
       function pending() {
         var list = businesses.filter(function (b) { return b.status === 'PENDING_APPROVAL'; });
-        K.$('#pending').innerHTML = list.length ? '<ul class="list">' + list.map(function (b) { return '<li><span><strong>' + K.esc(b.name) + '</strong><span class="sub muted" style="display:block;font-size:13px">' + K.esc(b.owner) + ', ' + K.esc(b.plan) + ' plan</span></span><span class="row" style="gap:8px"><button class="kd-btn kd-btn--primary kd-btn--sm" data-ok="' + b.id + '">Approve</button></span></li>'; }).join('') + '</ul><a class="kd-link" href="businesses.html">Review all</a>' : '<p class="muted">No applications are waiting.</p>';
+        K.$('#pending').innerHTML = list.length ? '<ul class="list">' + list.map(function (b) { return '<li><span><strong>' + K.esc(b.name) + '</strong><span class="sub muted" style="display:block;font-size:13px">' + K.esc(b.owner) + ', ' + K.esc(b.plan) + ' plan</span></span><span class="row" style="gap:8px"><button class="kd-btn kd-btn--primary kd-btn--sm" data-ok="' + b.id + '">Approve</button></span></li>'; }).join('') + '</ul><a class="kd-link" href="businesses">Review all</a>' : '<p class="muted">No applications are waiting.</p>';
       }
       function chase() {
         var list = businesses.filter(function (b) { return b.status === 'EXPIRING' || b.status === 'GRACE_PERIOD' || b.status === 'SUSPENDED'; });

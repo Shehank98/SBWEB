@@ -5,6 +5,23 @@ import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { UPLOAD_DIR } from './services/uploads.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
+import { query } from './db/pool.js';
+import { hashPassword } from './utils/auth.js';
+
+// Create or update the SUPER_ADMIN account from environment variables, so admin
+// credentials live in the deployment's variables (never hard-coded or exposed).
+async function ensureAdmin() {
+  const { email, password, name } = config.admin;
+  if (!email || !password) return;
+  const hash = await hashPassword(password);
+  const existing = await query('SELECT id FROM users WHERE lower(email) = lower($1)', [email]);
+  if (existing.rowCount) {
+    await query("UPDATE users SET password_hash=$2, name=$3, role='SUPER_ADMIN', business_id=NULL WHERE lower(email)=lower($1)", [email, hash, name]);
+  } else {
+    await query("INSERT INTO users (name, email, password_hash, role) VALUES ($1,$2,$3,'SUPER_ADMIN')", [name, email, hash]);
+  }
+  console.log(`[admin] ensured admin account for ${email}`);
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FRONTEND_DIR = path.join(__dirname, '..', 'kade-frontend_V2');
@@ -39,6 +56,17 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/store', storeRouter);
 app.use('/api/notifications', notificationsRouter);
 
+// Clean URLs: never expose ".html". Redirect any .html request to the extensionless
+// path (301), and let express.static resolve the extensionless path back to the file.
+app.get(/\.html$/i, (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  let clean = req.path.replace(/\.html$/i, '');
+  if (clean.endsWith('/index')) clean = clean.slice(0, -'/index'.length) || '/';
+  if (clean === '/index') clean = '/';
+  const qs = req.originalUrl.slice(req.path.length); // preserve ?query
+  res.redirect(301, clean + qs);
+});
+
 // Serve the frontend (landing, storefront, dashboard, admin) from the same origin.
 // This makes the whole platform a single deployable service: the pages call the API
 // at a relative path, so there is no CORS and no second service to run.
@@ -51,6 +79,9 @@ app.use(errorHandler);
 
 const server = app.listen(config.port, () => {
   console.log(`[kade] API listening on http://localhost:${config.port}`);
+  // Ensure the platform admin exists, from env vars (ADMIN_EMAIL / ADMIN_PASSWORD).
+  // Runs every boot so changing the Railway variables updates the admin login.
+  ensureAdmin().catch((e) => console.warn('[admin] ensureAdmin skipped:', e.message));
 });
 
 // Graceful shutdown so Railway restarts cleanly.

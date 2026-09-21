@@ -177,8 +177,8 @@
     return 'abc-fashion';
   };
   K.applyStore = function (s) { document.documentElement.setAttribute('data-preset', s.preset); document.title = s.name; };
-  K.cartTotal = function (slug) { return K.cart.get(slug).reduce(function (n, i) { var p = D.products.filter(function (x) { return x.id === i.pid; })[0]; return n + (p ? K.priceOf(p) * i.qty : 0); }, 0); };
-  K.storeUrl = function (slug) { return location.origin.replace(/^null$/, '') + location.pathname.replace(/\/(dashboard|admin|store)\/[^\/]*$/, '/store/index.html') + '?s=' + slug; };
+  K.cartTotal = function (slug) { var list = K.storeProducts || D.products || []; return K.cart.get(slug).reduce(function (n, i) { var p = list.filter(function (x) { return x.id === i.pid; })[0]; return n + (p ? K.priceOf(p) * i.qty : 0); }, 0); };
+  K.storeUrl = function (slug) { return location.origin.replace(/^null$/, '') + location.pathname.replace(/\/(dashboard|admin|store)\/[^\/]*$/, '/store/index') + '?s=' + slug; };
 
   /* ---------- Icons (24px outline, 1.5px stroke) ---------- */
   var ICON = {
@@ -224,17 +224,17 @@
           ownerOnly && ['settings', 'Store settings', 'gear']
         ].filter(Boolean);
     var nav = items.map(function (i) {
-      return '<a href="' + i[0] + '.html"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
+      return '<a href="' + i[0] + '"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
     }).join('');
     var ctx = kind === 'admin' ? 'Platform admin' : ((sess && sess.storeName) ? sess.storeName : 'ABC Fashion');
     var mySlug = (sess && sess.slug) ? sess.slug : 'abc-fashion';
     var foot = kind === 'admin'
-      ? '<a class="kd-link" href="../login.html" id="logout">Log out</a>'
-      : '<a class="kd-link" href="../store/index.html?s=' + K.esc(mySlug) + '" target="_blank" rel="noopener">View my store</a><a class="kd-link" href="../login.html" id="logout">Log out</a>';
+      ? '<a class="kd-link" href="../login" id="logout">Log out</a>'
+      : '<a class="kd-link" href="../store/index?s=' + K.esc(mySlug) + '" target="_blank" rel="noopener">View my store</a><a class="kd-link" href="../login" id="logout">Log out</a>';
     var sb = K.$('#sidebar');
-    sb.innerHTML = '<div class="sidebar__brand"><a class="wordmark" href="../index.html">Kade</a><span class="sidebar__ctx">' + (kind === 'admin' ? 'Admin panel' : 'Owner dashboard') + '</span></div>' +
+    sb.innerHTML = '<div class="sidebar__brand"><a class="wordmark" href="../index">Kade</a><span class="sidebar__ctx">' + (kind === 'admin' ? 'Admin panel' : 'Owner dashboard') + '</span></div>' +
       '<nav class="nav" aria-label="Main">' + nav + '</nav><div class="sidebar__foot">' + foot + '</div>';
-    var lo = K.$('#logout'); if (lo) lo.addEventListener('click', function (e) { if (window.KadeApi && KadeApi.enabled) { e.preventDefault(); KadeApi.logout(); location.href = '../login.html'; } });
+    var lo = K.$('#logout'); if (lo) lo.addEventListener('click', function (e) { if (window.KadeApi && KadeApi.enabled) { e.preventDefault(); KadeApi.logout(); location.href = '../login'; } });
     var tb = K.$('#topbar');
     tb.innerHTML = '<div class="row"><button class="kd-btn kd-btn--secondary menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">' + K.icon('menu') + '</button><strong>' + K.esc(ctx) + '</strong></div>' +
       '<div class="row"><button class="kd-btn kd-btn--ghost" type="button" id="theme-toggle"></button></div>';
@@ -243,7 +243,7 @@
     var SHORT = { index: 'Home', orders: 'Orders', products: 'Products', reports: 'Reports', coupons: 'Coupons', staff: 'Staff', subscription: 'Plan', settings: 'Store', businesses: 'Businesses', payments: 'Payments' };
     var oldTab = K.$('.tabbar'); if (oldTab) oldTab.remove();
     var tabbar = document.createElement('nav'); tabbar.className = 'tabbar'; tabbar.setAttribute('aria-label', 'Primary');
-    tabbar.innerHTML = items.slice(0, 5).map(function (i) { return '<a href="' + i[0] + '.html"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + (SHORT[i[0]] || i[1]) + '</span>' + (i[3] ? '<b class="tcount" aria-label="' + i[3] + ' waiting">' + i[3] + '</b>' : '') + '</a>'; }).join('');
+    tabbar.innerHTML = items.slice(0, 5).map(function (i) { return '<a href="' + i[0] + '"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + (SHORT[i[0]] || i[1]) + '</span>' + (i[3] ? '<b class="tcount" aria-label="' + i[3] + ' waiting">' + i[3] + '</b>' : '') + '</a>'; }).join('');
     document.body.appendChild(tabbar);
     /* Tables become cards on phones: copy each column heading onto its cell */
     function labelTables() {
@@ -279,11 +279,11 @@
   K.guard = function (kind, section) {
     if (!(window.KadeApi && KadeApi.enabled)) return true;
     var u = KadeApi.token() ? KadeApi.currentUser() : null;
-    if (!u) { location.replace('../login.html'); return false; }
-    if (kind === 'admin' && u.role !== 'SUPER_ADMIN') { location.replace('../login.html'); return false; }
-    if (kind === 'owner' && u.role === 'SUPER_ADMIN') { location.replace('../admin/index.html'); return false; }
+    if (!u) { location.replace('../login'); return false; }
+    if (kind === 'admin' && u.role !== 'SUPER_ADMIN') { location.replace('../login'); return false; }
+    if (kind === 'owner' && u.role === 'SUPER_ADMIN') { location.replace('../admin/index'); return false; }
     // Staff may only open sections they were granted; everything else sends them home.
-    if (section && u.role === 'BUSINESS_STAFF' && (u.permissions || []).indexOf(section) < 0) { location.replace('index.html'); return false; }
+    if (section && u.role === 'BUSINESS_STAFF' && (u.permissions || []).indexOf(section) < 0) { location.replace('index'); return false; }
     return true;
   };
 
