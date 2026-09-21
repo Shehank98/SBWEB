@@ -95,6 +95,7 @@
     },
     deleteProduct(id) { return req('DELETE', '/api/products/' + id); },
     overview() { return req('GET', '/api/dashboard/overview'); },
+    reports() { return req('GET', '/api/dashboard/reports'); },
     myOrders() { return req('GET', '/api/dashboard/orders'); },
     setOrderStatus(code, status) { return req('PUT', '/api/dashboard/orders/' + encodeURIComponent(code) + '/status', { status: status }); },
     subscription() { return req('GET', '/api/dashboard/subscription'); },

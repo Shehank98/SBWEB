@@ -46,6 +46,7 @@
     (function () {
       var K = Kade, D = KadeData;
       K.shell('dashboard', 'products');
+      var imgZone = K.dropzone(K.$('#f-img'), { title: 'Drag & drop a product photo', hint: 'Square photos look best. PNG or JPG, up to 8MB', aria: 'Upload a product photo' });
 
       var S = D.stores['abc-fashion'], me = D.businesses[0], plan = D.plans.filter(function (p) { return p.name === me.plan; })[0];
       function mine() { return D.products.filter(function (p) { return p.store === 'abc-fashion'; }); }
@@ -71,7 +72,7 @@
       function open(p) {
         editing = p; K.$('#ft').textContent = p ? 'Edit product' : 'Add product';
         K.$$('#pf .kd-error').forEach(function (e) { e.remove(); }); K.$$('#pf .kd-field--error').forEach(function (e) { e.classList.remove('kd-field--error'); });
-        f('name').value = p ? p.name : ''; f('cat').value = p ? p.category : ''; f('price').value = p ? p.price : ''; f('sale').value = p && p.sale ? p.sale : ''; f('stock').value = p ? p.stock : ''; f('low').value = p ? p.lowAt : 5; f('opts').value = p ? optText(p.options) : ''; f('desc').value = p ? p.desc : ''; f('img').value = '';
+        f('name').value = p ? p.name : ''; f('cat').value = p ? p.category : ''; f('price').value = p ? p.price : ''; f('sale').value = p && p.sale ? p.sale : ''; f('stock').value = p ? p.stock : ''; f('low').value = p ? p.lowAt : 5; f('opts').value = p ? optText(p.options) : ''; f('desc').value = p ? p.desc : ''; imgZone.clear(); if (p && p.image) imgZone.existing(p.image);
         dlg.showModal(); f('name').focus();
       }
       K.$('#add').addEventListener('click', function () { open(null); });
@@ -94,6 +95,7 @@
         if (bad.length) { bad[0].focus(); return; }
         var rec = editing || { id: 'p' + Date.now(), store: 'abc-fashion', tone: ['a', 'b', 'c', 'd', 'e', 'f'][Math.floor(Math.random() * 6)] };
         rec.name = f('name').value.trim(); rec.category = f('cat').value; rec.price = +f('price').value; rec.sale = f('sale').value ? +f('sale').value : undefined; rec.stock = +f('stock').value; rec.lowAt = +f('low').value || 0; rec.options = parseOpts(f('opts').value); rec.desc = f('desc').value.trim();
+        var imgFile = imgZone.file(); if (imgFile) rec.image = URL.createObjectURL(imgFile);
         if (!editing) D.products.unshift(rec);
         dlg.close(); render(); K.toast(editing ? 'Product updated' : 'Product added');
       });

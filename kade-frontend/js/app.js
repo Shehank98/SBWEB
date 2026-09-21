@@ -66,6 +66,68 @@
     });
   };
 
+  /* ---------- Drag & drop file upload ----------
+     Enhances an existing <input type="file"> into a professional dropzone while
+     keeping the input in the DOM, so its id/name/data-rule and the form still work.
+     Returns { file(), clear(), existing(url) }. */
+  K.dropzone = function (input, opts) {
+    opts = opts || {};
+    if (!input || input.__dz) return input && input.__dz;
+    var placeholder = null;
+    var zone = document.createElement('div');
+    zone.className = 'dropzone';
+    zone.setAttribute('role', 'button');
+    zone.setAttribute('tabindex', '0');
+    zone.setAttribute('aria-label', opts.aria || 'Upload a file. Drag and drop, or activate to browse.');
+    zone.innerHTML =
+      '<div class="dropzone__inner">' + K.icon('upload') +
+      '<p class="dropzone__title">' + K.esc(opts.title || 'Drag & drop your image here') + '</p>' +
+      '<p class="dropzone__hint">or <span class="dropzone__browse">browse files</span></p>' +
+      '<p class="dropzone__meta">' + K.esc(opts.hint || 'PNG or JPG, up to 8MB') + '</p></div>' +
+      '<div class="dropzone__preview" hidden></div>';
+    input.classList.add('visually-hidden');
+    input.setAttribute('tabindex', '-1');
+    input.setAttribute('aria-hidden', 'true');
+    input.parentNode.insertBefore(zone, input);
+    var inner = zone.querySelector('.dropzone__inner'), preview = zone.querySelector('.dropzone__preview');
+
+    function render() {
+      var f = input.files && input.files[0];
+      if (f) {
+        inner.hidden = true; preview.hidden = false; zone.classList.add('has-file');
+        var isImg = /^image\//.test(f.type);
+        preview.innerHTML = (isImg ? '<img alt="Selected image preview" src="' + URL.createObjectURL(f) + '">' : '<span class="dropzone__file">' + K.icon('file') + '</span>') +
+          '<span class="dropzone__info"><strong>' + K.esc(f.name) + '</strong><span class="muted">' + Math.max(1, Math.round(f.size / 1024)) + ' KB — click to replace</span></span>' +
+          '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm dropzone__remove">Remove</button>';
+      } else if (placeholder) {
+        inner.hidden = true; preview.hidden = false; zone.classList.add('has-file');
+        preview.innerHTML = '<img alt="Current image" src="' + K.esc(placeholder) + '"><span class="dropzone__info"><strong>Current image</strong><span class="muted">Click to choose a new one</span></span><button type="button" class="kd-btn kd-btn--ghost kd-btn--sm dropzone__remove">Remove</button>';
+      } else {
+        inner.hidden = false; preview.hidden = true; zone.classList.remove('has-file');
+      }
+      var rm = preview.querySelector('.dropzone__remove');
+      if (rm) rm.addEventListener('click', function (e) { e.stopPropagation(); setFile(null); });
+    }
+    function setFile(f) {
+      var dt = new DataTransfer(); if (f) dt.items.add(f);
+      input.files = dt.files; placeholder = null;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      render();
+    }
+    zone.addEventListener('click', function () { input.click(); });
+    zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+    input.addEventListener('change', render);
+    ['dragenter', 'dragover'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('is-drag'); }); });
+    ['dragleave', 'dragend'].forEach(function (ev) { zone.addEventListener(ev, function () { zone.classList.remove('is-drag'); }); });
+    zone.addEventListener('drop', function (e) { e.preventDefault(); zone.classList.remove('is-drag'); var f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) setFile(f); });
+
+    if (opts.existing) { placeholder = opts.existing; }
+    render();
+    var api = { input: input, file: function () { return input.files && input.files[0] ? input.files[0] : null; }, clear: function () { setFile(null); }, existing: function (url) { placeholder = url || null; render(); } };
+    input.__dz = api;
+    return api;
+  };
+
   /* ---------- Prompt dialog (single text input, with validation) ---------- */
   K.prompt = function (o) {
     return new Promise(function (resolve) {
@@ -127,7 +189,10 @@
     shop: '<path d="M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9c0 1.7 1.3 3 2.7 3S9.3 10.7 9.3 9c0 1.7 1.3 3 2.7 3s2.7-1.300 2.7-3c0 1.700 1.300 3 2.700 3S20 10.700 20 9M9 20v-5h6v5"/>',
     receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/>',
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-    cart: '<path d="M3 4h2l2.4 11h10.200L20 8H6.200"/><circle cx="9" cy="19" r="1.500"/><circle cx="17" cy="19" r="1.500"/>'
+    cart: '<path d="M3 4h2l2.4 11h10.200L20 8H6.200"/><circle cx="9" cy="19" r="1.500"/><circle cx="17" cy="19" r="1.500"/>',
+    chart: '<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="4" width="3" height="14"/>',
+    upload: '<path d="M12 15V4m0 0L8 8m4-4l4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+    file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'
   };
   K.icon = function (n) { return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICON[n] + '</svg>'; };
 
@@ -138,7 +203,7 @@
     var pendingPay = D.payments.filter(function (p) { return p.status === 'PENDING'; }).length;
     var items = kind === 'admin'
       ? [['index', 'Overview', 'home'], ['businesses', 'Businesses', 'shop', pendingApprovals], ['payments', 'Payments', 'receipt', pendingPay]]
-      : [['index', 'Overview', 'home'], ['orders', 'Orders', 'bag', pendingOrders], ['products', 'Products', 'box'], ['subscription', 'Subscription', 'card'], ['settings', 'Store settings', 'gear']];
+      : [['index', 'Overview', 'home'], ['orders', 'Orders', 'bag', pendingOrders], ['products', 'Products', 'box'], ['reports', 'Reports', 'chart'], ['subscription', 'Subscription', 'card'], ['settings', 'Store settings', 'gear']];
     var nav = items.map(function (i) {
       return '<a href="' + i[0] + '.html"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
     }).join('');

@@ -127,6 +127,7 @@ Auth: send `Authorization: Bearer <token>` from `POST /api/auth/login`.
 | PUT    | `/api/products/:id`                    | Edit product                    |
 | DELETE | `/api/products/:id`                    | Delete product                  |
 | GET    | `/api/dashboard/overview`              | Sales today, counts, 7-day chart|
+| GET    | `/api/dashboard/reports`               | Analytics (Business/Pro plans)  |
 | GET    | `/api/dashboard/orders`                | Orders list                     |
 | PUT    | `/api/dashboard/orders/:code/status`   | Change order status             |
 | GET    | `/api/dashboard/subscription`          | Plan, dates, payment history    |

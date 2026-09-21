@@ -43,6 +43,7 @@
     (function () {
       var K = Kade, D = KadeData;
       K.shell('dashboard', 'subscription');
+      K.dropzone(K.$('#slip'), { title: 'Drag & drop your payment slip', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your payment slip' });
 
       var me = D.businesses[0], days = K.daysUntil(me.expiry), total = 30, used = Math.min(total, Math.max(0, total - days));
       var tone = days <= 3 ? 'danger' : days <= 7 ? 'warning' : '';

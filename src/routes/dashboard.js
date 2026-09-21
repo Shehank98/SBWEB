@@ -52,6 +52,83 @@ dashboardRouter.get(
   })
 );
 
+// ---- Reports / analytics (Business and Pro plans only) ----
+dashboardRouter.get(
+  '/reports',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const plan = (
+      await query(
+        `SELECT pl.id, pl.name FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
+          WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
+        [b]
+      )
+    ).rows[0];
+    const planId = plan ? plan.id : null;
+    if (planId === 'starter' || !planId) {
+      throw badRequest('Reports are available on the Business and Pro plans.');
+    }
+
+    const totals = (
+      await query(
+        `SELECT COALESCE(SUM(total),0) revenue, COUNT(*) orders,
+                COUNT(*) FILTER (WHERE status <> 'CANCELLED') paid
+           FROM orders WHERE business_id = $1`,
+        [b]
+      )
+    ).rows[0];
+    const itemsSold = (
+      await query(
+        `SELECT COALESCE(SUM(oi.qty),0) n FROM order_items oi
+           JOIN orders o ON o.id = oi.order_id
+          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'`,
+        [b]
+      )
+    ).rows[0].n;
+    const byStatus = (
+      await query(`SELECT status, COUNT(*) n FROM orders WHERE business_id = $1 GROUP BY status`, [b])
+    ).rows.map((r) => ({ status: r.status, count: Number(r.n) }));
+    const topProducts = (
+      await query(
+        `SELECT oi.name, SUM(oi.qty) units, SUM(oi.qty * oi.price) revenue
+           FROM order_items oi JOIN orders o ON o.id = oi.order_id
+          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'
+          GROUP BY oi.name ORDER BY units DESC LIMIT 10`,
+        [b]
+      )
+    ).rows.map((r) => ({ name: r.name, units: Number(r.units), revenue: Number(r.revenue) }));
+    const lowStock = Number(
+      (await query('SELECT COUNT(*) c FROM products WHERE business_id = $1 AND stock <= low_at', [b])).rows[0].c
+    );
+
+    const revenue = Number(totals.revenue);
+    const paid = Number(totals.paid);
+    const report = {
+      plan: plan.name,
+      revenue,
+      orders: Number(totals.orders),
+      paidOrders: paid,
+      avgOrder: paid ? Math.round(revenue / paid) : 0,
+      itemsSold: Number(itemsSold),
+      lowStock,
+      byStatus,
+      topProducts,
+    };
+    // Advanced insights are Pro-only.
+    if (planId === 'pro') {
+      report.cities = (
+        await query(
+          `SELECT COALESCE(NULLIF(city,''),'Unknown') city, COUNT(*) n
+             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+             GROUP BY 1 ORDER BY n DESC`,
+          [b]
+        )
+      ).rows.map((r) => ({ city: r.city, orders: Number(r.n) }));
+    }
+    res.json({ report });
+  })
+);
+
 // ---- Orders list ----
 dashboardRouter.get(
   '/orders',

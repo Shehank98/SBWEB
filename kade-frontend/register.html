@@ -72,6 +72,7 @@
       var K = Kade, D = KadeData;
       var DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
       K.$('#district').innerHTML = '<option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('');
+      if (K.dropzone) K.dropzone(K.$('#slip'), { title: 'Drag & drop your payment slip', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your payment slip' });
       var taken = Object.keys(D.stores).concat(D.businesses.map(function (b) { return b.slug; }));
       var step = 1, form = K.$('#form'), sections = K.$$('[data-step]'), stepper = K.$$('#stepper li');
 
