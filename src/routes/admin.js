@@ -29,6 +29,13 @@ adminRouter.get(
       await query(`SELECT COALESCE(SUM(amount),0) AS revenue FROM payments WHERE status = 'APPROVED'`)
     ).rows[0];
     const orderCount = (await query(`SELECT COUNT(*) AS c FROM orders`)).rows[0];
+    const revenueMonths = (
+      await query(`
+        SELECT to_char(m, 'Mon') AS label, COALESCE(SUM(p.amount), 0) AS value
+          FROM generate_series(date_trunc('month', CURRENT_DATE) - INTERVAL '5 months', date_trunc('month', CURRENT_DATE), INTERVAL '1 month') m
+          LEFT JOIN payments p ON p.status = 'APPROVED' AND date_trunc('month', COALESCE(p.reviewed_at, p.submitted_at)) = m
+         GROUP BY m ORDER BY m`)
+    ).rows.map((r) => ({ label: r.label, value: Number(r.value) }));
     res.json({
       totalBusinesses: Number(totals.total),
       activeStores: Number(totals.active),
@@ -36,6 +43,7 @@ adminRouter.get(
       suspended: Number(totals.suspended),
       revenue: Number(revenue.revenue),
       orders: Number(orderCount.c),
+      revenueMonths,
     });
   })
 );

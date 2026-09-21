@@ -17,25 +17,30 @@
       <header class="topbar" id="topbar"></header>
       <main class="main" id="main" tabindex="-1">
 
-        <div class="page-head"><div><h1>Businesses</h1><p>Approve, suspend and extend stores.</p></div></div>
+        <div class="page-head"><div><h1>Businesses</h1><p>Approve, suspend, extend and rename stores.</p></div></div>
         <div class="toolbar"><label class="visually-hidden" for="q">Search businesses</label><input class="kd-input" id="q" type="search" placeholder="Search by business or owner"><label class="visually-hidden" for="st">Status</label><select class="kd-select" id="st"></select></div>
         <section class="kd-card" aria-label="Businesses"><div class="table-wrap"><table class="kd-table" style="min-width:860px"><thead><tr><th scope="col">Business</th><th scope="col">Plan</th><th scope="col">Status</th><th scope="col">Ends</th><th scope="col" class="kd-num">Orders</th><th scope="col" class="kd-num">Store sales</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="rows"></tbody></table></div><div id="none" class="empty" hidden><h2>No businesses match</h2><p class="muted">Try a different search or status.</p></div></section>
       </main>
     </div>
   </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
   <script src="../js/app.js"></script>
   <script>
     (function () {
       var K = Kade, D = KadeData;
+      if (!K.guard('admin')) return;
       K.shell('admin', 'businesses');
+      var API = !!(window.KadeApi && KadeApi.enabled);
 
       function addDays(iso, n) { var d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
       function activate(b) { var base = b.expiry && b.expiry > D.today ? b.expiry : D.today; b.expiry = addDays(base, 30); b.status = 'ACTIVE'; }
 
-      var B = D.businesses, q = '', st = 'ALL';
+      var B = [], q = '', st = 'ALL';
       var STATUSES = ['PENDING_PAYMENT', 'PENDING_APPROVAL', 'ACTIVE', 'EXPIRING', 'GRACE_PERIOD', 'SUSPENDED', 'CANCELLED'];
       K.$('#st').innerHTML = '<option value="ALL">All statuses</option>' + STATUSES.map(function (s) { return '<option value="' + s + '">' + s.replace(/_/g, ' ').toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) + '</option>'; }).join('');
+
       function actions(b) {
         var a = [];
         if (b.status === 'PENDING_APPROVAL') { a.push('<button class="kd-btn kd-btn--primary kd-btn--sm" data-a="approve" data-id="' + b.id + '" aria-label="Approve ' + K.esc(b.name) + '">Approve</button>', '<button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-a="reject" data-id="' + b.id + '" aria-label="Reject ' + K.esc(b.name) + '">Reject</button>'); }
@@ -51,48 +56,51 @@
       }
       K.$('#q').addEventListener('input', function () { q = this.value.trim().toLowerCase(); render(); });
       K.$('#st').addEventListener('change', function () { st = this.value; render(); });
+
+      // Run an action: API call + reload, or mock mutation + re-render.
+      function commit(apiCall, mockFn, msg) {
+        if (API) { apiCall().then(function () { K.toast(msg); return reload(); }).catch(function (ex) { K.toast(ex.message || 'Action failed.'); }); }
+        else { mockFn(); render(); K.toast(msg); }
+      }
+
       K.$('#rows').addEventListener('click', function (e) {
-        var btn = e.target.closest('button'); if (!btn) return; var b = B.filter(function (x) { return x.id === btn.getAttribute('data-id'); })[0], a = btn.getAttribute('data-a');
-        if (a === 'approve') { activate(b); render(); K.toast(b.name + ' approved. The "store is ready" email is queued.'); }
-        else if (a === 'reactivate') { activate(b); render(); K.toast(b.name + ' is open again for 30 days.'); }
-        else if (a === 'extend') { b.expiry = addDays(b.expiry > D.today ? b.expiry : D.today, 30); b.status = 'ACTIVE'; render(); K.toast(b.name + ' extended to ' + K.fmtDate(b.expiry) + '.'); }
-        else if (a === 'suspend') K.confirm({ title: 'Suspend ' + b.name + '?', body: 'Their store will show as temporarily unavailable. Products and orders are kept and come back when you reactivate.', confirmLabel: 'Suspend store', danger: true }).then(function (ok) { if (ok) { b.status = 'SUSPENDED'; render(); K.toast(b.name + ' suspended.'); } });
-        else if (a === 'reject') K.confirm({ title: 'Reject ' + b.name + '?', body: 'The owner gets an email with your reason.', confirmLabel: 'Reject application', danger: true, reason: 'Reason for the owner' }).then(function (r) { if (r) { b.status = 'CANCELLED'; render(); K.toast('Application rejected. Email queued.'); } });
+        var btn = e.target.closest('button'); if (!btn) return;
+        var b = B.filter(function (x) { return x.id === btn.getAttribute('data-id'); })[0], a = btn.getAttribute('data-a');
+        if (a === 'approve') commit(function () { return KadeApi.adminApprove(b.id); }, function () { activate(b); }, b.name + ' approved. The "store is ready" email is queued.');
+        else if (a === 'reactivate') commit(function () { return KadeApi.adminReactivate(b.id); }, function () { activate(b); }, b.name + ' is open again for 30 days.');
+        else if (a === 'extend') commit(function () { return KadeApi.adminExtend(b.id, 30); }, function () { b.expiry = addDays(b.expiry > D.today ? b.expiry : D.today, 30); b.status = 'ACTIVE'; }, b.name + ' extended by 30 days.');
+        else if (a === 'suspend') K.confirm({ title: 'Suspend ' + b.name + '?', body: 'Their store will show as temporarily unavailable. Products and orders are kept and come back when you reactivate.', confirmLabel: 'Suspend store', danger: true }).then(function (ok) { if (ok) commit(function () { return KadeApi.adminSuspend(b.id); }, function () { b.status = 'SUSPENDED'; }, b.name + ' suspended.'); });
+        else if (a === 'reject') K.confirm({ title: 'Reject ' + b.name + '?', body: 'The owner gets an email with your reason.', confirmLabel: 'Reject application', danger: true, reason: 'Reason for the owner' }).then(function (r) { if (r) commit(function () { return KadeApi.adminReject(b.id, r.reason); }, function () { b.status = 'CANCELLED'; }, 'Application rejected. Email queued.'); });
         else if (a === 'slug') changeLink(b);
       });
 
-      /* Change the store link (slug) at the owner's request. */
       function changeLink(b) {
         K.prompt({
-          title: 'Change store link',
-          label: 'Store link for ' + b.name,
-          value: b.slug,
-          placeholder: 'abc-fashion',
-          help: 'Lowercase letters, numbers and hyphens. Customers use ' + K.host + '/store/<name>.',
-          confirmLabel: 'Save link',
+          title: 'Change store link', label: 'Store link for ' + b.name, value: b.slug, placeholder: 'abc-fashion',
+          help: 'Lowercase letters, numbers and hyphens. Customers use ' + K.host + '/store/<name>.', confirmLabel: 'Save link',
           validate: function (v) {
             if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(v) || v.length < 3) return 'Use 3 or more lowercase letters, numbers and hyphens only.';
-            var taken = B.some(function (x) { return x !== b && x.slug === v; }) || (D.stores[v] && D.stores[v].slug !== b.slug);
-            if (taken) return 'That link is already taken.';
+            if (B.some(function (x) { return x !== b && x.slug === v; })) return 'That link is already taken.';
             return '';
           }
         }).then(function (v) {
           if (!v || v === b.slug) return;
-          function applyLocal(newSlug) {
+          if (API) { KadeApi.adminChangeSlug(b.id, v).then(function () { K.toast('Store link changed to ' + K.host + '/store/' + v); return reload(); }).catch(function (ex) { K.toast(ex.message || 'Could not change the link.'); }); }
+          else {
             var old = b.slug;
-            if (D.stores[old]) { D.stores[newSlug] = D.stores[old]; D.stores[newSlug].slug = newSlug; if (newSlug !== old) delete D.stores[old]; }
-            D.products.forEach(function (p) { if (p.store === old) p.store = newSlug; });
-            D.orders.forEach(function (o) { if (o.business === old) o.business = newSlug; });
-            b.slug = newSlug; render(); K.toast('Store link changed to ' + K.host + '/store/' + newSlug);
+            if (D.stores[old]) { D.stores[v] = D.stores[old]; D.stores[v].slug = v; if (v !== old) delete D.stores[old]; }
+            D.products.forEach(function (p) { if (p.store === old) p.store = v; });
+            D.orders.forEach(function (o) { if (o.business === old) o.business = v; });
+            b.slug = v; render(); K.toast('Store link changed to ' + K.host + '/store/' + v);
           }
-          // Uses the real API when the admin page is connected; otherwise updates the demo data.
-          if (window.KadeApi && KadeApi.enabled && KadeApi.token()) {
-            KadeApi.adminChangeSlug(b.id, v).then(function (r) { applyLocal(r.slug || v); }).catch(function (ex) { K.toast(ex.message || 'Could not change the link.'); });
-          } else { applyLocal(v); }
         });
       }
-      render();
 
+      function reload() { return KadeApi.adminBusinesses().then(function (r) { B = r.businesses; render(); }); }
+      if (API) {
+        K.$('#rows').innerHTML = '<tr><td colspan="7" style="padding:16px">' + K.spinner() + ' Loading businesses…</td></tr>';
+        reload().catch(function () { K.$('#rows').innerHTML = '<tr><td colspan="7" class="muted" style="padding:16px">Could not load businesses.</td></tr>'; });
+      } else { B = D.businesses; render(); }
     })();
   </script>
 </body>
