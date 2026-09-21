@@ -1,8 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { UPLOAD_DIR } from './services/uploads.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FRONTEND_DIR = path.join(__dirname, '..', 'kade-frontend');
 
 import { authRouter } from './routes/auth.js';
 import { plansRouter } from './routes/plans.js';
@@ -34,7 +39,14 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/store', storeRouter);
 app.use('/api/notifications', notificationsRouter);
 
-app.use(notFoundHandler);
+// Serve the frontend (landing, storefront, dashboard, admin) from the same origin.
+// This makes the whole platform a single deployable service: the pages call the API
+// at a relative path, so there is no CORS and no second service to run.
+app.use(express.static(FRONTEND_DIR, { extensions: ['html'] }));
+app.get('/', (_req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
+
+// Unknown /api routes -> JSON 404; everything else falls through to the frontend 404.
+app.use('/api', notFoundHandler);
 app.use(errorHandler);
 
 const server = app.listen(config.port, () => {

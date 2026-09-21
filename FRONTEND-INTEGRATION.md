@@ -1,19 +1,23 @@
 # Connecting the frontend to the backend
 
-The `kade-frontend/` prototype runs on mock data (`js/data.js`) so it works
-offline. The `backend/` API now provides the same data shapes for real. This
-guide shows how to point the frontend at the API.
+The whole platform runs as **one service**: the Node app at the repo root serves
+`kade-frontend/` **and** the API. So when you run `npm start` (or deploy to
+Railway) and open the site, the pages talk to the API at the **same origin**
+automatically — no configuration needed.
 
-## 1. Set the API base
+## 1. API base (usually nothing to do)
 
-Edit `kade-frontend/js/config.js`:
+`js/api.js` enables the API whenever the page is served over http/https, using a
+relative `/api` path. You only touch `js/config.js` if the frontend is hosted
+**separately** from the API:
 
 ```js
-window.KADE_API_BASE = 'https://your-api.up.railway.app';  // '' keeps mock mode
+window.KADE_API_BASE = 'https://your-api.up.railway.app';  // only for split hosting
 ```
 
-Every page that uses `js/api.js` checks `KadeApi.enabled`. When the base is
-empty, pages fall back to the mock data, so nothing breaks in offline demos.
+Opening the files directly from disk (`file://`) with no base keeps the offline
+mock-data prototype. Set `window.KADE_API_DISABLED = true` to force mock mode.
+Pages that aren't wired yet check `KadeApi.enabled` and fall back to mock data.
 
 ## 2. What is already wired
 

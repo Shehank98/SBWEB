@@ -11,6 +11,12 @@
  */
 (function () {
   var BASE = (window.KADE_API_BASE || '').replace(/\/$/, '');
+  // The API is enabled when the page is served over http(s) — i.e. by our own Node
+  // server (same origin, BASE '') or pointed at a remote API (BASE set). Opening the
+  // files directly (file://) with no BASE keeps the offline mock-data prototype.
+  // Set window.KADE_API_DISABLED = true to force mock mode anywhere.
+  var ENABLED = window.KADE_API_DISABLED ? false
+    : (BASE ? true : (location.protocol === 'http:' || location.protocol === 'https:'));
   var TOKEN_KEY = 'kade-token';
   var USER_KEY = 'kade-user';
 
@@ -47,7 +53,7 @@
 
   var KadeApi = {
     base: BASE,
-    enabled: !!BASE,           // pages check this to decide API vs. mock
+    enabled: ENABLED,          // pages check this to decide API vs. mock
     token: token,
     currentUser: currentUser,
     clearSession: clearSession,

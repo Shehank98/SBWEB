@@ -1,26 +1,33 @@
-# Kade backend
+# Kade — multi-tenant commerce platform
 
-The multi-tenant commerce engine behind the Kade storefront prototype. Node.js +
-Express + PostgreSQL, with JWT auth, strict per-business data isolation, a
-notifications outbox for Google Apps Script, Firebase-ready image uploads, and a
-daily subscription-lifecycle job.
+A single deployable service: one Node.js app that serves both the **storefront
+frontend** (`kade-frontend/`) and the **REST API**. Node.js + Express +
+PostgreSQL, with JWT auth, strict per-business data isolation, a notifications
+outbox for Google Apps Script, Firebase-ready image uploads, and a daily
+subscription-lifecycle job.
 
 It implements the MVP scope: **registration → admin approval → subscription &
 payment → business dashboard → products → storefront → orders → email
 automation → expiry automation.**
+
+The whole app runs from the repo root (no subfolders), so it deploys as **one
+Railway service** with no Root Directory setting to configure.
 
 ---
 
 ## 1. Quick start (local)
 
 ```bash
-cd backend
 cp .env.example .env          # then edit DATABASE_URL + JWT_SECRET
 npm install
 npm run db:setup              # create the tables
 npm run db:seed               # load demo data that matches the frontend
-npm start                     # API on http://localhost:4000
+npm start                     # whole platform on http://localhost:4000
 ```
+
+Then open **http://localhost:4000** — the landing page, storefront, dashboard
+and admin panel are all served there, and they call the API at the same origin
+(so there is no CORS to configure).
 
 Seeded logins (printed by the seed):
 
@@ -49,11 +56,12 @@ Express REST API  ──►  PostgreSQL   (all tenant data, business_id-scoped)
         └──►  notifications table   ◄── Google Apps Script polls, sends email
 ```
 
-Source layout:
+Source layout (repo root):
 
 ```
+kade-frontend/           static site, served by the same Node app
 src/
-  server.js              app bootstrap + route mounting
+  server.js              app bootstrap + route mounting + static frontend
   config.js              env -> typed config
   db/
     schema.sql           all tables (business_id on every tenant table)
@@ -171,16 +179,21 @@ suspension email when a store lapses.
 
 ---
 
-## 5. Deploying on Railway
+## 5. Deploying on Railway (single service)
 
-1. **New Project → Deploy from GitHub repo**, root directory `backend/`.
+Because the app lives at the repo root, Railway builds it with no Root Directory
+setting — it finds `package.json` and runs `npm start`.
+
+1. **New Project → Deploy from GitHub repo** (leave Root Directory blank).
 2. Add a **PostgreSQL** plugin — Railway injects `DATABASE_URL` automatically.
-3. Set variables: `JWT_SECRET`, `DATABASE_SSL=true`, `CORS_ORIGIN=<your frontend URL>`,
-   `PUBLIC_BASE_URL=<your API URL>`, and the `ADMIN_*` values.
-4. First deploy runs `npm start`. Then, once, from the Railway shell:
-   `npm run db:setup` (and `npm run db:seed` if you want the demo data).
-5. Add a **Cron** service (same repo) with schedule `0 1 * * *` running
-   `npm run job:subscriptions`.
+3. Set variables: `JWT_SECRET`, `DATABASE_SSL=true`,
+   `PUBLIC_BASE_URL=<your Railway URL>`, and the `ADMIN_*` values.
+   (`CORS_ORIGIN` can stay `*`; the frontend is same-origin so it isn't needed.)
+4. First deploy runs `npm start` and serves the whole platform at your Railway
+   URL. Then, once, from the Railway shell: `npm run db:setup`
+   (and `npm run db:seed` for the demo data).
+5. Optional: add a **Cron** service (same repo) with schedule `0 1 * * *`
+   running `npm run job:subscriptions` for the subscription lifecycle.
 
 ## 6. Firebase Storage (product photos & slips)
 
