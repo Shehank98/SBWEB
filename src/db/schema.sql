@@ -217,6 +217,8 @@ CREATE INDEX IF NOT EXISTS idx_coupons_business ON coupons(business_id);
 -- Discount columns on orders (idempotent for existing databases).
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount INTEGER NOT NULL DEFAULT 0;
+-- Optional customer email so we can send order-status updates by email.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_email TEXT;
 
 -- Staff permissions: which dashboard sections a BUSINESS_STAFF user may use
 -- (e.g. ["orders","products"]). Owners have full access regardless.
@@ -233,7 +235,9 @@ CREATE TABLE IF NOT EXISTS notifications (
   subject      TEXT NOT NULL,
   message      TEXT NOT NULL,
   status       TEXT NOT NULL DEFAULT 'PENDING',   -- PENDING | SENT | FAILED
+  data         JSONB NOT NULL DEFAULT '{}'::jsonb, -- structured fields for the email template
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   sent_at      TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;

@@ -22,7 +22,7 @@ notificationsRouter.get(
   '/pending',
   wrap(async (_req, res) => {
     const { rows } = await query(
-      `SELECT id, type, recipient, subject, message, created_at
+      `SELECT id, type, recipient, subject, message, data, created_at
          FROM notifications WHERE status = 'PENDING' ORDER BY created_at LIMIT 50`
     );
     res.json({ notifications: rows });

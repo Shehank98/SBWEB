@@ -115,11 +115,11 @@ storeRouter.post(
           created = (
             await client.query(
               `INSERT INTO orders (business_id, code, customer_name, phone, whatsapp, address, city, district,
-                                   delivery_method, payment_method, subtotal, delivery_fee, total, note, coupon_code, discount)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+                                   delivery_method, payment_method, subtotal, delivery_fee, total, note, coupon_code, discount, customer_email)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
               [st.biz_id, orderCode(), customer, phone, body.whatsapp || null, body.address || null,
                body.city || null, body.district || null, body.delivery || 'Delivery',
-               body.payment || 'Cash on delivery', subtotal, fee, total, body.note || null, couponCode, discount]
+               body.payment || 'Cash on delivery', subtotal, fee, total, body.note || null, couponCode, discount, body.email || null]
             )
           ).rows[0];
         } catch (e) {

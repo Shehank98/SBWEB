@@ -5,6 +5,7 @@ import { authenticate, requireBusiness, requireOwner, requirePermission } from '
 import { wrap, badRequest, notFound, conflict } from '../utils/http.js';
 import { saveUpload } from '../services/uploads.js';
 import { hashPassword } from '../utils/auth.js';
+import { queueNotification, templates } from '../services/notifications.js';
 import * as S from '../services/serialize.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -174,6 +175,14 @@ dashboardRouter.put(
         'INSERT INTO order_status_history (order_id, status, changed_by) VALUES ($1,$2,$3)',
         [order.id, status, req.user.sub]
       );
+      // Email the customer their order update, if they left an email at checkout.
+      if (order.customer_email) {
+        const biz = (await client.query('SELECT name FROM businesses WHERE id=$1', [b])).rows[0];
+        await queueNotification(
+          { businessId: b, recipient: order.customer_email, ...templates.orderStatus({ name: biz ? biz.name : 'Your store' }, order, status) },
+          client
+        );
+      }
     });
     res.json({ ok: true, status });
   })
