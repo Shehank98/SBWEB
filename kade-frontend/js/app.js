@@ -198,22 +198,26 @@
 
   /* ---------- App shell (owner dashboard and admin) ---------- */
   K.shell = function (kind, active) {
-    var pendingOrders = K.orders().filter(function (o) { return o.status === 'PENDING'; }).length;
-    var pendingApprovals = D.businesses.filter(function (b) { return b.status === 'PENDING_APPROVAL'; }).length;
-    var pendingPay = D.payments.filter(function (p) { return p.status === 'PENDING'; }).length;
+    var api = !!(window.KadeApi && KadeApi.enabled);
+    var sess = api && KadeApi.currentUser ? KadeApi.currentUser() : null;
+    var pendingOrders = api ? 0 : K.orders().filter(function (o) { return o.status === 'PENDING'; }).length;
+    var pendingApprovals = api ? 0 : D.businesses.filter(function (b) { return b.status === 'PENDING_APPROVAL'; }).length;
+    var pendingPay = api ? 0 : D.payments.filter(function (p) { return p.status === 'PENDING'; }).length;
     var items = kind === 'admin'
       ? [['index', 'Overview', 'home'], ['businesses', 'Businesses', 'shop', pendingApprovals], ['payments', 'Payments', 'receipt', pendingPay]]
       : [['index', 'Overview', 'home'], ['orders', 'Orders', 'bag', pendingOrders], ['products', 'Products', 'box'], ['reports', 'Reports', 'chart'], ['subscription', 'Subscription', 'card'], ['settings', 'Store settings', 'gear']];
     var nav = items.map(function (i) {
       return '<a href="' + i[0] + '.html"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
     }).join('');
-    var ctx = kind === 'admin' ? 'Platform admin' : 'ABC Fashion';
+    var ctx = kind === 'admin' ? 'Platform admin' : ((sess && sess.storeName) ? sess.storeName : 'ABC Fashion');
+    var mySlug = (sess && sess.slug) ? sess.slug : 'abc-fashion';
     var foot = kind === 'admin'
-      ? '<a class="kd-link" href="../login.html">Log out</a>'
-      : '<a class="kd-link" href="../store/index.html?s=abc-fashion" target="_blank" rel="noopener">View my store</a><a class="kd-link" href="../login.html">Log out</a>';
+      ? '<a class="kd-link" href="../login.html" id="logout">Log out</a>'
+      : '<a class="kd-link" href="../store/index.html?s=' + K.esc(mySlug) + '" target="_blank" rel="noopener">View my store</a><a class="kd-link" href="../login.html" id="logout">Log out</a>';
     var sb = K.$('#sidebar');
     sb.innerHTML = '<div class="sidebar__brand"><a class="wordmark" href="../index.html">Kade</a><span class="sidebar__ctx">' + (kind === 'admin' ? 'Admin panel' : 'Owner dashboard') + '</span></div>' +
       '<nav class="nav" aria-label="Main">' + nav + '</nav><div class="sidebar__foot">' + foot + '</div>';
+    var lo = K.$('#logout'); if (lo) lo.addEventListener('click', function (e) { if (window.KadeApi && KadeApi.enabled) { e.preventDefault(); KadeApi.logout(); location.href = '../login.html'; } });
     var tb = K.$('#topbar');
     tb.innerHTML = '<div class="row"><button class="kd-btn kd-btn--secondary menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">' + K.icon('menu') + '</button><strong>' + K.esc(ctx) + '</strong></div>' +
       '<div class="row"><button class="kd-btn kd-btn--ghost" type="button" id="theme-toggle"></button></div>';
@@ -234,6 +238,17 @@
       paint();
     });
     paint();
+  };
+
+  /* Auth guard for protected pages. In mock mode (file://) it allows through so the
+     offline prototype still works. Returns false after redirecting. */
+  K.guard = function (kind) {
+    if (!(window.KadeApi && KadeApi.enabled)) return true;
+    var u = KadeApi.token() ? KadeApi.currentUser() : null;
+    if (!u) { location.replace('../login.html'); return false; }
+    if (kind === 'admin' && u.role !== 'SUPER_ADMIN') { location.replace('../login.html'); return false; }
+    if (kind === 'owner' && u.role === 'SUPER_ADMIN') { location.replace('../admin/index.html'); return false; }
+    return true;
   };
 
   /* All orders for the demo business: seeded ones plus any placed through the demo storefront in this browser. */

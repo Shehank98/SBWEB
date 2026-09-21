@@ -108,14 +108,21 @@ authRouter.post(
     const ok = await verifyPassword(password, user.password_hash);
     if (!ok) throw unauthorized('Incorrect email or password.');
 
-    // Attach the store slug for owners so the client can link straight to the storefront.
+    // Attach the store slug + name for owners so the client can label the dashboard
+    // and link straight to the storefront.
     let slug = null;
     let businessStatus = null;
+    let storeName = null;
+    let planId = null;
     if (user.business_id) {
-      const b = (await query('SELECT status FROM businesses WHERE id = $1', [user.business_id])).rows[0];
+      const b = (await query('SELECT name, status FROM businesses WHERE id = $1', [user.business_id])).rows[0];
       businessStatus = b ? b.status : null;
-      const s = (await query('SELECT slug FROM stores WHERE business_id = $1', [user.business_id])).rows[0];
+      storeName = b ? b.name : null;
+      const s = (await query('SELECT slug, name FROM stores WHERE business_id = $1', [user.business_id])).rows[0];
       slug = s ? s.slug : null;
+      if (s && s.name) storeName = s.name;
+      const sub = (await query('SELECT plan_id FROM subscriptions WHERE business_id = $1 ORDER BY created_at DESC LIMIT 1', [user.business_id])).rows[0];
+      planId = sub ? sub.plan_id : null;
     }
 
     res.json({
@@ -127,6 +134,8 @@ authRouter.post(
         role: user.role,
         business_id: user.business_id,
         slug,
+        storeName,
+        planId,
         businessStatus,
       },
     });

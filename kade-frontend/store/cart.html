@@ -12,18 +12,21 @@
   <div id="store-header"></div>
   <main id="main" class="container" tabindex="-1"></main>
   <div id="store-footer"></div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
   <script src="../js/app.js"></script>
   <script src="../js/store.js"></script>
   <script>
     (function () {
-      var K = Kade, D = KadeData, s = K.storeInit(); if (!s) return;
+      var K = Kade, D = KadeData;
+      K.loadStore(function (s, products) {
       document.title = 'Your cart | ' + s.name;
       var main = K.$('#main'), DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
       var method = 'delivery', pay = s.payments.cod ? 'cod' : 'bank', step = 1;
 
       function lines() {
-        return K.cart.get(s.slug).map(function (i) { var p = D.products.filter(function (x) { return x.id === i.pid; })[0]; return p ? { i: i, p: p } : null; }).filter(Boolean);
+        return K.cart.get(s.slug).map(function (i) { var p = products.filter(function (x) { return x.id === i.pid; })[0]; return p ? { i: i, p: p } : null; }).filter(Boolean);
       }
       function money() {
         var sub = lines().reduce(function (n, l) { return n + K.priceOf(l.p) * l.i.qty; }, 0);
@@ -127,16 +130,37 @@
         /* Steps 1-2: advance. Step 3: place the order. */
         if (step < 3) { showStep(step + 1); focusStep(); return; }
         var ls = lines(), m = money(), v = function (id) { var x = document.getElementById(id); return x ? x.value.trim() : ''; };
-        var n = 10453 + K.newOrders.get().length;
-        var order = { id: 'ORD-' + n, business: s.slug, date: D.today, customer: v('fn'), phone: v('ph'), city: method === 'pickup' ? 'Pickup' : v('ct'), address: v('ad'), items: ls.map(function (l) { var o = optTxt(l.i.opts); return { name: l.p.name + (o ? ' (' + o + ')' : ''), qty: l.i.qty, price: K.priceOf(l.p) }; }), subtotal: m.sub, delivery: m.fee, total: m.total, status: 'PENDING', payment: pay === 'cod' ? 'Cash on delivery' : 'Bank transfer', note: v('nt') };
-        K.newOrders.add(order); K.cart.clear(s.slug); K.updateCartCount();
+        var itemsOut = ls.map(function (l) { var o = optTxt(l.i.opts); return { name: l.p.name + (o ? ' (' + o + ')' : ''), qty: l.i.qty, price: K.priceOf(l.p) }; });
+        var payLabel = pay === 'cod' ? 'Cash on delivery' : 'Bank transfer';
+        if (window.KadeApi && KadeApi.enabled) {
+          var restore = K.btnLoading(K.$('#co-next'), 'Placing order…');
+          KadeApi.placeOrder(s.slug, {
+            customer: v('fn'), phone: v('ph'), whatsapp: v('wa'),
+            address: v('ad'), city: method === 'pickup' ? 'Pickup' : v('ct'), district: v('ds'),
+            delivery: method === 'pickup' ? 'Pickup' : 'Delivery', payment: payLabel, note: v('nt'),
+            items: ls.map(function (l) { return { pid: l.p.id, qty: l.i.qty, variant: optTxt(l.i.opts) }; })
+          }).then(function (res) {
+            K.cart.clear(s.slug); K.updateCartCount();
+            var od = res.order || {};
+            showPlaced({ id: res.code, items: (od.items && od.items.length) ? od.items : itemsOut, delivery: od.delivery != null ? od.delivery : m.fee, total: od.total != null ? od.total : m.total, payment: payLabel });
+          }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not place your order. Please try again.'); });
+        } else {
+          var n = 10453 + K.newOrders.get().length;
+          K.newOrders.add({ id: 'ORD-' + n, business: s.slug, date: D.today, customer: v('fn'), phone: v('ph'), city: method === 'pickup' ? 'Pickup' : v('ct'), address: v('ad'), items: itemsOut, subtotal: m.sub, delivery: m.fee, total: m.total, status: 'PENDING', payment: payLabel, note: v('nt') });
+          K.cart.clear(s.slug); K.updateCartCount();
+          showPlaced({ id: 'ORD-' + n, items: itemsOut, delivery: m.fee, total: m.total, payment: payLabel });
+        }
+      });
+
+      function showPlaced(order) {
         var msg = 'Hello ' + s.name + ', I placed order ' + order.id + ' (' + K.rs(order.total) + ').' + (pay === 'bank' ? ' I am sending the payment slip.' : '');
-        main.innerHTML = '<div class="stack-lg" style="max-width:560px;margin:0 auto;padding:48px 0" role="status"><div class="kd-banner kd-banner--success"><div><p class="kd-banner__title">Order placed</p><p style="margin-top:4px">Your order number is <strong class="price-sm">' + order.id + '</strong>. ' + K.esc(s.name) + ' will confirm it shortly.</p></div></div>' +
+        main.innerHTML = '<div class="stack-lg" style="max-width:560px;margin:0 auto;padding:48px 0" role="status"><div class="kd-banner kd-banner--success"><div><p class="kd-banner__title">Order placed</p><p style="margin-top:4px">Your order number is <strong class="price-sm">' + K.esc(order.id) + '</strong>. ' + K.esc(s.name) + ' will confirm it shortly.</p></div></div>' +
           '<div class="kd-card panel"><h2 class="heading">Summary</h2><ul class="list">' + order.items.map(function (i) { return '<li><span>' + i.qty + ' &times; ' + K.esc(i.name) + '</span><span class="price-sm">' + K.rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul><div class="totals"><div><span>Delivery</span><span class="price-sm">' + (order.delivery ? K.rs(order.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span class="price">' + K.rs(order.total) + '</span></div></div><p class="muted">' + K.esc(order.payment) + (pay === 'bank' ? '. Send the amount to ' + K.esc(s.bank) + '.' : '.') + '</p></div>' +
           '<div class="row"><a class="kd-btn kd-btn--primary" href="' + K.wa(s, msg) + '" target="_blank" rel="noopener">Message the shop on WhatsApp</a><a class="kd-btn kd-btn--ghost" href="' + K.sUrl('index.html') + '">Keep shopping</a></div></div>';
         main.focus(); window.scrollTo({ top: 0 });
-      });
+      }
       view();
+      });
     })();
   </script>
 </body>
