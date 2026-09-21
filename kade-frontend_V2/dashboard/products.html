@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Products | Kade dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+
+        <div class="page-head"><div><h1>Products</h1><p id="limit"></p></div><button class="kd-btn kd-btn--primary" type="button" id="add">Add product</button></div>
+        <div class="toolbar"><label class="visually-hidden" for="q">Search products</label><input class="kd-input" id="q" type="search" placeholder="Search products"><label class="visually-hidden" for="cat">Category</label><select class="kd-select" id="cat"></select></div>
+        <section class="kd-card" aria-label="Products"><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Product</th><th scope="col" class="kd-num">Price</th><th scope="col" class="kd-num">Stock</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="rows"></tbody></table></div><div id="none" class="empty" hidden><h2>No products found</h2><p class="muted">Try a different search, or add a new product.</p></div></section>
+        <dialog id="form-dlg" aria-labelledby="ft"><form id="pf" novalidate>
+          <div class="dialog__head"><h2 class="heading" id="ft">Add product</h2></div>
+          <div class="dialog__body">
+            <div class="kd-field"><label class="kd-label" for="f-name">Product name</label><input class="kd-input" id="f-name" data-rule="required"></div>
+            <div class="kd-field"><label class="kd-label" for="f-cat">Category</label><select class="kd-select" id="f-cat" data-rule="required"></select></div>
+            <div class="form-grid form-grid--2" style="gap:16px">
+              <div class="kd-field"><label class="kd-label" for="f-price">Price (Rs.)</label><input class="kd-input" id="f-price" type="number" inputmode="numeric" min="1" data-rule="price"></div>
+              <div class="kd-field"><label class="kd-label" for="f-sale">Sale price (optional)</label><input class="kd-input" id="f-sale" type="number" inputmode="numeric" min="1" data-rule="sale"></div>
+              <div class="kd-field"><label class="kd-label" for="f-stock">Stock</label><input class="kd-input" id="f-stock" type="number" inputmode="numeric" min="0" data-rule="stock"></div>
+              <div class="kd-field"><label class="kd-label" for="f-low">Low stock alert at</label><input class="kd-input" id="f-low" type="number" inputmode="numeric" min="0" value="5"></div>
+            </div>
+            <div class="kd-field"><label class="kd-label" for="f-opts">Options (optional)</label><textarea class="kd-input" id="f-opts" placeholder="Size: S, M, L&#10;Colour: Black, White"></textarea><span class="kd-help">One option per line. Customers choose from these before adding to cart.</span></div>
+            <div class="kd-field"><label class="kd-label" for="f-desc">Description</label><textarea class="kd-input" id="f-desc"></textarea></div>
+            <div class="kd-field"><label class="kd-label" for="f-img">Photo</label><input class="kd-input" id="f-img" type="file" accept="image/*" style="padding-top:10px"><span class="kd-help">Square photos look best. Photos are uploaded to storage and shown on your store.</span></div>
+          </div>
+          <div class="dialog__foot"><button class="kd-btn kd-btn--ghost" type="button" id="cancel">Cancel</button><button class="kd-btn kd-btn--primary" type="submit">Save product</button></div>
+        </form></dialog>
+      </main>
+    </div>
+  </div>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      K.shell('dashboard', 'products');
+
+      var S = D.stores['abc-fashion'], me = D.businesses[0], plan = D.plans.filter(function (p) { return p.name === me.plan; })[0];
+      function mine() { return D.products.filter(function (p) { return p.store === 'abc-fashion'; }); }
+      var q = '', cat = 'All', editing = null;
+      var initial = new URLSearchParams(location.search); if (initial.get('q')) { q = initial.get('q').toLowerCase(); K.$('#q').value = initial.get('q'); }
+      K.$('#cat').innerHTML = ['All'].concat(S.categories).map(function (c) { return '<option>' + c + '</option>'; }).join('');
+      K.$('#f-cat').innerHTML = '<option value="">Choose one</option>' + S.categories.map(function (c) { return '<option>' + c + '</option>'; }).join('');
+      function render() {
+        K.$('#limit').textContent = mine().length + ' of ' + plan.maxProducts + ' products used on your ' + plan.name + ' plan.';
+        var list = mine().filter(function (p) { return (cat === 'All' || p.category === cat) && (!q || p.name.toLowerCase().indexOf(q) >= 0); });
+        K.$('#none').hidden = list.length > 0;
+        K.$('#rows').innerHTML = list.map(function (p) {
+          var opts = Object.keys(p.options || {}).map(function (g) { return g + ': ' + p.options[g].length; }).join(', ');
+          return '<tr><td><div class="cell-flex"><div class="thumb">' + K.ph(p, true) + '</div><div><strong>' + K.esc(p.name) + '</strong><span class="sub">' + K.esc(p.category) + (opts ? ' | ' + K.esc(opts) : '') + '</span></div></div></td>' +
+            '<td class="kd-num">' + K.rs(K.priceOf(p)) + (p.sale ? '<span class="sub" style="text-decoration:line-through">' + K.rs(p.price) + '</span>' : '') + '</td><td class="kd-num">' + p.stock + '</td><td>' + K.stockBadge(p) + '</td>' +
+            '<td><div class="actions"><button class="kd-btn kd-btn--secondary kd-btn--sm" data-edit="' + p.id + '" aria-label="Edit ' + K.esc(p.name) + '">Edit</button><button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-del="' + p.id + '" aria-label="Delete ' + K.esc(p.name) + '">Delete</button></div></td></tr>';
+        }).join('');
+      }
+      var dlg = K.$('#form-dlg'), f = function (id) { return K.$('#f-' + id); };
+      function parseOpts(t) { var o = {}; t.split('\n').forEach(function (line) { var i = line.indexOf(':'); if (i < 1) return; var vals = line.slice(i + 1).split(',').map(function (v) { return v.trim(); }).filter(Boolean); if (vals.length) o[line.slice(0, i).trim()] = vals; }); return o; }
+      function optText(o) { return Object.keys(o || {}).map(function (g) { return g + ': ' + o[g].join(', '); }).join('\n'); }
+      function err(inp, msg) { var fl = inp.closest('.kd-field'), o = fl.querySelector('.kd-error'); if (o) o.remove(); fl.classList.toggle('kd-field--error', !!msg); inp.setAttribute('aria-invalid', msg ? 'true' : 'false'); if (msg) { var e = document.createElement('span'); e.className = 'kd-error'; e.textContent = msg; fl.appendChild(e); } }
+      function open(p) {
+        editing = p; K.$('#ft').textContent = p ? 'Edit product' : 'Add product';
+        K.$$('#pf .kd-error').forEach(function (e) { e.remove(); }); K.$$('#pf .kd-field--error').forEach(function (e) { e.classList.remove('kd-field--error'); });
+        f('name').value = p ? p.name : ''; f('cat').value = p ? p.category : ''; f('price').value = p ? p.price : ''; f('sale').value = p && p.sale ? p.sale : ''; f('stock').value = p ? p.stock : ''; f('low').value = p ? p.lowAt : 5; f('opts').value = p ? optText(p.options) : ''; f('desc').value = p ? p.desc : ''; f('img').value = '';
+        dlg.showModal(); f('name').focus();
+      }
+      K.$('#add').addEventListener('click', function () { open(null); });
+      K.$('#cancel').addEventListener('click', function () { dlg.close(); });
+      K.$('#rows').addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        if (b.getAttribute('data-edit')) open(D.products.filter(function (p) { return p.id === b.getAttribute('data-edit'); })[0]);
+        if (b.getAttribute('data-del')) { var p = D.products.filter(function (x) { return x.id === b.getAttribute('data-del'); })[0]; K.confirm({ title: 'Delete ' + p.name + '?', body: 'It will disappear from your store. Past orders keep their details.', confirmLabel: 'Delete product', danger: true }).then(function (ok) { if (ok) { D.products.splice(D.products.indexOf(p), 1); render(); K.toast('Product deleted'); } }); }
+      });
+      K.$('#q').addEventListener('input', function () { q = this.value.trim().toLowerCase(); render(); });
+      K.$('#cat').addEventListener('change', function () { cat = this.value; render(); });
+      K.$('#pf').addEventListener('submit', function (e) {
+        e.preventDefault(); var bad = [];
+        function chk(id, msg) { err(f(id), msg); if (msg) bad.push(f(id)); }
+        chk('name', f('name').value.trim() ? '' : 'Give the product a name.');
+        chk('cat', f('cat').value ? '' : 'Choose a category.');
+        chk('price', +f('price').value > 0 ? '' : 'Enter a price above zero.');
+        chk('sale', !f('sale').value || (+f('sale').value > 0 && +f('sale').value < +f('price').value) ? '' : 'The sale price must be lower than the price.');
+        chk('stock', f('stock').value !== '' && +f('stock').value >= 0 && Math.floor(+f('stock').value) === +f('stock').value ? '' : 'Enter how many you have, like 12.');
+        if (bad.length) { bad[0].focus(); return; }
+        var rec = editing || { id: 'p' + Date.now(), store: 'abc-fashion', tone: ['a', 'b', 'c', 'd', 'e', 'f'][Math.floor(Math.random() * 6)] };
+        rec.name = f('name').value.trim(); rec.category = f('cat').value; rec.price = +f('price').value; rec.sale = f('sale').value ? +f('sale').value : undefined; rec.stock = +f('stock').value; rec.lowAt = +f('low').value || 0; rec.options = parseOpts(f('opts').value); rec.desc = f('desc').value.trim();
+        if (!editing) D.products.unshift(rec);
+        dlg.close(); render(); K.toast(editing ? 'Product updated' : 'Product added');
+      });
+      render(); if (initial.get('new')) open(null);
+
+    })();
+  </script>
+</body>
+</html>

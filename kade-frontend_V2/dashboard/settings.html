@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Store settings | Kade dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+
+        <div class="page-head"><div><h1>Store settings</h1><p>What customers see, and how they can pay and get their order.</p></div></div>
+        <form id="sf" class="stack-lg" novalidate>
+          <section class="kd-card panel" aria-labelledby="a1"><h2 id="a1">Store link</h2>
+            <p class="slug-preview" id="url"></p>
+            <div class="row"><a class="kd-btn kd-btn--secondary kd-btn--sm" id="open" target="_blank" rel="noopener">Open my store</a><button class="kd-btn kd-btn--secondary kd-btn--sm" type="button" id="copy">Copy link</button></div>
+          </section>
+          <section class="kd-card panel" aria-labelledby="a2"><h2 id="a2">Store details</h2>
+            <div class="form-grid form-grid--2">
+              <div class="kd-field"><label class="kd-label" for="name">Store name</label><input class="kd-input" id="name"></div>
+              <div class="kd-field"><label class="kd-label" for="tagline">Tagline</label><input class="kd-input" id="tagline"></div>
+              <div class="kd-field span-2"><label class="kd-label" for="about">About your shop</label><textarea class="kd-input" id="about"></textarea></div>
+              <div class="kd-field"><label class="kd-label" for="phone">Phone</label><input class="kd-input" id="phone" type="tel"></div>
+              <div class="kd-field"><label class="kd-label" for="wa">WhatsApp (with 94, no plus)</label><input class="kd-input" id="wa" inputmode="numeric"></div>
+              <div class="kd-field span-2"><label class="kd-label" for="address">Address</label><input class="kd-input" id="address"></div>
+            </div>
+          </section>
+          <section class="kd-card panel" aria-labelledby="a3"><h2 id="a3">Colours</h2>
+            <p class="muted">Pick the look for your store. Every colour set is checked to be easy to read.</p>
+            <div class="preset-grid" id="presets" role="radiogroup" aria-labelledby="a3"></div>
+            <div id="prev" class="kd-card" style="overflow:hidden;max-width:360px"><div style="background:var(--brand);color:var(--on-brand);padding:16px"><strong id="pname" class="display-md" style="font-size:20px"></strong></div><div style="padding:16px;background:var(--surface-raised);display:flex;flex-direction:column;gap:12px"><span class="kd-tag" style="position:static;align-self:flex-start">Sale</span><button type="button" class="kd-btn kd-btn--accent">Add to cart</button><span class="kd-badge" style="background:var(--brand-soft);color:var(--brand);align-self:flex-start">Selected item</span></div></div>
+          </section>
+          <section class="kd-card panel" aria-labelledby="a4"><h2 id="a4">Payment methods</h2>
+            <label class="kd-switch"><span class="kd-check__text"><strong>Cash on delivery</strong><span class="muted">Customers pay when the order arrives.</span></span><input type="checkbox" role="switch" id="cod"></label>
+            <label class="kd-switch"><span class="kd-check__text"><strong>Bank transfer</strong><span class="muted">Customers send money to your account and share the slip.</span></span><input type="checkbox" role="switch" id="bank"></label>
+            <div class="kd-field" id="bankBox"><label class="kd-label" for="bankTxt">Bank account details shown to customers</label><input class="kd-input" id="bankTxt"></div>
+            <label class="kd-switch"><span class="kd-check__text"><strong>Card payment</strong><span class="muted">Not available yet.</span></span><input type="checkbox" role="switch" id="online" disabled></label>
+          </section>
+          <section class="kd-card panel" aria-labelledby="a5"><h2 id="a5">Delivery</h2>
+            <div class="form-grid form-grid--2">
+              <div class="kd-field"><label class="kd-label" for="fee">Delivery fee (Rs.)</label><input class="kd-input" id="fee" type="number" inputmode="numeric" min="0"></div>
+              <div class="kd-field"><label class="kd-label" for="free">Free delivery above (Rs.)</label><input class="kd-input" id="free" type="number" inputmode="numeric" min="0"><span class="kd-help">Leave 0 for no free delivery.</span></div>
+            </div>
+            <label class="kd-switch"><span class="kd-check__text"><strong>Allow pickup from the shop</strong></span><input type="checkbox" role="switch" id="pickup"></label>
+          </section>
+          <div class="row"><button class="kd-btn kd-btn--primary" type="submit">Save changes</button></div>
+        </form>
+      </main>
+    </div>
+  </div>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      K.shell('dashboard', 'settings');
+
+      var S = D.stores['abc-fashion'], PRESETS = [['tea', 'Tea', '#0f5b4a', '#e8a317', '#d9eee5'], ['sapphire', 'Sapphire', '#1b4f9c', '#f2b73f', '#dbe6f7'], ['cinnamon', 'Cinnamon', '#8a3b12', '#f0c36a', '#f4e2d6'], ['orchid', 'Orchid', '#7a2e5c', '#f4b6c2', '#f3dfeb'], ['ink', 'Ink', '#1f2624', '#d9a441', '#e6e9e7']];
+      var preset = S.preset, $ = function (id) { return document.getElementById(id); };
+      var url = K.host + '/store/' + S.slug;
+      $('url').innerHTML = K.host + '/store/<strong>' + K.esc(S.slug) + '</strong>';
+      $('open').href = '../store/index.html?s=' + S.slug;
+      $('copy').addEventListener('click', function () { if (navigator.clipboard) navigator.clipboard.writeText('https://' + url).then(function () { K.toast('Link copied'); }, function () { K.toast('Copy failed. Select the link and copy it.'); }); else K.toast('Select the link and copy it.'); });
+      ['name', 'tagline', 'about', 'phone', 'address'].forEach(function (k) { $(k).value = S[k]; }); $('wa').value = S.whatsapp;
+      $('cod').checked = S.payments.cod; $('bank').checked = S.payments.bank; $('online').checked = false; $('bankTxt').value = S.bank;
+      $('fee').value = S.delivery.fee; $('free').value = S.delivery.freeAbove; $('pickup').checked = S.delivery.pickup;
+      function bankBox() { $('bankBox').hidden = !$('bank').checked; } $('bank').addEventListener('change', bankBox); bankBox();
+      function paintPreview() { $('prev').setAttribute('data-preset', preset); $('pname').textContent = $('name').value || 'Your store'; }
+      $('name').addEventListener('input', paintPreview);
+      $('presets').innerHTML = PRESETS.map(function (p) { return '<label class="preset"><input type="radio" name="preset" value="' + p[0] + '"' + (p[0] === preset ? ' checked' : '') + '><span class="preset__swatch" style="--sw-brand:' + p[2] + ';--sw-accent:' + p[3] + ';--sw-soft:' + p[4] + '"><i></i><i></i><i></i></span><strong>' + p[1] + '</strong></label>'; }).join('');
+      $('presets').addEventListener('change', function (e) { preset = e.target.value; paintPreview(); });
+      paintPreview();
+      $('sf').addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!$('name').value.trim()) { $('name').focus(); K.toast('Your store needs a name.'); return; }
+        if (!$('cod').checked && !$('bank').checked) { K.toast('Turn on at least one payment method.'); return; }
+        ['name', 'tagline', 'about', 'phone', 'address'].forEach(function (k) { S[k] = $(k).value.trim(); }); S.whatsapp = $('wa').value.trim();
+        S.payments.cod = $('cod').checked; S.payments.bank = $('bank').checked; S.bank = $('bankTxt').value.trim(); S.preset = preset;
+        S.delivery.fee = +$('fee').value || 0; S.delivery.freeAbove = +$('free').value || 0; S.delivery.pickup = $('pickup').checked;
+        K.toast('Settings saved');
+      });
+
+    })();
+  </script>
+</body>
+</html>
