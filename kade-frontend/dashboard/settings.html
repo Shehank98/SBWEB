@@ -56,38 +56,66 @@
       </main>
     </div>
   </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
   <script src="../js/app.js"></script>
   <script>
     (function () {
       var K = Kade, D = KadeData;
+      if (!K.guard('owner')) return;
       K.shell('dashboard', 'settings');
+      var API = !!(window.KadeApi && KadeApi.enabled);
+      var PRESETS = [['tea', 'Tea', '#0f5b4a', '#e8a317', '#d9eee5'], ['sapphire', 'Sapphire', '#1b4f9c', '#f2b73f', '#dbe6f7'], ['cinnamon', 'Cinnamon', '#8a3b12', '#f0c36a', '#f4e2d6'], ['orchid', 'Orchid', '#7a2e5c', '#f4b6c2', '#f3dfeb'], ['ink', 'Ink', '#1f2624', '#d9a441', '#e6e9e7']];
+      var $ = function (id) { return document.getElementById(id); };
+      var S = null, preset = 'orchid';
 
-      var S = D.stores['abc-fashion'], PRESETS = [['tea', 'Tea', '#0f5b4a', '#e8a317', '#d9eee5'], ['sapphire', 'Sapphire', '#1b4f9c', '#f2b73f', '#dbe6f7'], ['cinnamon', 'Cinnamon', '#8a3b12', '#f0c36a', '#f4e2d6'], ['orchid', 'Orchid', '#7a2e5c', '#f4b6c2', '#f3dfeb'], ['ink', 'Ink', '#1f2624', '#d9a441', '#e6e9e7']];
-      var preset = S.preset, $ = function (id) { return document.getElementById(id); };
-      var url = K.host + '/store/' + S.slug;
-      $('url').innerHTML = K.host + '/store/<strong>' + K.esc(S.slug) + '</strong>';
-      $('open').href = '../store/index.html?s=' + S.slug;
-      $('copy').addEventListener('click', function () { if (navigator.clipboard) navigator.clipboard.writeText('https://' + url).then(function () { K.toast('Link copied'); }, function () { K.toast('Copy failed. Select the link and copy it.'); }); else K.toast('Select the link and copy it.'); });
-      ['name', 'tagline', 'about', 'phone', 'address'].forEach(function (k) { $(k).value = S[k]; }); $('wa').value = S.whatsapp;
-      $('cod').checked = S.payments.cod; $('bank').checked = S.payments.bank; $('online').checked = false; $('bankTxt').value = S.bank;
-      $('fee').value = S.delivery.fee; $('free').value = S.delivery.freeAbove; $('pickup').checked = S.delivery.pickup;
-      function bankBox() { $('bankBox').hidden = !$('bank').checked; } $('bank').addEventListener('change', bankBox); bankBox();
+      function bankBox() { $('bankBox').hidden = !$('bank').checked; }
       function paintPreview() { $('prev').setAttribute('data-preset', preset); $('pname').textContent = $('name').value || 'Your store'; }
+
+      function fill() {
+        preset = S.preset || 'orchid';
+        $('url').innerHTML = K.host + '/store/<strong>' + K.esc(S.slug) + '</strong>';
+        $('open').href = '../store/index.html?s=' + S.slug;
+        ['name', 'tagline', 'about', 'phone', 'address'].forEach(function (k) { $(k).value = S[k] || ''; });
+        $('wa').value = S.whatsapp || '';
+        $('cod').checked = !!S.payments.cod; $('bank').checked = !!S.payments.bank; $('online').checked = !!S.payments.online; $('bankTxt').value = S.bank || '';
+        $('fee').value = S.delivery.fee; $('free').value = S.delivery.freeAbove; $('pickup').checked = !!S.delivery.pickup;
+        bankBox();
+        $('presets').innerHTML = PRESETS.map(function (p) { return '<label class="preset"><input type="radio" name="preset" value="' + p[0] + '"' + (p[0] === preset ? ' checked' : '') + '><span class="preset__swatch" style="--sw-brand:' + p[2] + ';--sw-accent:' + p[3] + ';--sw-soft:' + p[4] + '"><i></i><i></i><i></i></span><strong>' + p[1] + '</strong></label>'; }).join('');
+        paintPreview();
+      }
+
+      var copyUrl = function () { return 'https://' + K.host + '/store/' + (S ? S.slug : ''); };
+      $('copy').addEventListener('click', function () { if (navigator.clipboard) navigator.clipboard.writeText(copyUrl()).then(function () { K.toast('Link copied'); }, function () { K.toast('Copy failed. Select the link and copy it.'); }); else K.toast('Select the link and copy it.'); });
       $('name').addEventListener('input', paintPreview);
-      $('presets').innerHTML = PRESETS.map(function (p) { return '<label class="preset"><input type="radio" name="preset" value="' + p[0] + '"' + (p[0] === preset ? ' checked' : '') + '><span class="preset__swatch" style="--sw-brand:' + p[2] + ';--sw-accent:' + p[3] + ';--sw-soft:' + p[4] + '"><i></i><i></i><i></i></span><strong>' + p[1] + '</strong></label>'; }).join('');
+      $('bank').addEventListener('change', bankBox);
       $('presets').addEventListener('change', function (e) { preset = e.target.value; paintPreview(); });
-      paintPreview();
+
       $('sf').addEventListener('submit', function (e) {
         e.preventDefault();
         if (!$('name').value.trim()) { $('name').focus(); K.toast('Your store needs a name.'); return; }
         if (!$('cod').checked && !$('bank').checked) { K.toast('Turn on at least one payment method.'); return; }
-        ['name', 'tagline', 'about', 'phone', 'address'].forEach(function (k) { S[k] = $(k).value.trim(); }); S.whatsapp = $('wa').value.trim();
-        S.payments.cod = $('cod').checked; S.payments.bank = $('bank').checked; S.bank = $('bankTxt').value.trim(); S.preset = preset;
-        S.delivery.fee = +$('fee').value || 0; S.delivery.freeAbove = +$('free').value || 0; S.delivery.pickup = $('pickup').checked;
-        K.toast('Settings saved');
+        var payload = {
+          name: $('name').value.trim(), tagline: $('tagline').value.trim(), about: $('about').value.trim(),
+          phone: $('phone').value.trim(), whatsapp: $('wa').value.trim(), address: $('address').value.trim(),
+          preset: preset, bank: $('bankTxt').value.trim(),
+          payments: { cod: $('cod').checked, bank: $('bank').checked, online: false },
+          delivery: { fee: +$('fee').value || 0, freeAbove: +$('free').value || 0, pickup: $('pickup').checked }
+        };
+        if (API) {
+          var restore = K.btnLoading(K.$('#sf button[type=submit]'), 'Saving…');
+          KadeApi.updateStore(payload).then(function () { restore(); K.toast('Settings saved'); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not save.'); });
+        } else {
+          S.name = payload.name; S.tagline = payload.tagline; S.about = payload.about; S.phone = payload.phone; S.whatsapp = payload.whatsapp; S.address = payload.address; S.preset = preset; S.bank = payload.bank;
+          S.payments.cod = payload.payments.cod; S.payments.bank = payload.payments.bank;
+          S.delivery.fee = payload.delivery.fee; S.delivery.freeAbove = payload.delivery.freeAbove; S.delivery.pickup = payload.delivery.pickup;
+          K.toast('Settings saved');
+        }
       });
 
+      if (API) { KadeApi.myStore().then(function (r) { S = r.store; fill(); }).catch(function () { K.toast('Could not load settings.'); }); }
+      else { S = D.stores['abc-fashion']; fill(); }
     })();
   </script>
 </body>

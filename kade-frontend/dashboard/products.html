@@ -33,30 +33,36 @@
             </div>
             <div class="kd-field"><label class="kd-label" for="f-opts">Options (optional)</label><textarea class="kd-input" id="f-opts" placeholder="Size: S, M, L&#10;Colour: Black, White"></textarea><span class="kd-help">One option per line. Customers choose from these before adding to cart.</span></div>
             <div class="kd-field"><label class="kd-label" for="f-desc">Description</label><textarea class="kd-input" id="f-desc"></textarea></div>
-            <div class="kd-field"><label class="kd-label" for="f-img">Photo</label><input class="kd-input" id="f-img" type="file" accept="image/*" style="padding-top:10px"><span class="kd-help">Square photos look best. Photos are uploaded to storage and shown on your store.</span></div>
+            <div class="kd-field"><label class="kd-label" for="f-img">Photo</label><input class="kd-input" id="f-img" type="file" accept="image/*"></div>
           </div>
           <div class="dialog__foot"><button class="kd-btn kd-btn--ghost" type="button" id="cancel">Cancel</button><button class="kd-btn kd-btn--primary" type="submit">Save product</button></div>
         </form></dialog>
       </main>
     </div>
   </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
   <script src="../js/app.js"></script>
   <script>
     (function () {
       var K = Kade, D = KadeData;
+      if (!K.guard('owner')) return;
       K.shell('dashboard', 'products');
+      var API = !!(window.KadeApi && KadeApi.enabled);
       var imgZone = K.dropzone(K.$('#f-img'), { title: 'Drag & drop a product photo', hint: 'Square photos look best. PNG or JPG, up to 8MB', aria: 'Upload a product photo' });
 
-      var S = D.stores['abc-fashion'], me = D.businesses[0], plan = D.plans.filter(function (p) { return p.name === me.plan; })[0];
-      function mine() { return D.products.filter(function (p) { return p.store === 'abc-fashion'; }); }
+      var products = [], categories = [], usage = { count: 0, maxProducts: null, plan: '' };
       var q = '', cat = 'All', editing = null;
       var initial = new URLSearchParams(location.search); if (initial.get('q')) { q = initial.get('q').toLowerCase(); K.$('#q').value = initial.get('q'); }
-      K.$('#cat').innerHTML = ['All'].concat(S.categories).map(function (c) { return '<option>' + c + '</option>'; }).join('');
-      K.$('#f-cat').innerHTML = '<option value="">Choose one</option>' + S.categories.map(function (c) { return '<option>' + c + '</option>'; }).join('');
+
+      function setSelectors() {
+        K.$('#cat').innerHTML = ['All'].concat(categories).map(function (c) { return '<option>' + K.esc(c) + '</option>'; }).join('');
+        K.$('#f-cat').innerHTML = '<option value="">Choose one</option>' + categories.map(function (c) { return '<option>' + K.esc(c) + '</option>'; }).join('');
+      }
       function render() {
-        K.$('#limit').textContent = mine().length + ' of ' + plan.maxProducts + ' products used on your ' + plan.name + ' plan.';
-        var list = mine().filter(function (p) { return (cat === 'All' || p.category === cat) && (!q || p.name.toLowerCase().indexOf(q) >= 0); });
+        K.$('#limit').textContent = usage.count + (usage.maxProducts == null ? ' products' : ' of ' + usage.maxProducts + ' products') + ' used' + (usage.plan ? ' on your ' + usage.plan + ' plan.' : '.');
+        var list = products.filter(function (p) { return (cat === 'All' || p.category === cat) && (!q || p.name.toLowerCase().indexOf(q) >= 0); });
         K.$('#none').hidden = list.length > 0;
         K.$('#rows').innerHTML = list.map(function (p) {
           var opts = Object.keys(p.options || {}).map(function (g) { return g + ': ' + p.options[g].length; }).join(', ');
@@ -65,6 +71,7 @@
             '<td><div class="actions"><button class="kd-btn kd-btn--secondary kd-btn--sm" data-edit="' + p.id + '" aria-label="Edit ' + K.esc(p.name) + '">Edit</button><button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-del="' + p.id + '" aria-label="Delete ' + K.esc(p.name) + '">Delete</button></div></td></tr>';
         }).join('');
       }
+
       var dlg = K.$('#form-dlg'), f = function (id) { return K.$('#f-' + id); };
       function parseOpts(t) { var o = {}; t.split('\n').forEach(function (line) { var i = line.indexOf(':'); if (i < 1) return; var vals = line.slice(i + 1).split(',').map(function (v) { return v.trim(); }).filter(Boolean); if (vals.length) o[line.slice(0, i).trim()] = vals; }); return o; }
       function optText(o) { return Object.keys(o || {}).map(function (g) { return g + ': ' + o[g].join(', '); }).join('\n'); }
@@ -72,15 +79,23 @@
       function open(p) {
         editing = p; K.$('#ft').textContent = p ? 'Edit product' : 'Add product';
         K.$$('#pf .kd-error').forEach(function (e) { e.remove(); }); K.$$('#pf .kd-field--error').forEach(function (e) { e.classList.remove('kd-field--error'); });
-        f('name').value = p ? p.name : ''; f('cat').value = p ? p.category : ''; f('price').value = p ? p.price : ''; f('sale').value = p && p.sale ? p.sale : ''; f('stock').value = p ? p.stock : ''; f('low').value = p ? p.lowAt : 5; f('opts').value = p ? optText(p.options) : ''; f('desc').value = p ? p.desc : ''; imgZone.clear(); if (p && p.image) imgZone.existing(p.image);
+        f('name').value = p ? p.name : ''; f('cat').value = p ? p.category : ''; f('price').value = p ? p.price : ''; f('sale').value = p && p.sale ? p.sale : ''; f('stock').value = p ? p.stock : ''; f('low').value = p ? p.lowAt : 5; f('opts').value = p ? optText(p.options) : ''; f('desc').value = p ? p.desc : '';
+        imgZone.clear(); if (p && p.image) imgZone.existing(p.image);
         dlg.showModal(); f('name').focus();
       }
       K.$('#add').addEventListener('click', function () { open(null); });
       K.$('#cancel').addEventListener('click', function () { dlg.close(); });
       K.$('#rows').addEventListener('click', function (e) {
         var b = e.target.closest('button'); if (!b) return;
-        if (b.getAttribute('data-edit')) open(D.products.filter(function (p) { return p.id === b.getAttribute('data-edit'); })[0]);
-        if (b.getAttribute('data-del')) { var p = D.products.filter(function (x) { return x.id === b.getAttribute('data-del'); })[0]; K.confirm({ title: 'Delete ' + p.name + '?', body: 'It will disappear from your store. Past orders keep their details.', confirmLabel: 'Delete product', danger: true }).then(function (ok) { if (ok) { D.products.splice(D.products.indexOf(p), 1); render(); K.toast('Product deleted'); } }); }
+        if (b.getAttribute('data-edit')) open(products.filter(function (p) { return p.id === b.getAttribute('data-edit'); })[0]);
+        if (b.getAttribute('data-del')) {
+          var p = products.filter(function (x) { return x.id === b.getAttribute('data-del'); })[0];
+          K.confirm({ title: 'Delete ' + p.name + '?', body: 'It will disappear from your store. Past orders keep their details.', confirmLabel: 'Delete product', danger: true }).then(function (ok) {
+            if (!ok) return;
+            if (API) { KadeApi.deleteProduct(p.id).then(function () { K.toast('Product deleted'); return load(); }).catch(function (ex) { K.toast(ex.message || 'Could not delete.'); }); }
+            else { D.products.splice(D.products.indexOf(p), 1); products.splice(products.indexOf(p), 1); usage.count = products.length; render(); K.toast('Product deleted'); }
+          });
+        }
       });
       K.$('#q').addEventListener('input', function () { q = this.value.trim().toLowerCase(); render(); });
       K.$('#cat').addEventListener('change', function () { cat = this.value; render(); });
@@ -93,14 +108,37 @@
         chk('sale', !f('sale').value || (+f('sale').value > 0 && +f('sale').value < +f('price').value) ? '' : 'The sale price must be lower than the price.');
         chk('stock', f('stock').value !== '' && +f('stock').value >= 0 && Math.floor(+f('stock').value) === +f('stock').value ? '' : 'Enter how many you have, like 12.');
         if (bad.length) { bad[0].focus(); return; }
-        var rec = editing || { id: 'p' + Date.now(), store: 'abc-fashion', tone: ['a', 'b', 'c', 'd', 'e', 'f'][Math.floor(Math.random() * 6)] };
-        rec.name = f('name').value.trim(); rec.category = f('cat').value; rec.price = +f('price').value; rec.sale = f('sale').value ? +f('sale').value : undefined; rec.stock = +f('stock').value; rec.lowAt = +f('low').value || 0; rec.options = parseOpts(f('opts').value); rec.desc = f('desc').value.trim();
-        var imgFile = imgZone.file(); if (imgFile) rec.image = URL.createObjectURL(imgFile);
-        if (!editing) D.products.unshift(rec);
-        dlg.close(); render(); K.toast(editing ? 'Product updated' : 'Product added');
-      });
-      render(); if (initial.get('new')) open(null);
+        var fields = { name: f('name').value.trim(), category: f('cat').value, price: +f('price').value, sale: f('sale').value ? +f('sale').value : '', stock: +f('stock').value, lowAt: +f('low').value || 0, options: parseOpts(f('opts').value), desc: f('desc').value.trim() };
 
+        if (API) {
+          var file = imgZone.file();
+          if (editing) fields.tone = editing.tone;
+          var restore = K.btnLoading(K.$('#pf button[type=submit]'), 'Saving…');
+          var save = editing ? KadeApi.updateProduct(editing.id, fields, file) : KadeApi.createProduct(fields, file);
+          save.then(function () { dlg.close(); K.toast(editing ? 'Product updated' : 'Product added'); return load(); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not save the product.'); });
+        } else {
+          var rec = editing || { id: 'p' + Date.now(), store: 'abc-fashion', tone: ['a', 'b', 'c', 'd', 'e', 'f'][Math.floor(Math.random() * 6)] };
+          rec.name = fields.name; rec.category = fields.category; rec.price = fields.price; rec.sale = fields.sale ? fields.sale : undefined; rec.stock = fields.stock; rec.lowAt = fields.lowAt; rec.options = fields.options; rec.desc = fields.desc;
+          var imgFile = imgZone.file(); if (imgFile) rec.image = URL.createObjectURL(imgFile);
+          if (!editing) { D.products.unshift(rec); products.unshift(rec); usage.count = products.length; }
+          dlg.close(); render(); K.toast(editing ? 'Product updated' : 'Product added');
+        }
+      });
+
+      function load() {
+        if (API) {
+          return Promise.all([KadeApi.myProducts(), KadeApi.myStore()]).then(function (r) {
+            products = r[0].products; usage = r[0].usage || usage; categories = (r[1].store && r[1].store.categories) || [];
+            setSelectors(); render();
+          }).catch(function () { K.$('#rows').innerHTML = '<tr><td colspan="5" class="muted" style="padding:16px">Could not load products. Please refresh.</td></tr>'; });
+        }
+        var S = D.stores['abc-fashion'], me = D.businesses[0], plan = D.plans.filter(function (p) { return p.name === me.plan; })[0];
+        products = D.products.filter(function (p) { return p.store === 'abc-fashion'; });
+        categories = S.categories; usage = { count: products.length, maxProducts: plan.maxProducts, plan: plan.name };
+        setSelectors(); render(); return Promise.resolve();
+      }
+
+      load().then(function () { if (initial.get('new')) open(null); });
     })();
   </script>
 </body>

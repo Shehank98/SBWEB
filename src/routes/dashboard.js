@@ -100,6 +100,15 @@ dashboardRouter.get(
     const lowStock = Number(
       (await query('SELECT COUNT(*) c FROM products WHERE business_id = $1 AND stock <= low_at', [b])).rows[0].c
     );
+    const sales7 = (
+      await query(
+        `SELECT d::date AS date, COALESCE(SUM(o.total),0) AS value
+           FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day') d
+           LEFT JOIN orders o ON o.business_id=$1 AND o.created_at::date = d::date AND o.status <> 'CANCELLED'
+          GROUP BY d ORDER BY d`,
+        [b]
+      )
+    ).rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: Number(r.value) }));
 
     const revenue = Number(totals.revenue);
     const paid = Number(totals.paid);
@@ -111,6 +120,7 @@ dashboardRouter.get(
       avgOrder: paid ? Math.round(revenue / paid) : 0,
       itemsSold: Number(itemsSold),
       lowStock,
+      sales7,
       byStatus,
       topProducts,
     };
