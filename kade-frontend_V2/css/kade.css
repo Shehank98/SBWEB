@@ -383,7 +383,9 @@ body.has-demo .topbar { top: 46px; }
 .app > div { min-width: 0; }
 .app { grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 900px) { .app { grid-template-columns: 248px minmax(0, 1fr); } }
-.main > * { min-width: 0; max-width: 100%; }
+/* Flex children may shrink and must not overflow. Dialogs are excluded so the
+   add-product and other modals keep their own compact max-width (520px). */
+.main > *:not(dialog) { min-width: 0; max-width: 100%; }
 .table-wrap, .toolbar, .kd-tabs { position: relative; }
 .option-group .qty { align-self: flex-start; }
 .product-grid .kd-btn { padding: 0 var(--space-2); }
