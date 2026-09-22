@@ -16,17 +16,23 @@ let firebaseBucket = null;
 async function getFirebaseBucket() {
   if (firebaseBucket) return firebaseBucket;
   // Lazy import so the dependency is optional unless the driver is actually used.
-  const admin = (await import('firebase-admin')).default;
-  if (!admin.apps.length) {
+  // firebase-admin v12+ exposes its API through modular subpaths — the old
+  // namespaced default (admin.apps / admin.credential / admin.storage) is undefined.
+  const { getApps, initializeApp, cert, applicationDefault } = await import('firebase-admin/app');
+  const { getStorage } = await import('firebase-admin/storage');
+  if (!config.firebase.bucket) {
+    throw new Error('FIREBASE_STORAGE_BUCKET is not set');
+  }
+  if (!getApps().length) {
     const creds = config.firebase.serviceAccount
       ? JSON.parse(config.firebase.serviceAccount)
       : undefined;
-    admin.initializeApp({
-      credential: creds ? admin.credential.cert(creds) : admin.credential.applicationDefault(),
+    initializeApp({
+      credential: creds ? cert(creds) : applicationDefault(),
       storageBucket: config.firebase.bucket,
     });
   }
-  firebaseBucket = admin.storage().bucket();
+  firebaseBucket = getStorage().bucket();
   return firebaseBucket;
 }
 
