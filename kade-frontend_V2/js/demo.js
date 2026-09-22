@@ -58,6 +58,15 @@
     order(10442, 6, 'Pradeep Senanayake', '076 303 4040', 'Galle', [{ name: 'Summer Dress (M, Navy)', qty: 1, price: 4500 }], 'DELIVERED', 'Cash on delivery'),
     order(10441, 6, 'Nadeesha Perera', '072 505 6060', 'Hambantota', [{ name: 'Batik Sarong (Maroon)', qty: 2, price: 2900 }, { name: 'Silk Scarf (Gold)', qty: 1, price: 1800 }], 'DELIVERED', 'Bank transfer')
   ];
+  // Make the sandbox feel real so the Pro panels have something to show: a few
+  // repeat customers (for "top customers" and "repeat rate") and some coupon usage.
+  orders[3].customer = 'Ayesha Fernando';   // second order from 10451's customer
+  orders[10].customer = 'Nimal Perera';     // second order from 10452's customer
+  orders[11].customer = 'Kasun Silva';      // second order from 10450's customer
+  [[1, 'WELCOME10', 1530], [4, 'SHIP500', 500], [8, 'WELCOME10', 1650]].forEach(function (x) {
+    orders[x[0]].coupon = x[1]; orders[x[0]].discount = x[2];
+  });
+
   var sales7 = [12400, 18500, 9600, 22100, 15300, 27800, 18500].map(function (v, i) { return { date: daysAgo(6 - i), value: v }; });
 
   // The demo shop signs in on the Pro plan, so reports, coupons and staff are all unlocked.

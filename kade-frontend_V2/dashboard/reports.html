@@ -42,46 +42,113 @@
           '<div class="row" style="justify-content:center;margin-top:16px"><a class="kd-btn kd-btn--primary" href="subscription">See plans</a></div></section>';
       }
 
-      // R = { plan, revenue, orders, avgOrder, itemsSold, lowStock, sales7, byStatus:[{label,value}], topProducts:[{name,category,image,units,revenue}], cities:[{city,orders}]|null }
+      // R = { plan, revenue, orders, paidOrders, avgOrder, itemsSold, lowStock,
+      //       sales7, byStatus:[{label,value}], topProducts:[{name,category,image,units,revenue}],
+      //       revenueMonths:[{label,value}], categories:[{category,units,revenue}], payments:[{method,orders,revenue}],
+      //       (Pro) cities:[{city,orders}], topCustomers:[{name,orders,spent}],
+      //       repeat:{customers,repeatCustomers,repeatRate}, weekdays:[{dow,orders}], coupons:[{code,uses,discount}] }
+      var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      function card(title, id, badge) {
+        return '<section class="kd-card" aria-labelledby="' + id + '"><h2 class="heading" id="' + id + '" style="padding:16px 16px 0">' + title + (badge || '') + '</h2>';
+      }
+      function tableWrap(head, rows) {
+        return '<div class="table-wrap"><table class="kd-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+      }
+      function statCard(label, value, delta) {
+        return '<div class="kd-card stat"><span class="stat__label">' + label + '</span><span class="stat__value">' + value + '</span><span class="stat__delta">' + delta + '</span></div>';
+      }
+
       function render(R) {
         var isPro = R.plan === 'Pro';
+        var delivered = (R.byStatus.filter(function (s) { return s.label === K.orderLabel('DELIVERED'); })[0] || {}).value || 0;
         var tiles = [
           ['Revenue', K.rs(R.revenue), R.paidOrders + ' paid orders'],
           ['Orders', R.orders, 'All time'],
           ['Average order', K.rs(R.avgOrder), 'Per paid order'],
           ['Items sold', R.itemsSold, 'Units across orders'],
+          ['Delivered', delivered, 'Completed orders'],
           ['Low or out of stock', R.lowStock, R.lowStock ? 'Restock soon' : 'All stocked']
         ];
+        var cats = R.categories || [];
+        var catRows = cats.length
+          ? cats.map(function (c) { return '<tr><td><strong>' + K.esc(c.category) + '</strong></td><td class="kd-num">' + c.units + '</td><td class="kd-num">' + K.rs(c.revenue) + '</td></tr>'; }).join('')
+          : '<tr><td colspan="3" class="muted" style="padding:12px">No sales yet.</td></tr>';
+        var pays = R.payments || [];
+        var payTotal = pays.reduce(function (n, p) { return n + p.orders; }, 0) || 1;
+        var payList = pays.length
+          ? pays.map(function (p) { var pct = Math.round(p.orders / payTotal * 100); return '<div class="pay-row"><div class="pay-row__head"><span>' + K.esc(p.method) + '</span><span class="muted">' + p.orders + (p.orders === 1 ? ' order · ' : ' orders · ') + K.rs(p.revenue) + '</span></div><div class="kd-meter"><span style="width:' + pct + '%"></span></div></div>'; }).join('')
+          : '<p class="muted">No orders yet.</p>';
+
         body.innerHTML =
-          '<div class="tiles">' + tiles.map(function (t) { return '<div class="kd-card stat"><span class="stat__label">' + t[0] + '</span><span class="stat__value">' + t[1] + '</span><span class="stat__delta">' + t[2] + '</span></div>'; }).join('') + '</div>' +
+          '<div class="tiles">' + tiles.map(function (t) { return statCard(t[0], t[1], t[2]); }).join('') + '</div>' +
           '<div class="grid-2">' +
           '<section class="kd-card panel" aria-labelledby="r1"><h2 id="r1">Sales, last 7 days</h2><div id="chart1"></div></section>' +
           '<section class="kd-card panel" aria-labelledby="r2"><h2 id="r2">Orders by status</h2><div id="chart2"></div></section>' +
           '</div>' +
-          '<section class="kd-card" aria-labelledby="r3"><h2 class="heading" id="r3" style="padding:16px 16px 0">Top products</h2><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="kd-num">Units sold</th><th scope="col" class="kd-num">Revenue</th></tr></thead><tbody id="toprows"></tbody></table></div>' +
+          '<div class="grid-2">' +
+          '<section class="kd-card panel" aria-labelledby="rm"><h2 id="rm">Revenue by month</h2><div id="chart3"></div></section>' +
+          card('Sales by category', 'rc') + tableWrap('<th scope="col">Category</th><th scope="col" class="kd-num">Units</th><th scope="col" class="kd-num">Revenue</th>', catRows) + '</section>' +
+          '</div>' +
+          '<section class="kd-card panel" aria-labelledby="rp"><h2 id="rp">How customers pay</h2><div class="pay-list">' + payList + '</div></section>' +
+          card('Top products', 'r3') + '<div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="kd-num">Units sold</th><th scope="col" class="kd-num">Revenue</th></tr></thead><tbody id="toprows"></tbody></table></div>' +
           (R.topProducts.length ? '' : '<div class="empty"><p class="muted">No sales yet. Reports fill in as orders come through.</p></div>') + '</section>' +
-          '<section class="kd-card panel" aria-labelledby="r4" id="advanced" style="margin-top:24px"></section>';
+          '<div id="advanced" style="margin-top:24px"></div>';
 
         var sales7 = R.sales7.map(function (d) { var dt = new Date(d.date + 'T00:00:00'); return { label: dt.toLocaleDateString('en-GB', { weekday: 'short' }), title: dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }), value: d.value }; });
         K.bars(K.$('#chart1'), sales7, { label: 'Sales per day for the last 7 days, in rupees', xLabel: 'Day', yLabel: 'Sales' });
         if (R.byStatus.length) K.bars(K.$('#chart2'), R.byStatus, { label: 'Orders by status', xLabel: 'Status', yLabel: 'Orders', format: function (v) { return v + (v === 1 ? ' order' : ' orders'); } });
         else K.$('#chart2').innerHTML = '<p class="muted">No orders yet.</p>';
+        var rm = R.revenueMonths || [];
+        if (rm.some(function (m) { return m.value > 0; })) K.bars(K.$('#chart3'), rm, { label: 'Revenue for the last 6 months, in rupees', xLabel: 'Month', yLabel: 'Revenue' });
+        else K.$('#chart3').innerHTML = '<p class="muted">Not enough history yet.</p>';
 
         K.$('#toprows').innerHTML = R.topProducts.map(function (r) {
           return '<tr><td><div class="cell-flex"><div class="thumb">' + K.ph({ name: r.name, image: r.image, tone: r.tone }, true) + '</div><strong>' + K.esc(r.name) + '</strong></div></td><td>' + K.esc(r.category || '-') + '</td><td class="kd-num">' + r.units + '</td><td class="kd-num">' + K.rs(r.revenue) + '</td></tr>';
         }).join('');
 
-        var adv = K.$('#advanced');
-        if (isPro && R.cities) {
-          adv.innerHTML = '<h2 id="r4">Advanced insights <span class="kd-badge kd-badge--success">Pro</span></h2><p class="muted">Where your orders come from.</p>' +
-            '<div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Town or city</th><th scope="col" class="kd-num">Orders</th></tr></thead><tbody>' +
-            R.cities.map(function (r) { return '<tr><td>' + K.esc(r.city) + '</td><td class="kd-num">' + r.orders + '</td></tr>'; }).join('') + '</tbody></table></div>';
-        } else {
-          adv.classList.add('locked');
+        renderAdvanced(K.$('#advanced'), R, isPro);
+      }
+
+      function renderAdvanced(adv, R, isPro) {
+        if (!isPro) {
+          adv.className = 'kd-card locked';
           adv.innerHTML = '<div class="locked__body"><h2 id="r4">Advanced insights</h2>' +
-            '<p class="muted" style="margin-top:8px">Customer and location insights, like where your orders come from and who your repeat customers are, are part of the <strong>Pro</strong> plan.</p>' +
+            '<p class="muted" style="margin-top:8px">Customer intelligence, like your top customers, repeat-customer rate, busiest days and coupon performance, is part of the <strong>Pro</strong> plan.</p>' +
             '<div class="row" style="margin-top:12px"><a class="kd-btn kd-btn--secondary" href="subscription">Upgrade to Pro</a></div></div>';
+          return;
         }
+        var rep = R.repeat || { customers: 0, repeatCustomers: 0, repeatRate: 0 };
+        var custRows = (R.topCustomers || []).length
+          ? R.topCustomers.map(function (c) { return '<tr><td><strong>' + K.esc(c.name) + '</strong></td><td class="kd-num">' + c.orders + '</td><td class="kd-num">' + K.rs(c.spent) + '</td></tr>'; }).join('')
+          : '<tr><td colspan="3" class="muted" style="padding:12px">No customers yet.</td></tr>';
+        var cityRows = (R.cities || []).length
+          ? R.cities.map(function (r) { return '<tr><td>' + K.esc(r.city) + '</td><td class="kd-num">' + r.orders + '</td></tr>'; }).join('')
+          : '<tr><td colspan="2" class="muted" style="padding:12px">No orders yet.</td></tr>';
+        var coupRows = (R.coupons || []).length
+          ? R.coupons.map(function (c) { return '<tr><td><strong>' + K.esc(c.code) + '</strong></td><td class="kd-num">' + c.uses + '</td><td class="kd-num">' + K.rs(c.discount) + '</td></tr>'; }).join('')
+          : '<tr><td colspan="3" class="muted" style="padding:12px">No coupons used yet.</td></tr>';
+
+        adv.className = '';
+        adv.innerHTML =
+          '<h2 id="r4" class="heading" style="margin-bottom:12px">Advanced insights <span class="kd-badge kd-badge--success">Pro</span></h2>' +
+          '<div class="tiles">' +
+          statCard('Unique customers', rep.customers, 'All time') +
+          statCard('Repeat customers', rep.repeatCustomers, 'Ordered more than once') +
+          statCard('Repeat rate', rep.repeatRate + '%', 'Of your customers') +
+          '</div>' +
+          '<div class="grid-2" style="margin-top:16px">' +
+          card('Top customers', 'ac1') + tableWrap('<th scope="col">Customer</th><th scope="col" class="kd-num">Orders</th><th scope="col" class="kd-num">Spent</th>', custRows) + '</section>' +
+          '<section class="kd-card panel" aria-labelledby="ac2"><h2 id="ac2">Busiest days</h2><div id="chartW"></div></section>' +
+          '</div>' +
+          '<div class="grid-2" style="margin-top:16px">' +
+          card('Where orders come from', 'ac3') + tableWrap('<th scope="col">Town or city</th><th scope="col" class="kd-num">Orders</th>', cityRows) + '</section>' +
+          card('Coupon performance', 'ac4') + tableWrap('<th scope="col">Code</th><th scope="col" class="kd-num">Uses</th><th scope="col" class="kd-num">Discount given</th>', coupRows) + '</section>' +
+          '</div>';
+
+        var wmap = {}; (R.weekdays || []).forEach(function (w) { wmap[w.dow] = w.orders; });
+        var wd = [1, 2, 3, 4, 5, 6, 0].map(function (d) { return { label: DOW[d], value: wmap[d] || 0 }; });
+        if (wd.some(function (d) { return d.value > 0; })) K.bars(K.$('#chartW'), wd, { label: 'Orders by day of week', xLabel: 'Day', yLabel: 'Orders', format: function (v) { return v + (v === 1 ? ' order' : ' orders'); } });
+        else K.$('#chartW').innerHTML = '<p class="muted">No orders yet.</p>';
       }
 
       if (API) {
@@ -94,7 +161,14 @@
             sales7: rep.sales7 || [],
             byStatus: (rep.byStatus || []).map(function (s) { return { label: K.orderLabel(s.status), value: s.count }; }),
             topProducts: (rep.topProducts || []).map(function (t) { var p = findProd(t.name); return { name: t.name, units: t.units, revenue: t.revenue, category: p && p.category, image: p && p.image, tone: p && p.tone }; }),
-            cities: rep.cities || null
+            revenueMonths: rep.revenueMonths || [],
+            categories: rep.categories || [],
+            payments: rep.payments || [],
+            cities: rep.cities || null,
+            topCustomers: rep.topCustomers || [],
+            repeat: rep.repeat || null,
+            weekdays: rep.weekdays || [],
+            coupons: rep.coupons || []
           });
         }).catch(function (ex) {
           if (ex && ex.status === 400) upsell();
@@ -114,13 +188,36 @@
       var itemsSold = counted.reduce(function (n, o) { return n + o.items.reduce(function (m, i) { return m + i.qty; }, 0); }, 0);
       var STATUS = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
       var top = products.map(function (p) { var units = 0, rev = 0; counted.forEach(function (o) { o.items.forEach(function (i) { if (i.name === p.name || i.name.indexOf(p.name + ' (') === 0) { units += i.qty; rev += i.qty * i.price; } }); }); return { name: p.name, category: p.category, image: p.image, tone: p.tone, units: units, revenue: rev }; }).filter(function (r) { return r.units > 0; }).sort(function (a, b) { return b.units - a.units; });
-      var cities = null;
-      if (planName === 'Pro') { var c = {}; counted.forEach(function (o) { var k = o.city || 'Unknown'; c[k] = (c[k] || 0) + 1; }); cities = Object.keys(c).map(function (k) { return { city: k, orders: c[k] }; }).sort(function (a, b) { return b.orders - a.orders; }); }
+      function baseName(n) { return n.split(' (')[0]; }
+      function catOf(n) { var p = products.filter(function (x) { return x.name === baseName(n); })[0]; return (p && p.category) || 'Other'; }
+      // Sales by category (Business+)
+      var catMap = {};
+      counted.forEach(function (o) { o.items.forEach(function (i) { var k = catOf(i.name); var c = catMap[k] || (catMap[k] = { category: k, units: 0, revenue: 0 }); c.units += i.qty; c.revenue += i.qty * i.price; }); });
+      var categories = Object.keys(catMap).map(function (k) { return catMap[k]; }).sort(function (a, b) { return b.revenue - a.revenue; });
+      // Payment mix (Business+)
+      var payMap = {};
+      counted.forEach(function (o) { var m = o.payment || 'Other'; var p = payMap[m] || (payMap[m] = { method: m, orders: 0, revenue: 0 }); p.orders++; p.revenue += o.total; });
+      var payments = Object.keys(payMap).map(function (k) { return payMap[k]; }).sort(function (a, b) { return b.orders - a.orders; });
+
+      var cities = null, topCustomers = [], repeat = null, weekdays = [], coupons = [];
+      if (planName === 'Pro') {
+        var c = {}; counted.forEach(function (o) { var k = o.city || 'Unknown'; c[k] = (c[k] || 0) + 1; }); cities = Object.keys(c).map(function (k) { return { city: k, orders: c[k] }; }).sort(function (a, b) { return b.orders - a.orders; });
+        var cust = {}; counted.forEach(function (o) { var m = cust[o.customer] || (cust[o.customer] = { name: o.customer, orders: 0, spent: 0 }); m.orders++; m.spent += o.total; });
+        var custArr = Object.keys(cust).map(function (k) { return cust[k]; });
+        topCustomers = custArr.slice().sort(function (a, b) { return b.spent - a.spent; }).slice(0, 8);
+        var repeatCustomers = custArr.filter(function (x) { return x.orders > 1; }).length;
+        repeat = { customers: custArr.length, repeatCustomers: repeatCustomers, repeatRate: custArr.length ? Math.round(repeatCustomers / custArr.length * 100) : 0 };
+        var wd = {}; counted.forEach(function (o) { var d = new Date(o.date + 'T00:00:00').getDay(); wd[d] = (wd[d] || 0) + 1; }); weekdays = Object.keys(wd).map(function (d) { return { dow: +d, orders: wd[d] }; });
+        var cp = {}; counted.forEach(function (o) { if (o.coupon) { var x = cp[o.coupon] || (cp[o.coupon] = { code: o.coupon, uses: 0, discount: 0 }); x.uses++; x.discount += o.discount || 0; } }); coupons = Object.keys(cp).map(function (k) { return cp[k]; }).sort(function (a, b) { return b.uses - a.uses; });
+      }
       render({
         plan: planName, revenue: revenue, orders: orders.length, paidOrders: counted.length, avgOrder: counted.length ? Math.round(revenue / counted.length) : 0, itemsSold: itemsSold, lowStock: products.filter(function (p) { return p.stock <= p.lowAt; }).length,
         sales7: D.sales7,
         byStatus: STATUS.map(function (s) { return { label: K.orderLabel(s), value: orders.filter(function (o) { return o.status === s; }).length }; }).filter(function (d) { return d.value > 0; }),
-        topProducts: top, cities: cities
+        topProducts: top,
+        revenueMonths: D.revenueMonths || [],
+        categories: categories, payments: payments,
+        cities: cities, topCustomers: topCustomers, repeat: repeat, weekdays: weekdays, coupons: coupons
       });
     })();
   </script>

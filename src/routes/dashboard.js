@@ -113,6 +113,44 @@ dashboardRouter.get(
       )
     ).rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: Number(r.value) }));
 
+    // Revenue over the last 6 calendar months (Business+).
+    const revenueMonths = (
+      await query(
+        `SELECT to_char(m, 'Mon') label, COALESCE(SUM(o.total),0) value
+           FROM generate_series(date_trunc('month', CURRENT_DATE) - INTERVAL '5 months',
+                                date_trunc('month', CURRENT_DATE), INTERVAL '1 month') m
+           LEFT JOIN orders o ON o.business_id = $1 AND date_trunc('month', o.created_at) = m
+                                 AND o.status <> 'CANCELLED'
+          GROUP BY m ORDER BY m`,
+        [b]
+      )
+    ).rows.map((r) => ({ label: r.label, value: Number(r.value) }));
+    // Units and revenue grouped by product category (Business+). Order items snapshot
+    // the name with any variant "(L, White)", so match back to the base product name.
+    const categories = (
+      await query(
+        `SELECT COALESCE(NULLIF(p.category,''),'Other') category,
+                SUM(oi.qty) units, SUM(oi.qty * oi.price) revenue
+           FROM order_items oi
+           JOIN orders o ON o.id = oi.order_id
+           LEFT JOIN products p ON p.business_id = o.business_id
+                                   AND p.name = split_part(oi.name, ' (', 1)
+          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'
+          GROUP BY 1 ORDER BY revenue DESC`,
+        [b]
+      )
+    ).rows.map((r) => ({ category: r.category, units: Number(r.units), revenue: Number(r.revenue) }));
+    // How customers pay (Business+).
+    const payments = (
+      await query(
+        `SELECT COALESCE(NULLIF(payment_method,''),'Other') method, COUNT(*) orders,
+                COALESCE(SUM(total),0) revenue
+           FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+          GROUP BY 1 ORDER BY orders DESC`,
+        [b]
+      )
+    ).rows.map((r) => ({ method: r.method, orders: Number(r.orders), revenue: Number(r.revenue) }));
+
     const revenue = Number(totals.revenue);
     const paid = Number(totals.paid);
     const report = {
@@ -126,8 +164,11 @@ dashboardRouter.get(
       sales7,
       byStatus,
       topProducts,
+      revenueMonths,
+      categories,
+      payments,
     };
-    // Advanced insights are Pro-only.
+    // Advanced customer insights are Pro-only.
     if (planId === 'pro') {
       report.cities = (
         await query(
@@ -137,6 +178,47 @@ dashboardRouter.get(
           [b]
         )
       ).rows.map((r) => ({ city: r.city, orders: Number(r.n) }));
+      report.topCustomers = (
+        await query(
+          `SELECT customer_name name, COUNT(*) orders, COALESCE(SUM(total),0) spent
+             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+             GROUP BY customer_name ORDER BY spent DESC LIMIT 8`,
+          [b]
+        )
+      ).rows.map((r) => ({ name: r.name, orders: Number(r.orders), spent: Number(r.spent) }));
+      const rep = (
+        await query(
+          `SELECT COUNT(*) customers, COUNT(*) FILTER (WHERE c > 1) repeat_customers
+             FROM (SELECT customer_name, COUNT(*) c FROM orders
+                    WHERE business_id = $1 AND status <> 'CANCELLED'
+                    GROUP BY customer_name) t`,
+          [b]
+        )
+      ).rows[0];
+      const customers = Number(rep.customers);
+      const repeatCustomers = Number(rep.repeat_customers);
+      report.repeat = {
+        customers,
+        repeatCustomers,
+        repeatRate: customers ? Math.round((repeatCustomers / customers) * 100) : 0,
+      };
+      report.weekdays = (
+        await query(
+          `SELECT EXTRACT(DOW FROM created_at)::int dow, COUNT(*) n
+             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+             GROUP BY 1`,
+          [b]
+        )
+      ).rows.map((r) => ({ dow: Number(r.dow), orders: Number(r.n) }));
+      report.coupons = (
+        await query(
+          `SELECT coupon_code code, COUNT(*) uses, COALESCE(SUM(discount),0) discount
+             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+                   AND coupon_code IS NOT NULL AND coupon_code <> ''
+             GROUP BY coupon_code ORDER BY uses DESC`,
+          [b]
+        )
+      ).rows.map((r) => ({ code: r.code, uses: Number(r.uses), discount: Number(r.discount) }));
     }
     res.json({ report });
   })

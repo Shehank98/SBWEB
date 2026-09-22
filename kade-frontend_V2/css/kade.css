@@ -493,6 +493,10 @@ body.has-cartbar { padding-bottom: 84px; }
 .pdp__thumb:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 @media (max-width: 640px) { .pdp__main { aspect-ratio: 4 / 3; } }
 
+/* Payment-mix breakdown (reports) */
+.pay-list { display: flex; flex-direction: column; gap: var(--space-4); }
+.pay-row__head { display: flex; justify-content: space-between; gap: var(--space-3); margin-bottom: 6px; font: 500 14px/20px var(--font-sans); }
+
 /* Locked (plan-gated) card */
 .kd-card.locked { border: 1px dashed var(--line); background: var(--surface-sunken); }
 .locked__body { text-align: center; padding: 8px 8px 16px; }
