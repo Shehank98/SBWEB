@@ -1,6 +1,6 @@
-# Sidadiya - promo script (2:13)
+# Sidadiya - promo script (~1:38)
 
-Run time: 133 seconds. 16:9 (1280x720). Voiceover (VO) warm, clear, unhurried.
+Run time: about 98 seconds (pricing scene removed, pacing 20% faster). 16:9 (1280x720). Voiceover (VO) warm, clear, unhurried.
 Music: light upbeat, low under the voice. Brand colours: green #0f5b4a, gold
 #e8a317, cream #faf7f0. The animated page (promo.html) is the visual track;
 record your voice over it or use it silent with music.
@@ -55,11 +55,7 @@ VO: "Sidadiya keeps your customers updated for you, with branded emails when you
 Dark. Pills: Cash on delivery, Bank transfer, Pickup. "Get paid your way."
 VO: "Cash on delivery, bank transfer or pickup. Simple payments your customers already trust."
 
-## 13. Pricing (1:53 to 2:04)
-Three plans; price counts up. "Plans from Rs. 1,500 a month."
-VO: "Simple monthly plans from just fifteen hundred rupees. Pay by bank transfer, change any time."
-
-## 14. Call to action (2:04 to 2:13)
+## 13. Call to action (final scene)
 Green. Logo, "Open your shop tonight", typewriter www.sidadiya.com, gold button.
 VO: "Your shop, open tonight. Start selling at sidadiya dot com."
 
