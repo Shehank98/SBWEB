@@ -81,6 +81,8 @@ storeRouter.post(
     const body = req.body || {};
     const { customer, phone } = body;
     if (!customer || !phone) throw badRequest('Name and phone are required.');
+    // Address is always required, regardless of delivery, pickup or payment method.
+    if (!body.address || !String(body.address).trim()) throw badRequest('An address is required.');
     if (!Array.isArray(body.items) || !body.items.length) throw badRequest('Your cart is empty.');
 
     // Re-price each line from the catalogue. Prices are never trusted from the client.

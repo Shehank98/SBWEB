@@ -74,9 +74,10 @@
           '<fieldset class="span-2" style="border:0;padding:0;margin:0"><legend class="kd-label">How do you want it?</legend><div class="choice" style="margin-top:8px">' +
           '<label><input type="radio" name="method" value="delivery"' + (method === 'delivery' ? ' checked' : '') + '><span><strong>Delivery</strong><br><span class="muted">' + (s.delivery.freeAbove > 0 ? K.rs(s.delivery.fee) + ', free above ' + K.rs(s.delivery.freeAbove) : K.rs(s.delivery.fee)) + '</span></span></label>' +
           (s.delivery.pickup ? '<label><input type="radio" name="method" value="pickup"' + (method === 'pickup' ? ' checked' : '') + '><span><strong>Pick up from the shop</strong><br><span class="muted">' + K.esc(s.address) + '. Free.</span></span></label>' : '') + '</div></fieldset>' +
-          (method === 'delivery' ? '<div class="kd-field span-2"><label class="kd-label" for="ad">Delivery address</label><input class="kd-input" id="ad" data-rule="required" autocomplete="street-address"></div>' +
-            '<div class="kd-field"><label class="kd-label" for="ct">Town or city</label><input class="kd-input" id="ct" data-rule="required" autocomplete="address-level2"></div>' +
-            '<div class="kd-field"><label class="kd-label" for="ds">District</label><select class="kd-select" id="ds" data-rule="required"><option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('') + '</select></div>'
+          '<div class="kd-field span-2"><label class="kd-label" for="ad">' + (method === 'pickup' ? 'Your address' : 'Delivery address') + '</label><input class="kd-input" id="ad" data-rule="required" autocomplete="street-address">' + (method === 'pickup' ? '<span class="kd-help">We keep this on your order for our records.</span>' : '') + '</div>' +
+          (method === 'delivery'
+            ? '<div class="kd-field"><label class="kd-label" for="ct">Town or city</label><input class="kd-input" id="ct" data-rule="required" autocomplete="address-level2"></div>' +
+              '<div class="kd-field"><label class="kd-label" for="ds">District</label><select class="kd-select" id="ds" data-rule="required"><option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('') + '</select></div>'
             : '<p class="muted span-2">Collect your order from ' + K.esc(s.address) + '.</p>') +
           '</section>' +
 
