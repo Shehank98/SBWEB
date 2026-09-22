@@ -33,7 +33,16 @@
   font: 400 16px/24px var(--font-sans);
 }
 .kd-input::placeholder { color: var(--ink-muted); }
+/* Focused fields: a clean on-brand border with no outline floating outside the
+   box. Buttons, links and chips keep their focus-visible outline (accessibility). */
+.kd-input:focus, .kd-select:focus, textarea.kd-input:focus,
+.kd-input:focus-visible, .kd-select:focus-visible, textarea.kd-input:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
 .kd-field--error .kd-input { border-color: var(--danger); background: var(--danger-soft); }
+.kd-field--error .kd-input:focus { box-shadow: inset 0 0 0 1px var(--danger); border-color: var(--danger); }
 .kd-error { display: flex; gap: var(--space-1); font: 600 14px/20px var(--font-sans); color: var(--danger); }
 
 /* Status badge: soft fill, colored text, a shape and a word */
