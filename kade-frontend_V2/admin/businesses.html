@@ -47,6 +47,7 @@
         else if (b.status === 'SUSPENDED') a.push('<button class="kd-btn kd-btn--primary kd-btn--sm" data-a="reactivate" data-id="' + b.id + '" aria-label="Reactivate ' + K.esc(b.name) + '">Reactivate</button>');
         else if (b.status === 'ACTIVE' || b.status === 'EXPIRING' || b.status === 'GRACE_PERIOD') a.push('<button class="kd-btn kd-btn--secondary kd-btn--sm" data-a="extend" data-id="' + b.id + '" aria-label="Extend ' + K.esc(b.name) + ' by 30 days">Extend 30 days</button>', '<button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-a="suspend" data-id="' + b.id + '" aria-label="Suspend ' + K.esc(b.name) + '">Suspend</button>');
         if (b.slug && b.status !== 'CANCELLED') a.push('<button class="kd-btn kd-btn--ghost kd-btn--sm" data-a="slug" data-id="' + b.id + '" aria-label="Change store link for ' + K.esc(b.name) + '">Change link</button>');
+        a.push('<button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-a="delete" data-id="' + b.id + '" aria-label="Delete ' + K.esc(b.name) + ' and all its data">Delete</button>');
         return a.join('');
       }
       function render() {
@@ -72,6 +73,11 @@
         else if (a === 'suspend') K.confirm({ title: 'Suspend ' + b.name + '?', body: 'Their store will show as temporarily unavailable. Products and orders are kept and come back when you reactivate.', confirmLabel: 'Suspend store', danger: true }).then(function (ok) { if (ok) commit(function () { return KadeApi.adminSuspend(b.id); }, function () { b.status = 'SUSPENDED'; }, b.name + ' suspended.'); });
         else if (a === 'reject') K.confirm({ title: 'Reject ' + b.name + '?', body: 'The owner gets an email with your reason.', confirmLabel: 'Reject application', danger: true, reason: 'Reason for the owner' }).then(function (r) { if (r) commit(function () { return KadeApi.adminReject(b.id, r.reason); }, function () { b.status = 'CANCELLED'; }, 'Application rejected. Email queued.'); });
         else if (a === 'slug') changeLink(b);
+        else if (a === 'delete') K.confirm({ title: 'Delete ' + b.name + '?', body: 'This permanently removes the shop and ALL its data — products, orders, payments and the owner login. This cannot be undone.', confirmLabel: 'Delete permanently', danger: true }).then(function (ok) {
+          if (!ok) return;
+          if (API) { KadeApi.adminDeleteBusiness(b.id).then(function () { K.toast(b.name + ' deleted.'); return reload(); }).catch(function (ex) { K.toast(ex.message || 'Could not delete.'); }); }
+          else { B = B.filter(function (x) { return x.id !== b.id; }); render(); K.toast(b.name + ' deleted.'); }
+        });
       });
 
       function changeLink(b) {

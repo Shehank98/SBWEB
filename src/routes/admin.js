@@ -185,6 +185,18 @@ adminRouter.post(
   })
 );
 
+// ---- Delete a business and ALL its data (irreversible) ----
+// Removing the business cascades to its store, users, products, orders, payments,
+// subscriptions, categories, coupons and notifications (all FKs are ON DELETE CASCADE).
+adminRouter.delete(
+  '/businesses/:id',
+  wrap(async (req, res) => {
+    const biz = await loadBusiness(req.params.id);
+    await query('DELETE FROM businesses WHERE id = $1', [biz.id]);
+    res.json({ ok: true });
+  })
+);
+
 // ---- Payments queue ----
 adminRouter.get(
   '/payments',

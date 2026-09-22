@@ -4,7 +4,7 @@ import { query, withTransaction } from '../db/pool.js';
 import { authenticate, requireBusiness, requireOwner, requirePermission } from '../middleware/auth.js';
 import { wrap, badRequest, notFound, conflict, forbidden } from '../utils/http.js';
 import { saveUpload } from '../services/uploads.js';
-import { hashPassword } from '../utils/auth.js';
+import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { currentPlan, cap } from '../services/plan.js';
 import * as S from '../services/serialize.js';
@@ -454,6 +454,23 @@ dashboardRouter.put(
         }
       });
     }
+    res.json({ ok: true });
+  })
+);
+
+// ---- Owner closes (deletes) their own shop and ALL its data (irreversible) ----
+// Re-verifies the owner's password first. Deleting the business cascades to the
+// store, staff users, products, orders, payments, subscriptions, categories and
+// coupons. After this the owner's session is invalid, so the client logs out.
+dashboardRouter.delete(
+  '/account',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const password = (req.body && req.body.password) || '';
+    const me = (await query('SELECT password_hash FROM users WHERE id=$1', [req.user.sub])).rows[0];
+    if (!me || !(await verifyPassword(password, me.password_hash))) throw badRequest('Password is incorrect.');
+    await query('DELETE FROM businesses WHERE id=$1', [b]);
     res.json({ ok: true });
   })
 );

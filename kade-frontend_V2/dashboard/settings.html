@@ -53,6 +53,12 @@
           </section>
           <div class="row"><button class="kd-btn kd-btn--primary" type="submit">Save changes</button></div>
         </form>
+
+        <section class="kd-card panel danger-zone" aria-labelledby="dz" style="margin-top:24px">
+          <h2 id="dz">Delete my shop</h2>
+          <p class="muted">Deleting your shop is permanent. Your storefront, all products, orders, customer details and this login are removed and <strong>cannot be recovered</strong>.</p>
+          <div class="row"><button type="button" class="kd-btn kd-btn--secondary" id="delshop" style="color:var(--danger);border-color:var(--danger)">Delete my shop</button></div>
+        </section>
       </main>
     </div>
   </div>
@@ -113,6 +119,27 @@
           S.delivery.fee = payload.delivery.fee; S.delivery.freeAbove = payload.delivery.freeAbove; S.delivery.pickup = payload.delivery.pickup;
           K.toast('Settings saved');
         }
+      });
+
+      // Delete my shop (permanent). Warn, then re-confirm with the account password.
+      K.$('#delshop').addEventListener('click', function () {
+        var name = (S && S.name) || 'your shop';
+        K.confirm({
+          title: 'Delete ' + name + '?',
+          body: 'This permanently deletes your storefront and ALL its data — products, orders, customer details and this login. It cannot be undone.',
+          confirmLabel: 'Continue', danger: true
+        }).then(function (ok) {
+          if (!ok) return;
+          if (!API) { K.toast('Deleting is disabled in the demo.'); return; }
+          K.prompt({ title: 'Confirm deletion', label: 'Enter your password to delete ' + name, type: 'password', confirmLabel: 'Delete my shop', help: 'This action is permanent.' }).then(function (pw) {
+            if (pw == null || pw === '') return;
+            KadeApi.deleteMyShop(pw).then(function () {
+              KadeApi.logout();
+              K.toast('Your shop has been deleted.');
+              setTimeout(function () { location.href = '../index'; }, 800);
+            }).catch(function (ex) { K.toast(ex.message || 'Could not delete the shop.'); });
+          });
+        });
       });
 
       if (API) { KadeApi.myStore().then(function (r) { S = r.store; fill(); }).catch(function () { K.toast('Could not load settings.'); }); }

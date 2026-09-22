@@ -223,7 +223,7 @@
       d.setAttribute('aria-labelledby', 'pr-title');
       d.innerHTML = '<form><div class="dialog__head"><h2 class="heading" id="pr-title">' + K.esc(o.title) + '</h2></div>' +
         '<div class="dialog__body"><div class="kd-field"><label class="kd-label" for="pr-input">' + K.esc(o.label || '') + '</label>' +
-        '<input class="kd-input" id="pr-input" value="' + K.esc(o.value || '') + '"' + (o.placeholder ? ' placeholder="' + K.esc(o.placeholder) + '"' : '') + ' autocapitalize="none" autocomplete="off" spellcheck="false">' +
+        '<input class="kd-input" id="pr-input" type="' + K.esc(o.type || 'text') + '" value="' + K.esc(o.value || '') + '"' + (o.placeholder ? ' placeholder="' + K.esc(o.placeholder) + '"' : '') + ' autocapitalize="none" autocomplete="off" spellcheck="false">' +
         (o.help ? '<span class="kd-help">' + K.esc(o.help) + '</span>' : '') + '<span class="kd-error" id="pr-err" hidden></span></div></div>' +
         '<div class="dialog__foot"><button class="kd-btn kd-btn--ghost" type="button" id="pr-cancel" formnovalidate>Cancel</button><button class="kd-btn kd-btn--primary" type="submit">' + K.esc(o.confirmLabel || 'Save') + '</button></div></form>';
       document.body.appendChild(d);
