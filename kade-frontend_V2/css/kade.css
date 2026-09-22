@@ -171,8 +171,8 @@ dialog.drawer .dialog__body { max-height: none; flex: 1; }
 .site-header .container { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: 64px; }
 /* Brand logo. The anchor keeps its "Sidadiya" text for screen readers while the
    image is shown via a background, so every .wordmark site-wide updates at once. */
-.wordmark { display: inline-block; height: 30px; aspect-ratio: 1596 / 714; background: url("/assets/logo.png") left center / contain no-repeat; font-size: 0; color: transparent; text-decoration: none; }
-@media (min-width: 900px) { .wordmark { height: 34px; } }
+.wordmark { display: inline-block; height: 40px; aspect-ratio: 1596 / 714; background: url("/assets/logo.png") left center / contain no-repeat; font-size: 0; color: transparent; text-decoration: none; }
+@media (min-width: 900px) { .wordmark { height: 48px; } }
 /* Dark theme: swap to the light logo so it reads on the dark surfaces. */
 [data-theme="dark"] .wordmark { background-image: url("/assets/logo-light.png"); }
 .site-nav { display: flex; align-items: center; gap: var(--space-2); }

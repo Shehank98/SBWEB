@@ -125,6 +125,8 @@
       if (slipFile) fd.append('slip', slipFile);
       return req('POST', '/api/dashboard/subscription/renew', fd, true);
     },
+    dashboardBadges() { return req('GET', '/api/dashboard/badges'); },
+    adminBadges() { return req('GET', '/api/admin/badges'); },
     myStore() { return req('GET', '/api/dashboard/store'); },
     updateStore(store) { return req('PUT', '/api/dashboard/store', store); },
     deleteMyShop(password) { return req('DELETE', '/api/dashboard/account', { password: password }); },

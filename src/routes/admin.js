@@ -12,6 +12,20 @@ export const adminRouter = Router();
 // Every route here is platform-admin only.
 adminRouter.use(authenticate, requireRole('SUPER_ADMIN'));
 
+// ---- Badge counts for the admin sidebar/tab navigation ----
+adminRouter.get(
+  '/badges',
+  wrap(async (_req, res) => {
+    const pendingApprovals = Number(
+      (await query("SELECT COUNT(*) c FROM businesses WHERE status='PENDING_APPROVAL'")).rows[0].c
+    );
+    const pendingPayments = Number(
+      (await query("SELECT COUNT(*) c FROM payments WHERE status='PENDING'")).rows[0].c
+    );
+    res.json({ pendingApprovals, pendingPayments });
+  })
+);
+
 // ---- Overview stats ----
 adminRouter.get(
   '/stats',

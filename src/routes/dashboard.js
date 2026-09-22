@@ -17,6 +17,18 @@ const bid = (req) => req.user.business_id;
 
 const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
+// ---- Badge counts for the sidebar/tab navigation (cheap, called on every page) ----
+dashboardRouter.get(
+  '/badges',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const pendingOrders = Number(
+      (await query("SELECT COUNT(*) c FROM orders WHERE business_id=$1 AND status='PENDING'", [b])).rows[0].c
+    );
+    res.json({ pendingOrders });
+  })
+);
+
 // ---- Overview: today's sales, order/product counts, low stock, last 7 days ----
 dashboardRouter.get(
   '/overview',

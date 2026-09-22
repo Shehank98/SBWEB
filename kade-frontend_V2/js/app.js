@@ -315,6 +315,28 @@
     var nav = items.map(function (i) {
       return '<a href="' + i[0] + '"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
     }).join('');
+
+    // In API mode the counts above are 0 at render time; fetch the real pending
+    // counts and update the sidebar + tab badges once the shell is in the DOM.
+    function setBadge(section, n) {
+      [K.$('#sidebar .nav a[href="' + section + '"]'), K.$('.tabbar a[href="' + section + '"]')].forEach(function (a) {
+        if (!a) return;
+        var inTab = !!a.closest('.tabbar');
+        var badge = a.querySelector('.count, .tcount');
+        if (n > 0) {
+          if (!badge) { badge = document.createElement(inTab ? 'b' : 'span'); badge.className = inTab ? 'tcount' : 'count'; a.appendChild(badge); }
+          badge.textContent = n; badge.setAttribute('aria-label', n + ' waiting');
+        } else if (badge) { badge.remove(); }
+      });
+    }
+    function loadBadges() {
+      if (!api) return;
+      if (kind === 'admin' && KadeApi.adminBadges) {
+        KadeApi.adminBadges().then(function (r) { setBadge('businesses', r.pendingApprovals || 0); setBadge('payments', r.pendingPayments || 0); }).catch(function () {});
+      } else if (KadeApi.dashboardBadges) {
+        KadeApi.dashboardBadges().then(function (r) { setBadge('orders', r.pendingOrders || 0); }).catch(function () {});
+      }
+    }
     var ctx = kind === 'admin' ? 'Platform admin' : ((sess && sess.storeName) ? sess.storeName : 'ABC Fashion');
     var mySlug = (sess && sess.slug) ? sess.slug : 'abc-fashion';
     var foot = kind === 'admin'
@@ -334,6 +356,7 @@
     var tabbar = document.createElement('nav'); tabbar.className = 'tabbar'; tabbar.setAttribute('aria-label', 'Primary');
     tabbar.innerHTML = items.slice(0, 5).map(function (i) { return '<a href="' + i[0] + '"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + (SHORT[i[0]] || i[1]) + '</span>' + (i[3] ? '<b class="tcount" aria-label="' + i[3] + ' waiting">' + i[3] + '</b>' : '') + '</a>'; }).join('');
     document.body.appendChild(tabbar);
+    loadBadges();
     /* Tables become cards on phones: copy each column heading onto its cell */
     function labelTables() {
       K.$$('.app .kd-table').forEach(function (t) {
