@@ -19,7 +19,7 @@
       <main class="main" id="main" tabindex="-1">
         <div class="page-head"><div><h1>Reports</h1><p id="sub">Sales and product performance for your store.</p></div><button type="button" class="kd-btn kd-btn--secondary" id="export" hidden>Export</button></div>
         <div id="rangebar" class="rangebar" hidden></div>
-        <div id="body"></div>
+        <div id="body" class="rep-body"></div>
       </main>
     </div>
   </div>
@@ -133,7 +133,7 @@
           card('Sales by category', 'rc') + tableWrap('<th scope="col">Category</th><th scope="col" class="kd-num">Units</th><th scope="col" class="kd-num">Revenue</th>', catRows) + '</section>' +
           card('Top products', 'r3') + '<div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="kd-num">Units sold</th><th scope="col" class="kd-num">Revenue</th></tr></thead><tbody id="toprows"></tbody></table></div>' +
           (R.topProducts.length ? '' : '<div class="empty"><p class="muted">No sales in this period.</p></div>') + '</section>' +
-          '<div id="advanced" style="margin-top:24px"></div>';
+          '<div id="advanced"></div>';
 
         seriesBars(K.$('#chart1'), R.series);
         if (R.byStatus.length) K.bars(K.$('#chart2'), R.byStatus, { label: 'Orders by status', xLabel: 'Status', yLabel: 'Orders', format: function (v) { return v + (v === 1 ? ' order' : ' orders'); } });
@@ -167,17 +167,17 @@
 
         adv.className = '';
         adv.innerHTML =
-          '<h2 id="r4" class="heading" style="margin-bottom:12px">Advanced insights <span class="kd-badge kd-badge--success">Pro</span></h2>' +
+          '<h2 id="r4" class="heading">Advanced insights <span class="kd-badge kd-badge--success">Pro</span></h2>' +
           '<div class="tiles">' +
           statCard('Unique customers', rep.customers, 'In this period') +
           statCard('Repeat customers', rep.repeatCustomers, 'Ordered more than once') +
           statCard('Repeat rate', rep.repeatRate + '%', 'Of your customers') +
           '</div>' +
-          '<div class="grid-2" style="margin-top:16px">' +
+          '<div class="grid-2">' +
           card('Top customers', 'ac1') + tableWrap('<th scope="col">Customer</th><th scope="col" class="kd-num">Orders</th><th scope="col" class="kd-num">Spent</th>', custRows) + '</section>' +
           '<section class="kd-card panel" aria-labelledby="ac2"><h2 id="ac2">Busiest days</h2><div id="chartW"></div></section>' +
           '</div>' +
-          '<div class="grid-2" style="margin-top:16px">' +
+          '<div class="grid-2">' +
           card('Where orders come from', 'ac3') + tableWrap('<th scope="col">Town or city</th><th scope="col" class="kd-num">Orders</th>', cityRows) + '</section>' +
           card('Coupon performance', 'ac4') + tableWrap('<th scope="col">Code</th><th scope="col" class="kd-num">Uses</th><th scope="col" class="kd-num">Discount given</th>', coupRows) + '</section>' +
           '</div>';
