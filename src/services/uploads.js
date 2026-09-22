@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from '../config.js';
 
@@ -41,9 +42,16 @@ export async function saveUpload(file, folder = 'misc') {
   if (config.uploadDriver === 'firebase') {
     const bucket = await getFirebaseBucket();
     const blob = bucket.file(key);
-    await blob.save(file.buffer, { contentType: file.mimetype, resumable: false });
-    await blob.makePublic();
-    return `https://storage.googleapis.com/${bucket.name}/${key}`;
+    // Use a Firebase download token instead of makePublic(): the token grants read
+    // access and works even when the bucket has "uniform bucket-level access" on
+    // (the default for new buckets), where object ACLs / makePublic() would fail.
+    const token = randomUUID();
+    await blob.save(file.buffer, {
+      contentType: file.mimetype,
+      resumable: false,
+      metadata: { metadata: { firebaseStorageDownloadTokens: token } },
+    });
+    return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(key)}?alt=media&token=${token}`;
   }
 
   // local driver

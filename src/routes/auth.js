@@ -38,8 +38,17 @@ authRouter.post(
     const plan = (await query('SELECT * FROM plans WHERE id = $1', [b.planId])).rows[0];
     if (!plan) throw badRequest('Unknown plan.');
 
+    // A storage hiccup must never block a signup. If the slip upload fails we still
+    // create the business + pending payment (without the slip) and log the error,
+    // so the application always reaches the admin and the owner can re-send the slip.
     let slipUrl = null;
-    if (req.file) slipUrl = await saveUpload(req.file, 'slips');
+    if (req.file) {
+      try {
+        slipUrl = await saveUpload(req.file, 'slips');
+      } catch (e) {
+        console.error('[register] slip upload failed, continuing without it:', e.message);
+      }
+    }
 
     const result = await withTransaction(async (client) => {
       const biz = (

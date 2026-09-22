@@ -56,8 +56,10 @@ service firebase.storage {
 }
 ```
 
-Click **Publish**. (The backend also calls `makePublic()` on each file, so the
-returned `https://storage.googleapis.com/<bucket>/<path>` URL works directly.)
+Click **Publish**. (The backend stores each file with a Firebase **download
+token** and returns a `https://firebasestorage.googleapis.com/...?alt=media&token=…`
+URL that works directly — no `makePublic()` and no "uniform bucket-level access"
+issues, so you can leave the bucket on its default access setting.)
 
 ## 4. Install the Firebase package
 
@@ -102,9 +104,12 @@ Paste that output as the value of `FIREBASE_SERVICE_ACCOUNT`.
 1. Restart the backend with the new vars.
 2. Log in to a store, open **Products → Add product**, drag in a photo, save.
 3. The product row should show the photo, and its `image_url` in the database
-   should be a `https://storage.googleapis.com/<bucket>/products/<slug>/...` URL.
+   should be a `https://firebasestorage.googleapis.com/v0/b/<bucket>/o/...` URL.
 4. Payment slips uploaded at registration/renewal land under `slips/` in the same
    bucket and appear on the admin **Payments** page.
+
+You can also confirm the active driver in the deploy logs at startup:
+`[uploads] driver=firebase bucket=<your-bucket>` (or a warning that it's local).
 
 ## 7. How it flows (for reference)
 
@@ -112,9 +117,8 @@ Paste that output as the value of `FIREBASE_SERVICE_ACCOUNT`.
 Browser (drag & drop)
    → multipart POST to the API
    → src/services/uploads.js  (UPLOAD_DRIVER === 'firebase')
-   → bucket.file('products/<slug>/<timestamp>-name.jpg').save(buffer)
-   → makePublic()
-   → returns https://storage.googleapis.com/<bucket>/<path>
+   → bucket.file('products/<slug>/<timestamp>-name.jpg').save(buffer, { token })
+   → returns https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<path>?alt=media&token=…
    → stored in Postgres (image_url / slip_url)
 ```
 

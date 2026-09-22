@@ -80,6 +80,13 @@ app.use(errorHandler);
 
 const server = app.listen(config.port, async () => {
   console.log(`[kade] API listening on http://localhost:${config.port}`);
+  // Surface the file-storage config so it's obvious in the deploy logs whether
+  // uploads (payment slips, product photos) go to Firebase or the local disk.
+  if (config.uploadDriver === 'firebase') {
+    console.log(`[uploads] driver=firebase bucket=${config.firebase.bucket || '(FIREBASE_STORAGE_BUCKET not set!)'}`);
+  } else {
+    console.log('[uploads] driver=local — files save to ./uploads and are LOST on redeploy. Set UPLOAD_DRIVER=firebase for permanent storage.');
+  }
   // Prepare the database on boot: apply the schema (idempotent) and seed demo data
   // if empty, then ensure the admin from env vars. This makes a fresh deploy work
   // without running any manual db commands.
