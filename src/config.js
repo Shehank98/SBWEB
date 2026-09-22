@@ -18,7 +18,11 @@ export const config = {
     name: process.env.ADMIN_NAME || 'Platform Admin',
   },
   uploadDriver: process.env.UPLOAD_DRIVER || 'local',
-  publicBaseUrl: process.env.PUBLIC_BASE_URL || `http://localhost:${process.env.PORT || 4000}`,
+  // Absolute base for links in emails (store links, dashboard, renewal). In
+  // production set PUBLIC_BASE_URL to the live domain; the fallback below keeps
+  // email links working even if the env var is missing. For local development
+  // set PUBLIC_BASE_URL=http://localhost:4000.
+  publicBaseUrl: process.env.PUBLIC_BASE_URL || 'https://www.sidadiya.com',
   firebase: {
     bucket: process.env.FIREBASE_STORAGE_BUCKET,
     serviceAccount: process.env.FIREBASE_SERVICE_ACCOUNT,
