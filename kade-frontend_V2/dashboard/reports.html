@@ -17,6 +17,7 @@
       <header class="topbar" id="topbar"></header>
       <main class="main" id="main" tabindex="-1">
         <div class="page-head"><div><h1>Reports</h1><p id="sub">Sales and product performance for your store.</p></div></div>
+        <div id="rangebar" class="rangebar" hidden></div>
         <div id="body"></div>
       </main>
     </div>
@@ -34,7 +35,42 @@
       var API = !!(window.KadeApi && KadeApi.enabled);
       var body = K.$('#body');
 
+      // ---- Date range ----
+      function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+      function shift(days) { var d = new Date(); d.setDate(d.getDate() - days); return d; }
+      function monthStart() { var d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); }
+      var PRESETS = [['week', 'This week'], ['month', 'This month'], ['30d', 'Last 30 days'], ['3mo', 'Last 3 months'], ['all', 'All time']];
+      function presetRange(key) {
+        var t = new Date();
+        if (key === 'week') return { from: ymd(shift(6)), to: ymd(t) };
+        if (key === 'month') return { from: ymd(monthStart()), to: ymd(t) };
+        if (key === '30d') return { from: ymd(shift(29)), to: ymd(t) };
+        if (key === '3mo') return { from: ymd(shift(89)), to: ymd(t) };
+        return { from: null, to: null };
+      }
+      var state = { key: '30d', from: presetRange('30d').from, to: presetRange('30d').to };
+
+      function renderRangeBar() {
+        var rb = K.$('#rangebar');
+        rb.hidden = false;
+        rb.innerHTML =
+          '<div class="rangebar__presets" role="group" aria-label="Date range">' +
+          PRESETS.map(function (p) { return '<button type="button" class="kd-chip" data-r="' + p[0] + '" aria-pressed="' + (state.key === p[0]) + '">' + p[1] + '</button>'; }).join('') +
+          '</div>' +
+          '<div class="rangebar__custom"><label class="visually-hidden" for="r-from">From</label><input class="kd-input kd-input--sm" type="date" id="r-from" value="' + (state.from || '') + '"><span class="muted">to</span><label class="visually-hidden" for="r-to">To</label><input class="kd-input kd-input--sm" type="date" id="r-to" value="' + (state.to || '') + '"><button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="r-apply">Apply</button></div>';
+        rb.querySelectorAll('[data-r]').forEach(function (b) {
+          b.addEventListener('click', function () { var k = b.getAttribute('data-r'); var r = presetRange(k); state = { key: k, from: r.from, to: r.to }; renderRangeBar(); load(); });
+        });
+        K.$('#r-apply').addEventListener('click', function () {
+          var f = K.$('#r-from').value, t = K.$('#r-to').value;
+          if (!f && !t) return;
+          if (f && t && f > t) { var s = f; f = t; t = s; }
+          state = { key: 'custom', from: f || null, to: t || null }; renderRangeBar(); load();
+        });
+      }
+
       function upsell() {
+        K.$('#rangebar').hidden = true;
         K.$('#sub').textContent = 'Upgrade to unlock sales reports.';
         body.innerHTML = '<section class="kd-card panel" style="text-align:center;max-width:560px;margin:24px auto">' +
           '<h2 class="heading">Reports are a Business feature</h2>' +
@@ -42,65 +78,63 @@
           '<div class="row" style="justify-content:center;margin-top:16px"><a class="kd-btn kd-btn--primary" href="subscription">See plans</a></div></section>';
       }
 
-      // R = { plan, revenue, orders, paidOrders, avgOrder, itemsSold, lowStock,
-      //       sales7, byStatus:[{label,value}], topProducts:[{name,category,image,units,revenue}],
-      //       revenueMonths:[{label,value}], categories:[{category,units,revenue}], payments:[{method,orders,revenue}],
-      //       (Pro) cities:[{city,orders}], topCustomers:[{name,orders,spent}],
-      //       repeat:{customers,repeatCustomers,repeatRate}, weekdays:[{dow,orders}], coupons:[{code,uses,discount}] }
+      // ---- Rendering helpers ----
       var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      function card(title, id, badge) {
-        return '<section class="kd-card" aria-labelledby="' + id + '"><h2 class="heading" id="' + id + '" style="padding:16px 16px 0">' + title + (badge || '') + '</h2>';
-      }
-      function tableWrap(head, rows) {
-        return '<div class="table-wrap"><table class="kd-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
-      }
-      function statCard(label, value, delta) {
-        return '<div class="kd-card stat"><span class="stat__label">' + label + '</span><span class="stat__value">' + value + '</span><span class="stat__delta">' + delta + '</span></div>';
+      function card(title, id, badge) { return '<section class="kd-card" aria-labelledby="' + id + '"><h2 class="heading" id="' + id + '" style="padding:16px 16px 0">' + title + (badge || '') + '</h2>'; }
+      function tableWrap(head, rows) { return '<div class="table-wrap"><table class="kd-table"><thead><tr>' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>'; }
+      function statCard(label, value, delta) { return '<div class="kd-card stat"><span class="stat__label">' + label + '</span><span class="stat__value">' + value + '</span><span class="stat__delta">' + delta + '</span></div>'; }
+      function seriesBars(el, series) {
+        var pts = (series && series.points) || [];
+        var data = pts.map(function (p) {
+          if (series.granularity === 'day') { var dt = new Date(p.date + 'T00:00:00'); return { label: dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), title: dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }), value: p.value }; }
+          return { label: p.label || p.date, value: p.value };
+        });
+        if (data.some(function (d) { return d.value > 0; })) K.bars(el, data, { label: 'Sales over time, in rupees', xLabel: series.granularity === 'day' ? 'Day' : 'Month', yLabel: 'Sales' });
+        else el.innerHTML = '<p class="muted">No sales in this period.</p>';
       }
 
+      // R = { plan, revenue, orders, paidOrders, avgOrder, itemsSold, lowStock,
+      //       series:{granularity,points}, byStatus:[{label,value}], topProducts:[...],
+      //       categories:[{category,units,revenue}], payments:[{method,orders,revenue}],
+      //       (Pro) cities, topCustomers, repeat, weekdays, coupons }
       function render(R) {
         var isPro = R.plan === 'Pro';
         var delivered = (R.byStatus.filter(function (s) { return s.label === K.orderLabel('DELIVERED'); })[0] || {}).value || 0;
         var tiles = [
           ['Revenue', K.rs(R.revenue), R.paidOrders + ' paid orders'],
-          ['Orders', R.orders, 'All time'],
+          ['Orders', R.orders, 'In this period'],
           ['Average order', K.rs(R.avgOrder), 'Per paid order'],
-          ['Items sold', R.itemsSold, 'Units across orders'],
+          ['Items sold', R.itemsSold, 'Units in period'],
           ['Delivered', delivered, 'Completed orders'],
           ['Low or out of stock', R.lowStock, R.lowStock ? 'Restock soon' : 'All stocked']
         ];
         var cats = R.categories || [];
         var catRows = cats.length
           ? cats.map(function (c) { return '<tr><td><strong>' + K.esc(c.category) + '</strong></td><td class="kd-num">' + c.units + '</td><td class="kd-num">' + K.rs(c.revenue) + '</td></tr>'; }).join('')
-          : '<tr><td colspan="3" class="muted" style="padding:12px">No sales yet.</td></tr>';
+          : '<tr><td colspan="3" class="muted" style="padding:12px">No sales in this period.</td></tr>';
         var pays = R.payments || [];
         var payTotal = pays.reduce(function (n, p) { return n + p.orders; }, 0) || 1;
         var payList = pays.length
           ? pays.map(function (p) { var pct = Math.round(p.orders / payTotal * 100); return '<div class="pay-row"><div class="pay-row__head"><span>' + K.esc(p.method) + '</span><span class="muted">' + p.orders + (p.orders === 1 ? ' order · ' : ' orders · ') + K.rs(p.revenue) + '</span></div><div class="kd-meter"><span style="width:' + pct + '%"></span></div></div>'; }).join('')
-          : '<p class="muted">No orders yet.</p>';
+          : '<p class="muted">No orders in this period.</p>';
 
         body.innerHTML =
           '<div class="tiles">' + tiles.map(function (t) { return statCard(t[0], t[1], t[2]); }).join('') + '</div>' +
           '<div class="grid-2">' +
-          '<section class="kd-card panel" aria-labelledby="r1"><h2 id="r1">Sales, last 7 days</h2><div id="chart1"></div></section>' +
+          '<section class="kd-card panel" aria-labelledby="r1"><h2 id="r1">Sales over time</h2><div id="chart1"></div></section>' +
           '<section class="kd-card panel" aria-labelledby="r2"><h2 id="r2">Orders by status</h2><div id="chart2"></div></section>' +
           '</div>' +
           '<div class="grid-2">' +
-          '<section class="kd-card panel" aria-labelledby="rm"><h2 id="rm">Revenue by month</h2><div id="chart3"></div></section>' +
           card('Sales by category', 'rc') + tableWrap('<th scope="col">Category</th><th scope="col" class="kd-num">Units</th><th scope="col" class="kd-num">Revenue</th>', catRows) + '</section>' +
-          '</div>' +
           '<section class="kd-card panel" aria-labelledby="rp"><h2 id="rp">How customers pay</h2><div class="pay-list">' + payList + '</div></section>' +
+          '</div>' +
           card('Top products', 'r3') + '<div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="kd-num">Units sold</th><th scope="col" class="kd-num">Revenue</th></tr></thead><tbody id="toprows"></tbody></table></div>' +
-          (R.topProducts.length ? '' : '<div class="empty"><p class="muted">No sales yet. Reports fill in as orders come through.</p></div>') + '</section>' +
+          (R.topProducts.length ? '' : '<div class="empty"><p class="muted">No sales in this period.</p></div>') + '</section>' +
           '<div id="advanced" style="margin-top:24px"></div>';
 
-        var sales7 = R.sales7.map(function (d) { var dt = new Date(d.date + 'T00:00:00'); return { label: dt.toLocaleDateString('en-GB', { weekday: 'short' }), title: dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }), value: d.value }; });
-        K.bars(K.$('#chart1'), sales7, { label: 'Sales per day for the last 7 days, in rupees', xLabel: 'Day', yLabel: 'Sales' });
+        seriesBars(K.$('#chart1'), R.series);
         if (R.byStatus.length) K.bars(K.$('#chart2'), R.byStatus, { label: 'Orders by status', xLabel: 'Status', yLabel: 'Orders', format: function (v) { return v + (v === 1 ? ' order' : ' orders'); } });
-        else K.$('#chart2').innerHTML = '<p class="muted">No orders yet.</p>';
-        var rm = R.revenueMonths || [];
-        if (rm.some(function (m) { return m.value > 0; })) K.bars(K.$('#chart3'), rm, { label: 'Revenue for the last 6 months, in rupees', xLabel: 'Month', yLabel: 'Revenue' });
-        else K.$('#chart3').innerHTML = '<p class="muted">Not enough history yet.</p>';
+        else K.$('#chart2').innerHTML = '<p class="muted">No orders in this period.</p>';
 
         K.$('#toprows').innerHTML = R.topProducts.map(function (r) {
           return '<tr><td><div class="cell-flex"><div class="thumb">' + K.ph({ name: r.name, image: r.image, tone: r.tone }, true) + '</div><strong>' + K.esc(r.name) + '</strong></div></td><td>' + K.esc(r.category || '-') + '</td><td class="kd-num">' + r.units + '</td><td class="kd-num">' + K.rs(r.revenue) + '</td></tr>';
@@ -120,19 +154,19 @@
         var rep = R.repeat || { customers: 0, repeatCustomers: 0, repeatRate: 0 };
         var custRows = (R.topCustomers || []).length
           ? R.topCustomers.map(function (c) { return '<tr><td><strong>' + K.esc(c.name) + '</strong></td><td class="kd-num">' + c.orders + '</td><td class="kd-num">' + K.rs(c.spent) + '</td></tr>'; }).join('')
-          : '<tr><td colspan="3" class="muted" style="padding:12px">No customers yet.</td></tr>';
+          : '<tr><td colspan="3" class="muted" style="padding:12px">No customers in this period.</td></tr>';
         var cityRows = (R.cities || []).length
           ? R.cities.map(function (r) { return '<tr><td>' + K.esc(r.city) + '</td><td class="kd-num">' + r.orders + '</td></tr>'; }).join('')
-          : '<tr><td colspan="2" class="muted" style="padding:12px">No orders yet.</td></tr>';
+          : '<tr><td colspan="2" class="muted" style="padding:12px">No orders in this period.</td></tr>';
         var coupRows = (R.coupons || []).length
           ? R.coupons.map(function (c) { return '<tr><td><strong>' + K.esc(c.code) + '</strong></td><td class="kd-num">' + c.uses + '</td><td class="kd-num">' + K.rs(c.discount) + '</td></tr>'; }).join('')
-          : '<tr><td colspan="3" class="muted" style="padding:12px">No coupons used yet.</td></tr>';
+          : '<tr><td colspan="3" class="muted" style="padding:12px">No coupons used in this period.</td></tr>';
 
         adv.className = '';
         adv.innerHTML =
           '<h2 id="r4" class="heading" style="margin-bottom:12px">Advanced insights <span class="kd-badge kd-badge--success">Pro</span></h2>' +
           '<div class="tiles">' +
-          statCard('Unique customers', rep.customers, 'All time') +
+          statCard('Unique customers', rep.customers, 'In this period') +
           statCard('Repeat customers', rep.repeatCustomers, 'Ordered more than once') +
           statCard('Repeat rate', rep.repeatRate + '%', 'Of your customers') +
           '</div>' +
@@ -148,77 +182,95 @@
         var wmap = {}; (R.weekdays || []).forEach(function (w) { wmap[w.dow] = w.orders; });
         var wd = [1, 2, 3, 4, 5, 6, 0].map(function (d) { return { label: DOW[d], value: wmap[d] || 0 }; });
         if (wd.some(function (d) { return d.value > 0; })) K.bars(K.$('#chartW'), wd, { label: 'Orders by day of week', xLabel: 'Day', yLabel: 'Orders', format: function (v) { return v + (v === 1 ? ' order' : ' orders'); } });
-        else K.$('#chartW').innerHTML = '<p class="muted">No orders yet.</p>';
+        else K.$('#chartW').innerHTML = '<p class="muted">No orders in this period.</p>';
       }
 
-      if (API) {
-        K.loading(body, 'Loading reports…');
-        Promise.all([KadeApi.reports(), KadeApi.myProducts().catch(function () { return { products: [] }; })]).then(function (res) {
-          var rep = res.report || res[0].report, prods = res[1].products || [];
-          function findProd(name) { var base = name.split(' (')[0]; return prods.filter(function (p) { return p.name === base; })[0]; }
-          render({
-            plan: rep.plan, revenue: rep.revenue, orders: rep.orders, paidOrders: rep.paidOrders, avgOrder: rep.avgOrder, itemsSold: rep.itemsSold, lowStock: rep.lowStock,
-            sales7: rep.sales7 || [],
-            byStatus: (rep.byStatus || []).map(function (s) { return { label: K.orderLabel(s.status), value: s.count }; }),
-            topProducts: (rep.topProducts || []).map(function (t) { var p = findProd(t.name); return { name: t.name, units: t.units, revenue: t.revenue, category: p && p.category, image: p && p.image, tone: p && p.tone }; }),
-            revenueMonths: rep.revenueMonths || [],
-            categories: rep.categories || [],
-            payments: rep.payments || [],
-            cities: rep.cities || null,
-            topCustomers: rep.topCustomers || [],
-            repeat: rep.repeat || null,
-            weekdays: rep.weekdays || [],
-            coupons: rep.coupons || []
+      // ---- Data loading (API or mock), respecting the current range ----
+      function load() {
+        if (API) {
+          K.loading(body, 'Loading reports…');
+          Promise.all([KadeApi.reports({ from: state.from, to: state.to }), KadeApi.myProducts().catch(function () { return { products: [] }; })]).then(function (res) {
+            var rep = res[0].report, prods = res[1].products || [];
+            function findProd(name) { var base = name.split(' (')[0]; return prods.filter(function (p) { return p.name === base; })[0]; }
+            render({
+              plan: rep.plan, revenue: rep.revenue, orders: rep.orders, paidOrders: rep.paidOrders, avgOrder: rep.avgOrder, itemsSold: rep.itemsSold, lowStock: rep.lowStock,
+              series: rep.series || { granularity: 'month', points: [] },
+              byStatus: (rep.byStatus || []).map(function (s) { return { label: K.orderLabel(s.status), value: s.count }; }),
+              topProducts: (rep.topProducts || []).map(function (t) { var p = findProd(t.name); return { name: t.name, units: t.units, revenue: t.revenue, category: p && p.category, image: p && p.image, tone: p && p.tone }; }),
+              categories: rep.categories || [], payments: rep.payments || [],
+              cities: rep.cities || null, topCustomers: rep.topCustomers || [], repeat: rep.repeat || null, weekdays: rep.weekdays || [], coupons: rep.coupons || []
+            });
+          }).catch(function (ex) {
+            if (ex && ex.status === 400) upsell();
+            else body.innerHTML = '<p class="muted">Could not load reports. Please refresh.</p>';
           });
-        }).catch(function (ex) {
-          if (ex && ex.status === 400) upsell();
-          else body.innerHTML = '<p class="muted">Could not load reports. Please refresh.</p>';
-        });
-        return;
+          return;
+        }
+        renderMock();
       }
 
       // ---- Mock mode (offline preview; ?as=starter|business|pro to preview a tier) ----
-      var me = D.businesses[0];
-      var override = (new URLSearchParams(location.search).get('as') || '').toLowerCase();
-      var planName = override ? override.charAt(0).toUpperCase() + override.slice(1) : me.plan;
-      if (planName === 'Starter') { upsell(); return; }
-      var orders = K.orders(), products = D.products.filter(function (p) { return p.store === 'abc-fashion'; });
-      var counted = orders.filter(function (o) { return o.status !== 'CANCELLED'; });
-      var revenue = counted.reduce(function (n, o) { return n + o.total; }, 0);
-      var itemsSold = counted.reduce(function (n, o) { return n + o.items.reduce(function (m, i) { return m + i.qty; }, 0); }, 0);
-      var STATUS = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
-      var top = products.map(function (p) { var units = 0, rev = 0; counted.forEach(function (o) { o.items.forEach(function (i) { if (i.name === p.name || i.name.indexOf(p.name + ' (') === 0) { units += i.qty; rev += i.qty * i.price; } }); }); return { name: p.name, category: p.category, image: p.image, tone: p.tone, units: units, revenue: rev }; }).filter(function (r) { return r.units > 0; }).sort(function (a, b) { return b.units - a.units; });
-      function baseName(n) { return n.split(' (')[0]; }
-      function catOf(n) { var p = products.filter(function (x) { return x.name === baseName(n); })[0]; return (p && p.category) || 'Other'; }
-      // Sales by category (Business+)
-      var catMap = {};
-      counted.forEach(function (o) { o.items.forEach(function (i) { var k = catOf(i.name); var c = catMap[k] || (catMap[k] = { category: k, units: 0, revenue: 0 }); c.units += i.qty; c.revenue += i.qty * i.price; }); });
-      var categories = Object.keys(catMap).map(function (k) { return catMap[k]; }).sort(function (a, b) { return b.revenue - a.revenue; });
-      // Payment mix (Business+)
-      var payMap = {};
-      counted.forEach(function (o) { var m = o.payment || 'Other'; var p = payMap[m] || (payMap[m] = { method: m, orders: 0, revenue: 0 }); p.orders++; p.revenue += o.total; });
-      var payments = Object.keys(payMap).map(function (k) { return payMap[k]; }).sort(function (a, b) { return b.orders - a.orders; });
+      function renderMock() {
+        var me = D.businesses[0];
+        var override = (new URLSearchParams(location.search).get('as') || '').toLowerCase();
+        var planName = override ? override.charAt(0).toUpperCase() + override.slice(1) : (me ? me.plan : 'Business');
+        if (planName === 'Starter') { upsell(); return; }
+        var products = D.products.filter(function (p) { return p.store === 'abc-fashion'; });
+        function inRange(o) { if (state.from && o.date < state.from) return false; if (state.to && o.date > state.to) return false; return true; }
+        var orders = K.orders().filter(inRange);
+        var counted = orders.filter(function (o) { return o.status !== 'CANCELLED'; });
+        var revenue = counted.reduce(function (n, o) { return n + o.total; }, 0);
+        var itemsSold = counted.reduce(function (n, o) { return n + o.items.reduce(function (m, i) { return m + i.qty; }, 0); }, 0);
+        var STATUS = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+        function baseName(n) { return n.split(' (')[0]; }
+        function catOf(n) { var p = products.filter(function (x) { return x.name === baseName(n); })[0]; return (p && p.category) || 'Other'; }
+        var top = products.map(function (p) { var units = 0, rev = 0; counted.forEach(function (o) { o.items.forEach(function (i) { if (i.name === p.name || i.name.indexOf(p.name + ' (') === 0) { units += i.qty; rev += i.qty * i.price; } }); }); return { name: p.name, category: p.category, image: p.image, tone: p.tone, units: units, revenue: rev }; }).filter(function (r) { return r.units > 0; }).sort(function (a, b) { return b.units - a.units; });
+        var catMap = {};
+        counted.forEach(function (o) { o.items.forEach(function (i) { var k = catOf(i.name); var c = catMap[k] || (catMap[k] = { category: k, units: 0, revenue: 0 }); c.units += i.qty; c.revenue += i.qty * i.price; }); });
+        var categories = Object.keys(catMap).map(function (k) { return catMap[k]; }).sort(function (a, b) { return b.revenue - a.revenue; });
+        var payMap = {};
+        counted.forEach(function (o) { var m = o.payment || 'Other'; var p = payMap[m] || (payMap[m] = { method: m, orders: 0, revenue: 0 }); p.orders++; p.revenue += o.total; });
+        var payments = Object.keys(payMap).map(function (k) { return payMap[k]; }).sort(function (a, b) { return b.orders - a.orders; });
 
-      var cities = null, topCustomers = [], repeat = null, weekdays = [], coupons = [];
-      if (planName === 'Pro') {
-        var c = {}; counted.forEach(function (o) { var k = o.city || 'Unknown'; c[k] = (c[k] || 0) + 1; }); cities = Object.keys(c).map(function (k) { return { city: k, orders: c[k] }; }).sort(function (a, b) { return b.orders - a.orders; });
-        var cust = {}; counted.forEach(function (o) { var m = cust[o.customer] || (cust[o.customer] = { name: o.customer, orders: 0, spent: 0 }); m.orders++; m.spent += o.total; });
-        var custArr = Object.keys(cust).map(function (k) { return cust[k]; });
-        topCustomers = custArr.slice().sort(function (a, b) { return b.spent - a.spent; }).slice(0, 8);
-        var repeatCustomers = custArr.filter(function (x) { return x.orders > 1; }).length;
-        repeat = { customers: custArr.length, repeatCustomers: repeatCustomers, repeatRate: custArr.length ? Math.round(repeatCustomers / custArr.length * 100) : 0 };
-        var wd = {}; counted.forEach(function (o) { var d = new Date(o.date + 'T00:00:00').getDay(); wd[d] = (wd[d] || 0) + 1; }); weekdays = Object.keys(wd).map(function (d) { return { dow: +d, orders: wd[d] }; });
-        var cp = {}; counted.forEach(function (o) { if (o.coupon) { var x = cp[o.coupon] || (cp[o.coupon] = { code: o.coupon, uses: 0, discount: 0 }); x.uses++; x.discount += o.discount || 0; } }); coupons = Object.keys(cp).map(function (k) { return cp[k]; }).sort(function (a, b) { return b.uses - a.uses; });
+        var cities = null, topCustomers = [], repeat = null, weekdays = [], coupons = [];
+        if (planName === 'Pro') {
+          var c = {}; counted.forEach(function (o) { var k = o.city || 'Unknown'; c[k] = (c[k] || 0) + 1; }); cities = Object.keys(c).map(function (k) { return { city: k, orders: c[k] }; }).sort(function (a, b) { return b.orders - a.orders; });
+          var cust = {}; counted.forEach(function (o) { var m = cust[o.customer] || (cust[o.customer] = { name: o.customer, orders: 0, spent: 0 }); m.orders++; m.spent += o.total; });
+          var custArr = Object.keys(cust).map(function (k) { return cust[k]; });
+          topCustomers = custArr.slice().sort(function (a, b) { return b.spent - a.spent; }).slice(0, 8);
+          var repeatCustomers = custArr.filter(function (x) { return x.orders > 1; }).length;
+          repeat = { customers: custArr.length, repeatCustomers: repeatCustomers, repeatRate: custArr.length ? Math.round(repeatCustomers / custArr.length * 100) : 0 };
+          var wd = {}; counted.forEach(function (o) { var d = new Date(o.date + 'T00:00:00').getDay(); wd[d] = (wd[d] || 0) + 1; }); weekdays = Object.keys(wd).map(function (d) { return { dow: +d, orders: wd[d] }; });
+          var cp = {}; counted.forEach(function (o) { if (o.coupon) { var x = cp[o.coupon] || (cp[o.coupon] = { code: o.coupon, uses: 0, discount: 0 }); x.uses++; x.discount += o.discount || 0; } }); coupons = Object.keys(cp).map(function (k) { return cp[k]; }).sort(function (a, b) { return b.uses - a.uses; });
+        }
+        render({
+          plan: planName, revenue: revenue, orders: orders.length, paidOrders: counted.length, avgOrder: counted.length ? Math.round(revenue / counted.length) : 0, itemsSold: itemsSold, lowStock: products.filter(function (p) { return p.stock <= p.lowAt; }).length,
+          series: mockSeries(counted),
+          byStatus: STATUS.map(function (s) { return { label: K.orderLabel(s), value: orders.filter(function (o) { return o.status === s; }).length }; }).filter(function (d) { return d.value > 0; }),
+          topProducts: top, categories: categories, payments: payments,
+          cities: cities, topCustomers: topCustomers, repeat: repeat, weekdays: weekdays, coupons: coupons
+        });
       }
-      render({
-        plan: planName, revenue: revenue, orders: orders.length, paidOrders: counted.length, avgOrder: counted.length ? Math.round(revenue / counted.length) : 0, itemsSold: itemsSold, lowStock: products.filter(function (p) { return p.stock <= p.lowAt; }).length,
-        sales7: D.sales7,
-        byStatus: STATUS.map(function (s) { return { label: K.orderLabel(s), value: orders.filter(function (o) { return o.status === s; }).length }; }).filter(function (d) { return d.value > 0; }),
-        topProducts: top,
-        revenueMonths: D.revenueMonths || [],
-        categories: categories, payments: payments,
-        cities: cities, topCustomers: topCustomers, repeat: repeat, weekdays: weekdays, coupons: coupons
-      });
+
+      function mockSeries(counted) {
+        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        if (state.from) {
+          var end = state.to || ymd(new Date());
+          var span = (new Date(end) - new Date(state.from)) / 86400000;
+          if (span <= 31) {
+            var pts = [], d = new Date(state.from + 'T00:00:00'), stop = new Date(end + 'T00:00:00');
+            for (; d <= stop; d.setDate(d.getDate() + 1)) { var k = ymd(d); var v = counted.filter(function (o) { return o.date === k; }).reduce(function (n, o) { return n + o.total; }, 0); pts.push({ date: k, value: v }); }
+            return { granularity: 'day', points: pts };
+          }
+        }
+        var mmap = {}; counted.forEach(function (o) { var m = o.date.slice(0, 7); mmap[m] = (mmap[m] || 0) + o.total; });
+        var keys = Object.keys(mmap).sort();
+        if (!keys.length) return { granularity: 'month', points: (D.revenueMonths || []).map(function (x) { return { label: x.label, value: x.value }; }) };
+        return { granularity: 'month', points: keys.map(function (k) { return { label: months[parseInt(k.slice(5, 7), 10) - 1], value: mmap[k] }; }) };
+      }
+
+      renderRangeBar();
+      load();
     })();
   </script>
 </body>

@@ -72,59 +72,82 @@ dashboardRouter.get(
       throw badRequest('Reports are available on the Business and Pro plans.');
     }
 
+    // Optional date range (YYYY-MM-DD). Applies to every order-based metric below;
+    // stock counts are always "now". `to` is treated as an inclusive day.
+    function parseDate(s) { return (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)) ? new Date(s + 'T00:00:00Z') : null; }
+    const fromD = parseDate(req.query.from);
+    const toD = parseDate(req.query.to);
+    // Build a reusable "AND date >= .. AND date < .." fragment. Every order query
+    // below uses business_id as $1 and no other params, so the range params are $2/$3.
+    const dParams = [];
+    let plainClause = '', oClause = '';
+    if (fromD) { dParams.push(fromD); const i = 1 + dParams.length; plainClause += ` AND created_at >= $${i}`; oClause += ` AND o.created_at >= $${i}`; }
+    if (toD) { const end = new Date(toD); end.setUTCDate(end.getUTCDate() + 1); dParams.push(end); const i = 1 + dParams.length; plainClause += ` AND created_at < $${i}`; oClause += ` AND o.created_at < $${i}`; }
+    const P = [b, ...dParams];
+
     const totals = (
       await query(
         `SELECT COALESCE(SUM(total),0) revenue, COUNT(*) orders,
                 COUNT(*) FILTER (WHERE status <> 'CANCELLED') paid
-           FROM orders WHERE business_id = $1`,
-        [b]
+           FROM orders WHERE business_id = $1${plainClause}`,
+        P
       )
     ).rows[0];
     const itemsSold = (
       await query(
         `SELECT COALESCE(SUM(oi.qty),0) n FROM order_items oi
            JOIN orders o ON o.id = oi.order_id
-          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'`,
-        [b]
+          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'${oClause}`,
+        P
       )
     ).rows[0].n;
     const byStatus = (
-      await query(`SELECT status, COUNT(*) n FROM orders WHERE business_id = $1 GROUP BY status`, [b])
+      await query(`SELECT status, COUNT(*) n FROM orders WHERE business_id = $1${plainClause} GROUP BY status`, P)
     ).rows.map((r) => ({ status: r.status, count: Number(r.n) }));
     const topProducts = (
       await query(
         `SELECT oi.name, SUM(oi.qty) units, SUM(oi.qty * oi.price) revenue
            FROM order_items oi JOIN orders o ON o.id = oi.order_id
-          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'
+          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'${oClause}
           GROUP BY oi.name ORDER BY units DESC LIMIT 10`,
-        [b]
+        P
       )
     ).rows.map((r) => ({ name: r.name, units: Number(r.units), revenue: Number(r.revenue) }));
     const lowStock = Number(
       (await query('SELECT COUNT(*) c FROM products WHERE business_id = $1 AND stock <= low_at', [b])).rows[0].c
     );
-    const sales7 = (
-      await query(
-        `SELECT d::date AS date, COALESCE(SUM(o.total),0) AS value
-           FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day') d
-           LEFT JOIN orders o ON o.business_id=$1 AND o.created_at::date = d::date AND o.status <> 'CANCELLED'
-          GROUP BY d ORDER BY d`,
-        [b]
-      )
-    ).rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: Number(r.value) }));
 
-    // Revenue over the last 6 calendar months (Business+).
-    const revenueMonths = (
-      await query(
-        `SELECT to_char(m, 'Mon') label, COALESCE(SUM(o.total),0) value
-           FROM generate_series(date_trunc('month', CURRENT_DATE) - INTERVAL '5 months',
-                                date_trunc('month', CURRENT_DATE), INTERVAL '1 month') m
-           LEFT JOIN orders o ON o.business_id = $1 AND date_trunc('month', o.created_at) = m
-                                 AND o.status <> 'CANCELLED'
-          GROUP BY m ORDER BY m`,
-        [b]
-      )
-    ).rows.map((r) => ({ label: r.label, value: Number(r.value) }));
+    // Sales over time — adaptive: daily bars for a short span, monthly for a long one
+    // (and the last 6 months when no range is set).
+    let granularity = 'month';
+    let series;
+    const effFrom = fromD || null;
+    const effTo = toD || new Date();
+    const spanDays = effFrom ? (effTo - effFrom) / 86400000 : null;
+    if (effFrom && spanDays <= 31) {
+      granularity = 'day';
+      series = (
+        await query(
+          `SELECT d::date date, COALESCE(SUM(o.total),0) value
+             FROM generate_series($2::date, $3::date, INTERVAL '1 day') d
+             LEFT JOIN orders o ON o.business_id=$1 AND o.created_at::date=d::date AND o.status <> 'CANCELLED'
+            GROUP BY d ORDER BY d`,
+          [b, effFrom, effTo]
+        )
+      ).rows.map((r) => ({ date: r.date.toISOString().slice(0, 10), value: Number(r.value) }));
+    } else {
+      const startMonth = effFrom || null;
+      series = (
+        await query(
+          `SELECT to_char(m,'Mon') label, m::date date, COALESCE(SUM(o.total),0) value
+             FROM generate_series(date_trunc('month', $2::date), date_trunc('month', $3::date), INTERVAL '1 month') m
+             LEFT JOIN orders o ON o.business_id=$1 AND date_trunc('month', o.created_at)=m AND o.status <> 'CANCELLED'
+            GROUP BY m ORDER BY m`,
+          [b, startMonth || new Date(Date.now() - 155 * 86400000), effTo]
+        )
+      ).rows.map((r) => ({ label: r.label, date: r.date.toISOString().slice(0, 10), value: Number(r.value) }));
+    }
+
     // Units and revenue grouped by product category (Business+). Order items snapshot
     // the name with any variant "(L, White)", so match back to the base product name.
     const categories = (
@@ -135,9 +158,9 @@ dashboardRouter.get(
            JOIN orders o ON o.id = oi.order_id
            LEFT JOIN products p ON p.business_id = o.business_id
                                    AND p.name = split_part(oi.name, ' (', 1)
-          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'
+          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'${oClause}
           GROUP BY 1 ORDER BY revenue DESC`,
-        [b]
+        P
       )
     ).rows.map((r) => ({ category: r.category, units: Number(r.units), revenue: Number(r.revenue) }));
     // How customers pay (Business+).
@@ -145,9 +168,9 @@ dashboardRouter.get(
       await query(
         `SELECT COALESCE(NULLIF(payment_method,''),'Other') method, COUNT(*) orders,
                 COALESCE(SUM(total),0) revenue
-           FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+           FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
           GROUP BY 1 ORDER BY orders DESC`,
-        [b]
+        P
       )
     ).rows.map((r) => ({ method: r.method, orders: Number(r.orders), revenue: Number(r.revenue) }));
 
@@ -155,16 +178,16 @@ dashboardRouter.get(
     const paid = Number(totals.paid);
     const report = {
       plan: plan.name,
+      range: { from: req.query.from || null, to: req.query.to || null },
       revenue,
       orders: Number(totals.orders),
       paidOrders: paid,
       avgOrder: paid ? Math.round(revenue / paid) : 0,
       itemsSold: Number(itemsSold),
       lowStock,
-      sales7,
+      series: { granularity, points: series },
       byStatus,
       topProducts,
-      revenueMonths,
       categories,
       payments,
     };
@@ -173,26 +196,26 @@ dashboardRouter.get(
       report.cities = (
         await query(
           `SELECT COALESCE(NULLIF(city,''),'Unknown') city, COUNT(*) n
-             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
              GROUP BY 1 ORDER BY n DESC`,
-          [b]
+          P
         )
       ).rows.map((r) => ({ city: r.city, orders: Number(r.n) }));
       report.topCustomers = (
         await query(
           `SELECT customer_name name, COUNT(*) orders, COALESCE(SUM(total),0) spent
-             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
              GROUP BY customer_name ORDER BY spent DESC LIMIT 8`,
-          [b]
+          P
         )
       ).rows.map((r) => ({ name: r.name, orders: Number(r.orders), spent: Number(r.spent) }));
       const rep = (
         await query(
           `SELECT COUNT(*) customers, COUNT(*) FILTER (WHERE c > 1) repeat_customers
              FROM (SELECT customer_name, COUNT(*) c FROM orders
-                    WHERE business_id = $1 AND status <> 'CANCELLED'
+                    WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
                     GROUP BY customer_name) t`,
-          [b]
+          P
         )
       ).rows[0];
       const customers = Number(rep.customers);
@@ -205,18 +228,18 @@ dashboardRouter.get(
       report.weekdays = (
         await query(
           `SELECT EXTRACT(DOW FROM created_at)::int dow, COUNT(*) n
-             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
              GROUP BY 1`,
-          [b]
+          P
         )
       ).rows.map((r) => ({ dow: Number(r.dow), orders: Number(r.n) }));
       report.coupons = (
         await query(
           `SELECT coupon_code code, COUNT(*) uses, COALESCE(SUM(discount),0) discount
-             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'
+             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
                    AND coupon_code IS NOT NULL AND coupon_code <> ''
              GROUP BY coupon_code ORDER BY uses DESC`,
-          [b]
+          P
         )
       ).rows.map((r) => ({ code: r.code, uses: Number(r.uses), discount: Number(r.discount) }));
     }

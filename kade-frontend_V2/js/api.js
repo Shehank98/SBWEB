@@ -102,7 +102,16 @@
     },
     deleteProduct(id) { return req('DELETE', '/api/products/' + id); },
     overview() { return req('GET', '/api/dashboard/overview'); },
-    reports() { return req('GET', '/api/dashboard/reports'); },
+    reports(range) {
+      var qs = '';
+      if (range && (range.from || range.to)) {
+        var parts = [];
+        if (range.from) parts.push('from=' + encodeURIComponent(range.from));
+        if (range.to) parts.push('to=' + encodeURIComponent(range.to));
+        qs = '?' + parts.join('&');
+      }
+      return req('GET', '/api/dashboard/reports' + qs);
+    },
     myOrders() { return req('GET', '/api/dashboard/orders'); },
     setOrderStatus(code, status) { return req('PUT', '/api/dashboard/orders/' + encodeURIComponent(code) + '/status', { status: status }); },
     subscription() { return req('GET', '/api/dashboard/subscription'); },
