@@ -94,7 +94,7 @@ export const templates = {
       phone: order.phone,
       total: order.total,
       items: order.items || [],
-      ordersUrl: dashUrl('orders.html'),
+      ordersUrl: dashUrl('orders'),
     },
   }),
   // Sent to the CUSTOMER when they place an order (shop name included).
@@ -145,12 +145,12 @@ export const templates = {
     type: 'EXPIRY_REMINDER',
     subject: `Your subscription expires in ${days} day${days === 1 ? '' : 's'}`,
     message: `${business.name}'s subscription expires in ${days} day${days === 1 ? '' : 's'}. Renew now to keep your store online.`,
-    data: { heading: 'Renewal reminder', business: business.name, days, expiry: business.expiry || '', renewUrl: dashUrl('subscription.html') },
+    data: { heading: 'Renewal reminder', business: business.name, days, expiry: business.expiry || '', renewUrl: dashUrl('subscription') },
   }),
   suspended: (business) => ({
     type: 'SUSPENDED',
     subject: 'Your store has been paused',
     message: `${business.name}'s subscription has lapsed and the store is now suspended. Your products and orders are safe. Renew to bring the store back online.`,
-    data: { heading: 'Store paused', business: business.name, renewUrl: dashUrl('subscription.html') },
+    data: { heading: 'Store paused', business: business.name, renewUrl: dashUrl('subscription') },
   }),
 };

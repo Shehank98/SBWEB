@@ -169,7 +169,10 @@ dialog.drawer .dialog__body { max-height: none; flex: 1; }
 /* ---------- Public site ---------- */
 .site-header { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
 .site-header .container { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: 64px; }
-.wordmark { font: 700 26px/1 var(--font-display); letter-spacing: -0.02em; color: var(--brand); text-decoration: none; }
+/* Brand logo. The anchor keeps its "Sidadiya" text for screen readers while the
+   image is shown via a background, so every .wordmark site-wide updates at once. */
+.wordmark { display: inline-block; height: 30px; aspect-ratio: 1596 / 714; background: url("/assets/logo.png") left center / contain no-repeat; font-size: 0; color: transparent; text-decoration: none; }
+@media (min-width: 900px) { .wordmark { height: 34px; } }
 .site-nav { display: flex; align-items: center; gap: var(--space-2); }
 .site-nav a:not(.kd-btn) { color: var(--ink); text-decoration: none; font: 600 14px/18px var(--font-sans); padding: var(--space-3); min-height: var(--size-touch); display: inline-flex; align-items: center; }
 .site-nav a:not(.kd-btn):hover { color: var(--brand); }

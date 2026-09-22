@@ -74,6 +74,15 @@ app.get(/\.html$/i, (req, res, next) => {
 app.use(express.static(FRONTEND_DIR, { extensions: ['html'] }));
 app.get('/', (_req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
 
+// Pretty storefront URLs: /store/<slug> serves the storefront shell, which reads
+// the slug from the path. The real pages (index, product, cart) are files and are
+// already served by express.static above, so only a genuine slug reaches here.
+// This is what makes the "Visit the shop" links in emails and shared links resolve.
+app.get('/store/:slug', (req, res, next) => {
+  if (req.params.slug.includes('.')) return next(); // let a real asset 404 normally
+  res.sendFile(path.join(FRONTEND_DIR, 'store', 'index.html'));
+});
+
 // Unknown /api routes -> JSON 404; everything else falls through to the frontend 404.
 app.use('/api', notFoundHandler);
 app.use(errorHandler);

@@ -1,1 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#0f5b4a"/><text x="32" y="45" font-family="'Bricolage Grotesque',Georgia,serif" font-size="40" font-weight="700" fill="#ffffff" text-anchor="middle">S</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Sidadiya">
+  <rect width="64" height="64" rx="14" fill="#0f5b4a"/>
+  <path d="M15 21 Q32 15 49 21 L49 32 q-3.4 5 -6.8 0 q-3.4 5 -6.8 0 q-3.4 5 -6.8 0 q-3.4 5 -6.8 0 q-3.4 5 -6.8 0 Z" fill="#ffffff"/>
+  <circle cx="32" cy="45" r="4.4" fill="#e8a317"/>
+</svg>
