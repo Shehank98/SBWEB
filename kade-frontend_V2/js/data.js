@@ -12,9 +12,9 @@
   function daysAhead(n) { return daysAgo(-n); }
 
   var plans = [
-    { id: 'starter',  name: 'Starter',  price: 1500, durationDays: 30, maxProducts: 100,  features: ['Up to 100 products', 'Your own store link', 'Order dashboard', 'Email order alerts'] },
-    { id: 'business', name: 'Business', price: 2500, durationDays: 30, maxProducts: 500,  features: ['Up to 500 products', 'Store colour presets', 'Coupons and discounts', 'Sales reports'] },
-    { id: 'pro',      name: 'Pro',      price: 5000, durationDays: 30, maxProducts: null, features: ['Unlimited products', 'Priority support', 'Staff accounts', 'Advanced reports'] }
+    { id: 'starter',  name: 'Starter',  price: 1500, durationDays: 30, maxProducts: 100,  features: ['Up to 100 products', 'Up to 5 categories', '1 photo per product', 'Up to 2 variants per product', 'Order dashboard', 'Email order alerts'] },
+    { id: 'business', name: 'Business', price: 2500, durationDays: 30, maxProducts: 500,  features: ['Up to 500 products', 'Up to 20 categories', 'Up to 5 photos per product', 'Up to 5 variants per product', 'Coupons and discounts', 'Sales reports'] },
+    { id: 'pro',      name: 'Pro',      price: 5000, durationDays: 30, maxProducts: null, features: ['Unlimited products', 'Unlimited categories', 'Unlimited photos & variants', 'Staff accounts', 'Advanced reports', 'Priority support'] }
   ];
 
   // No tenant data here on purpose - the API is the only source for it.

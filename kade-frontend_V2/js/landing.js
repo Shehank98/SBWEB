@@ -149,15 +149,23 @@
   /* (handled by the reveal observer: .in on .lp-step colours the number) */
 
   /* ---------- Plans ---------- */
-  $('#plans').innerHTML = D.plans.map(function (p) {
-    return '<article class="plan' + (p.id === 'business' ? ' plan--featured' : '') + '"><h3 class="heading">' + K.esc(p.name) + '</h3>' +
-      '<div class="plan__price"><strong>' + K.rs(p.price) + '</strong><span>/ ' + p.durationDays + ' days</span></div>' +
-      '<ul>' + p.features.map(function (f) { return '<li>' + K.esc(f) + '</li>'; }).join('') + '</ul>' +
-      '<a class="kd-btn ' + (p.id === 'business' ? 'kd-btn--primary' : 'kd-btn--secondary') + ' kd-btn--block" href="register?plan=' + p.id + '">Choose ' + K.esc(p.name) + '</a></article>';
-  }).join('');
-  /* On phones, start the plan carousel centred on the middle plan */
-  var pl = $('#plans');
-  if (pl.scrollWidth > pl.clientWidth) { var mid = $$('.plan', pl)[1]; pl.scrollLeft = mid.offsetLeft - (pl.clientWidth - mid.offsetWidth) / 2; }
+  function renderPlans(list) {
+    $('#plans').innerHTML = list.map(function (p) {
+      return '<article class="plan' + (p.id === 'business' ? ' plan--featured' : '') + '"><h3 class="heading">' + K.esc(p.name) + '</h3>' +
+        '<div class="plan__price"><strong>' + K.rs(p.price) + '</strong><span>/ ' + (p.durationDays || 30) + ' days</span></div>' +
+        '<ul>' + (p.features || []).map(function (f) { return '<li>' + K.esc(f) + '</li>'; }).join('') + '</ul>' +
+        '<a class="kd-btn ' + (p.id === 'business' ? 'kd-btn--primary' : 'kd-btn--secondary') + ' kd-btn--block" href="register?plan=' + p.id + '">Choose ' + K.esc(p.name) + '</a></article>';
+    }).join('');
+    /* On phones, start the plan carousel centred on the middle plan */
+    var pl = $('#plans');
+    if (pl.scrollWidth > pl.clientWidth) { var mid = $$('.plan', pl)[1]; if (mid) pl.scrollLeft = mid.offsetLeft - (pl.clientWidth - mid.offsetWidth) / 2; }
+  }
+  /* Paint the mock plans immediately, then swap in the live plans (real caps
+     and features straight from the database) when the API is available. */
+  renderPlans(D.plans);
+  if (window.KadeApi && KadeApi.enabled && KadeApi.plans) {
+    KadeApi.plans().then(function (r) { if (r && r.plans && r.plans.length) renderPlans(r.plans); }).catch(function () {});
+  }
 
   /* ---------- Sticky "Open my shop" bar on phones ---------- */
   var sticky = $('#sticky'), heroCta = $('#hero-cta'), fin = $('#final'), heroSeen = true, finSeen = false;
