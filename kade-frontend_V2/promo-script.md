@@ -1,68 +1,72 @@
-# Sidadiya - 2 minute promo script
+# Sidadiya - promo script (2:13)
 
-Total run time: 120 seconds. Aspect ratio 16:9 (1280x720).
-Voiceover (VO) is warm, clear, unhurried. Background: light acoustic or upbeat
-Sri Lankan pop, low under the voice. Brand colours: green #0f5b4a, gold #e8a317,
-cream #faf7f0.
+Run time: 133 seconds. 16:9 (1280x720). Voiceover (VO) warm, clear, unhurried.
+Music: light upbeat, low under the voice. Brand colours: green #0f5b4a, gold
+#e8a317, cream #faf7f0. The animated page (promo.html) is the visual track;
+record your voice over it or use it silent with music.
 
 ---
 
-## Scene 1 - Open (0:00 to 0:09)
-On screen: Sidadiya logo fades in on cream, awning border across the top.
-Sub-line: "Your shop, open tonight."
+## 1. Open (0:00 to 0:08)
+Logo blur-in on cream, awning border. "Your shop, open tonight."
 VO: "Meet Sidadiya. The easiest way for a small shop in Sri Lanka to go online."
 
-## Scene 2 - The hook (0:09 to 0:21)
-On screen: Green background. Big text: "Every shop deserves to be online."
-VO: "You already have great products. Now give them a home on the internet.
-No coding. No apps to install. Just your products, your link, your orders."
+## 2. The hook (0:08 to 0:17)
+Green. Word-by-word: "Every shop deserves to be online."
+VO: "You already have great products. Now give them a home on the internet."
 
-## Scene 3 - Your store (0:21 to 0:35)
-On screen: Phone showing a live storefront with products. Label: "Step 1".
-Headline: "Your own online store, ready fast."
-VO: "In minutes you get your own online store. Pick a look, add your shop name,
-and you are ready to sell."
+## 3. The old way (0:17 to 0:25)
+Dark. "Selling on WhatsApp means lost messages, no cart, no record."
+VO: "Selling on WhatsApp means lost messages and no record of your orders. There is a better way."
 
-## Scene 4 - Add products (0:35 to 0:51)
-On screen: A product card with photos, price and size chips. Label: "Step 2".
-Headline: "Add products with photos and options."
-VO: "Add your products with photos, sizes and colours. Each option can have its
-own price and stock. All from your phone."
+## 4. Your store (0:25 to 0:36)
+Phone storefront. Step 1. "Your own online store."
+VO: "In minutes you get your own online store. Pick a look, add your shop name, and you are ready to sell."
 
-## Scene 5 - Orders (0:51 to 1:07)
-On screen: Dark background. A WhatsApp message and a "New order" alert card.
-Headline: "Share one link. Get orders on your phone."
-VO: "Share one link on WhatsApp, Facebook or Instagram. When a customer orders,
-you get an instant alert with everything you need to pack and deliver."
+## 5. Add products (0:36 to 0:47)
+Product card with photos and size chips. Step 2. "Add products in minutes."
+VO: "Add your products with photos, sizes and colours. Each option can have its own price and stock."
 
-## Scene 6 - Dashboard (1:07 to 1:23)
-On screen: Owner dashboard with sidebar, sales tiles and a bar chart.
-Headline: "One dashboard for everything."
-VO: "Run the whole shop from one simple dashboard. Orders, sales reports,
-coupons and staff, all in one place."
+## 6. Organised (0:47 to 0:55)
+Feature pills: Categories, Multiple photos, Priced variants, Stock alerts, Sale prices.
+VO: "Categories, multiple photos, priced variants and stock alerts. Everything a real shop needs."
 
-## Scene 7 - Automatic emails (1:23 to 1:37)
-On screen: Green background, a branded order email card.
-Headline: "We email your customers for you."
-VO: "Sidadiya keeps your customers updated for you. Branded emails go out
-automatically when you confirm an order and when it ships."
+## 7. Orders (0:55 to 1:07)
+Dark. WhatsApp message and a New Order alert (total counts up).
+VO: "Share one link and get orders on your phone, with everything you need to pack and deliver."
 
-## Scene 8 - Pricing (1:37 to 1:50)
-On screen: Three plans - Starter, Business, Pro.
-Headline: "Simple plans from Rs. 1,500 a month."
-VO: "Simple monthly plans from just fifteen hundred rupees. Pay by bank
-transfer, and change your plan any time you renew."
+## 8. Dashboard (1:07 to 1:19)
+Owner dashboard, stats count up, bars grow. "One dashboard for everything."
+VO: "Run the whole shop from one simple dashboard. Orders, reports, coupons and staff."
 
-## Scene 9 - Call to action (1:50 to 2:00)
-On screen: Green background, Sidadiya logo, "Open your shop tonight",
-www.sidadiya.com, gold "Start selling" button.
+## 9. Coupons (1:19 to 1:27)
+Green. Coupon cards WELCOME10 and SHIP500. "Run your own discounts."
+VO: "Create your own coupon codes and discounts, and see how they perform in your reports."
+
+## 10. Staff (1:27 to 1:34)
+Pro. "Add your team." Pills: Staff accounts, Set permissions, Everyone in sync.
+VO: "On Pro, add your team and give each person access to just the sections they need."
+
+## 11. Automatic emails (1:34 to 1:45)
+Green. Branded order email. "We email your customers for you."
+VO: "Sidadiya keeps your customers updated for you, with branded emails when you confirm and ship."
+
+## 12. Payments (1:45 to 1:53)
+Dark. Pills: Cash on delivery, Bank transfer, Pickup. "Get paid your way."
+VO: "Cash on delivery, bank transfer or pickup. Simple payments your customers already trust."
+
+## 13. Pricing (1:53 to 2:04)
+Three plans; price counts up. "Plans from Rs. 1,500 a month."
+VO: "Simple monthly plans from just fifteen hundred rupees. Pay by bank transfer, change any time."
+
+## 14. Call to action (2:04 to 2:13)
+Green. Logo, "Open your shop tonight", typewriter www.sidadiya.com, gold button.
 VO: "Your shop, open tonight. Start selling at sidadiya dot com."
 
 ---
 
-## Notes for recording your own voiceover
-- Keep each line to the seconds shown so the voice lands with the on-screen text.
-- Say "Rs." as "rupees". Say the web address as "sidadiya dot com".
-- If you want a shorter 60 second cut: keep scenes 1, 3, 4, 5 and 9.
-- The animated page (promo.html) is the visual track. Record your voice over it,
-  or use the built-in captions as-is for a silent, music-only version.
+## Notes
+- Say "Rs." as "rupees" and the address as "sidadiya dot com".
+- 60-second cut: keep scenes 1, 4, 5, 7, 8 and 14.
+- The video is silent with on-screen captions and animations, ready for a
+  voiceover or a music-only version.
