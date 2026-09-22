@@ -5,7 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { query } from './pool.js';
-import { seed } from './seed.js';
+import { seed, seedPlans } from './seed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,10 +15,18 @@ export async function bootstrapDb() {
   await query(sql);
   console.log('[db] schema ensured');
 
-  // 2) Seed demo data only when the platform is empty.
-  const empty = Number((await query('SELECT COUNT(*) n FROM businesses')).rows[0].n) === 0;
-  if (empty && process.env.SEED_DEMO !== 'false') {
-    console.log('[db] no businesses found — seeding demo data (set SEED_DEMO=false to disable)');
-    await seed();
+  // 2) Pricing plans — essential reference data, always ensured (idempotent upsert).
+  await seedPlans(query);
+  console.log('[db] plans ensured');
+
+  // 3) Demo shops (the sample businesses/orders/payments seen in the admin panel)
+  //    are OPT-IN so production launches clean. Set SEED_DEMO=true to load them into
+  //    an empty database (handy for local development).
+  if (process.env.SEED_DEMO === 'true') {
+    const empty = Number((await query('SELECT COUNT(*) n FROM businesses')).rows[0].n) === 0;
+    if (empty) {
+      console.log('[db] SEED_DEMO=true and no businesses — seeding demo shops');
+      await seed();
+    }
   }
 }

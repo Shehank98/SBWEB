@@ -10,11 +10,28 @@ const OWNER_PASSWORD = 'demo12345';
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d; }
 function daysAhead(n) { return daysAgo(-n); }
 
-const plans = [
+export const plans = [
   { id: 'starter', name: 'Starter', price: 1500, duration_days: 30, max_products: 100, max_images: 1, max_categories: 5, max_variants: 2, features: ['Up to 100 products', 'Up to 5 categories', '1 photo per product', 'Up to 2 variants per product', 'Order dashboard', 'Email order alerts'], sort_order: 1 },
   { id: 'business', name: 'Business', price: 2500, duration_days: 30, max_products: 500, max_images: 5, max_categories: 20, max_variants: 5, features: ['Up to 500 products', 'Up to 20 categories', 'Up to 5 photos per product', 'Up to 5 variants per product', 'Coupons and discounts', 'Sales reports'], sort_order: 2 },
   { id: 'pro', name: 'Pro', price: 5000, duration_days: 30, max_products: null, max_images: null, max_categories: null, max_variants: null, features: ['Unlimited products', 'Unlimited categories', 'Unlimited photos & variants', 'Staff accounts', 'Advanced reports', 'Priority support'], sort_order: 3 },
 ];
+
+// Upsert the pricing plans — essential reference data, always safe to run and
+// required in production (registration and subscriptions reference these rows).
+// `q` is a query function: either the pool's `query` or a transaction client's.
+export async function seedPlans(q) {
+  for (const p of plans) {
+    await q(
+      `INSERT INTO plans (id,name,price,duration_days,max_products,max_images,max_categories,max_variants,features,sort_order)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, price=EXCLUDED.price,
+         duration_days=EXCLUDED.duration_days, max_products=EXCLUDED.max_products,
+         max_images=EXCLUDED.max_images, max_categories=EXCLUDED.max_categories, max_variants=EXCLUDED.max_variants,
+         features=EXCLUDED.features, sort_order=EXCLUDED.sort_order`,
+      [p.id, p.name, p.price, p.duration_days, p.max_products, p.max_images, p.max_categories, p.max_variants, JSON.stringify(p.features), p.sort_order]
+    );
+  }
+}
 
 // Store detail for the four fully-described shops.
 const storeDetail = {
@@ -102,17 +119,7 @@ export async function seed() {
                    payments, subscriptions, stores, users, businesses RESTART IDENTITY CASCADE`);
 
     // Plans (upsert).
-    for (const p of plans) {
-      await c.query(
-        `INSERT INTO plans (id,name,price,duration_days,max_products,max_images,max_categories,max_variants,features,sort_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, price=EXCLUDED.price,
-           duration_days=EXCLUDED.duration_days, max_products=EXCLUDED.max_products,
-           max_images=EXCLUDED.max_images, max_categories=EXCLUDED.max_categories, max_variants=EXCLUDED.max_variants,
-           features=EXCLUDED.features, sort_order=EXCLUDED.sort_order`,
-        [p.id, p.name, p.price, p.duration_days, p.max_products, p.max_images, p.max_categories, p.max_variants, JSON.stringify(p.features), p.sort_order]
-      );
-    }
+    await seedPlans((text, params) => c.query(text, params));
 
     // Platform admin.
     await c.query(

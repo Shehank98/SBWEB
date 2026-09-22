@@ -12,6 +12,7 @@
     "dev": "node --watch src/server.js",
     "db:setup": "node src/db/setup.js",
     "db:seed": "node src/db/seed.js",
+    "db:purge-demo": "node src/db/purge-demo.js",
     "job:subscriptions": "node src/jobs/subscriptions.js"
   },
   "dependencies": {
