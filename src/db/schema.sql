@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS plans (
   price          INTEGER NOT NULL,               -- in rupees
   duration_days  INTEGER NOT NULL DEFAULT 30,
   max_products   INTEGER,                        -- NULL = unlimited
-  max_images     INTEGER,
+  max_images     INTEGER,                        -- max photos per product (NULL = unlimited)
+  max_categories INTEGER,                        -- max categories per shop (NULL = unlimited)
+  max_variants   INTEGER,                        -- max variants per product (NULL = unlimited)
   features       JSONB NOT NULL DEFAULT '[]'::jsonb,
   status         TEXT NOT NULL DEFAULT 'ACTIVE',
   sort_order     INTEGER NOT NULL DEFAULT 0
@@ -250,6 +252,9 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '
 ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
 -- Products can now have priced variants (sizes/weights), each with its own price and stock.
 ALTER TABLE products ADD COLUMN IF NOT EXISTS variants JSONB NOT NULL DEFAULT '[]'::jsonb;
+-- Per-tier caps for categories and variants (NULL = unlimited).
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS max_categories INTEGER;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS max_variants INTEGER;
 -- Backfill the gallery from the existing single cover photo so old products show it.
 UPDATE products SET images = jsonb_build_array(image_url)
  WHERE image_url IS NOT NULL AND (images IS NULL OR jsonb_array_length(images) = 0);

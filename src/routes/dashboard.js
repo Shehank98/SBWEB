@@ -2,10 +2,11 @@ import { Router } from 'express';
 import multer from 'multer';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate, requireBusiness, requireOwner, requirePermission } from '../middleware/auth.js';
-import { wrap, badRequest, notFound, conflict } from '../utils/http.js';
+import { wrap, badRequest, notFound, conflict, forbidden } from '../utils/http.js';
 import { saveUpload } from '../services/uploads.js';
 import { hashPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
+import { currentPlan, cap } from '../services/plan.js';
 import * as S from '../services/serialize.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -347,6 +348,54 @@ dashboardRouter.post(
   })
 );
 
+// ---- Categories (seller-created, tier-capped) ----
+// GET usage + list
+dashboardRouter.get(
+  '/categories',
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const rows = (await query('SELECT name FROM categories WHERE business_id=$1 ORDER BY sort_order, name', [b])).rows.map((r) => r.name);
+    const plan = await currentPlan(b);
+    const max = plan ? plan.max_categories : null;
+    res.json({ categories: rows, usage: { count: rows.length, maxCategories: max, plan: plan ? plan.name : null } });
+  })
+);
+
+// POST create one category (enforces the tier cap)
+dashboardRouter.post(
+  '/categories',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const name = (req.body && req.body.name || '').trim();
+    if (!name) throw badRequest('Enter a category name.');
+    if (name.length > 40) throw badRequest('Keep category names under 40 characters.');
+    const plan = await currentPlan(b);
+    const limit = cap(plan && plan.max_categories);
+    const count = Number((await query('SELECT COUNT(*) c FROM categories WHERE business_id=$1', [b])).rows[0].c);
+    // Don't count against the cap if it already exists (idempotent create).
+    const exists = (await query('SELECT 1 FROM categories WHERE business_id=$1 AND lower(name)=lower($2)', [b, name])).rowCount;
+    if (exists) throw conflict('You already have a category with that name.');
+    if (count >= limit) {
+      throw forbidden(`Your ${plan ? plan.name : ''} plan allows up to ${limit} categories. Upgrade to add more.`);
+    }
+    await query('INSERT INTO categories (business_id, name, sort_order) VALUES ($1,$2,$3)', [b, name, count]);
+    res.status(201).json({ name });
+  })
+);
+
+// DELETE a category by name
+dashboardRouter.delete(
+  '/categories/:name',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const r = await query('DELETE FROM categories WHERE business_id=$1 AND name=$2', [b, req.params.name]);
+    if (!r.rowCount) throw notFound('Category not found.');
+    res.json({ ok: true });
+  })
+);
+
 // ---- Store settings (read + update) ----
 dashboardRouter.get(
   '/store',
@@ -382,14 +431,26 @@ dashboardRouter.put(
        s.bank != null ? s.bank : store.bank_details]
     );
 
-    // Replace category list if provided.
+    // Replace category list if provided (deduped, and capped to the plan's limit).
     if (Array.isArray(s.categories)) {
+      const clean = [];
+      const seen = new Set();
+      for (const name of s.categories) {
+        const n = String(name || '').trim();
+        if (!n || seen.has(n.toLowerCase())) continue;
+        seen.add(n.toLowerCase());
+        clean.push(n);
+      }
+      const plan = await currentPlan(b);
+      const limit = cap(plan && plan.max_categories);
+      if (clean.length > limit) {
+        throw forbidden(`Your ${plan ? plan.name : ''} plan allows up to ${limit} categories. Upgrade to add more.`);
+      }
       await withTransaction(async (client) => {
         await client.query('DELETE FROM categories WHERE business_id=$1', [b]);
         let i = 0;
-        for (const name of s.categories) {
-          if (!name || !String(name).trim()) continue;
-          await client.query('INSERT INTO categories (business_id, name, sort_order) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [b, String(name).trim(), i++]);
+        for (const name of clean) {
+          await client.query('INSERT INTO categories (business_id, name, sort_order) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING', [b, name, i++]);
         }
       });
     }

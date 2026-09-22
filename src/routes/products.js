@@ -4,26 +4,25 @@ import { query } from '../db/pool.js';
 import { authenticate, requireBusiness, requirePermission } from '../middleware/auth.js';
 import { wrap, badRequest, notFound, forbidden } from '../utils/http.js';
 import { saveUpload } from '../services/uploads.js';
+import { currentPlan, cap } from '../services/plan.js';
 import * as S from '../services/serialize.js';
 
-// Hard ceiling on files accepted per request; the real per-product limit is the
-// plan's max_images (enforced below). DEFAULT_MAX_IMAGES applies when a plan has
-// no explicit limit set.
-const MAX_UPLOAD_FILES = 10;
+// Hard ceiling on files accepted per request (multer needs a finite bound even when
+// the plan is "unlimited"). The real per-product limit is the plan's max_images.
+const MAX_UPLOAD_FILES = 30;
 const DEFAULT_MAX_IMAGES = 5;
+const DEFAULT_MAX_VARIANTS = 5;
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: MAX_UPLOAD_FILES } });
 export const productsRouter = Router();
 
-// The most photos this business may keep on one product, from its current plan.
+// Per-product caps from the plan; NULL means unlimited (Infinity).
 async function imageLimit(bid) {
-  const plan = (
-    await query(
-      `SELECT pl.max_images FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
-        WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
-      [bid]
-    )
-  ).rows[0];
-  return plan && plan.max_images != null ? plan.max_images : DEFAULT_MAX_IMAGES;
+  const plan = await currentPlan(bid);
+  return plan ? cap(plan.max_images) : DEFAULT_MAX_IMAGES;
+}
+async function variantLimit(bid) {
+  const plan = await currentPlan(bid);
+  return plan ? cap(plan.max_variants) : DEFAULT_MAX_VARIANTS;
 }
 
 // Save every uploaded file and return their public URLs, in upload order.
@@ -78,7 +77,9 @@ productsRouter.get(
       usage: {
         count: rows.length,
         maxProducts: plan ? plan.max_products : null,
-        maxImages: plan && plan.max_images != null ? plan.max_images : DEFAULT_MAX_IMAGES,
+        // NULL = unlimited; the frontend treats null as "no cap".
+        maxImages: plan ? plan.max_images : DEFAULT_MAX_IMAGES,
+        maxVariants: plan ? plan.max_variants : DEFAULT_MAX_VARIANTS,
         plan: plan ? plan.name : null,
       },
     });
@@ -170,10 +171,15 @@ productsRouter.post(
       }
     }
 
+    // Enforce the plan's variant cap.
+    const vLimit = await variantLimit(bid);
+    if (p.variants.length > vLimit) {
+      throw forbidden(`Your plan allows up to ${vLimit} variant${vLimit === 1 ? '' : 's'} per product. Upgrade to add more.`);
+    }
     // Enforce the plan's photo cap, then save and store the gallery (first = cover).
     const limit = await imageLimit(bid);
     if ((req.files || []).length > limit) {
-      throw forbidden(`Your plan allows up to ${limit} photo${limit === 1 ? '' : 's'} per product.`);
+      throw forbidden(`Your plan allows up to ${limit} photo${limit === 1 ? '' : 's'} per product. Upgrade to add more.`);
     }
     const images = await saveFiles(req.files, bid);
     const imageUrl = images[0] || null;
@@ -207,9 +213,13 @@ productsRouter.put(
     const uploaded = await saveFiles(req.files, bid);
     const images = keep.concat(uploaded);
 
+    const vLimit = await variantLimit(bid);
+    if (p.variants.length > vLimit) {
+      throw forbidden(`Your plan allows up to ${vLimit} variant${vLimit === 1 ? '' : 's'} per product. Upgrade to add more.`);
+    }
     const limit = await imageLimit(bid);
     if (images.length > limit) {
-      throw forbidden(`Your plan allows up to ${limit} photo${limit === 1 ? '' : 's'} per product.`);
+      throw forbidden(`Your plan allows up to ${limit} photo${limit === 1 ? '' : 's'} per product. Upgrade to add more.`);
     }
     const imageUrl = images[0] || null;
 

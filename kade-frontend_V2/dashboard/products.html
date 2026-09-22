@@ -27,7 +27,10 @@
             <section class="form-section">
               <h3 class="form-section__title">Basics</h3>
               <div class="kd-field"><label class="kd-label" for="f-name">Product name</label><input class="kd-input" id="f-name" data-rule="required" placeholder="e.g. Linen Shirt"></div>
-              <div class="kd-field"><label class="kd-label" for="f-cat">Category</label><select class="kd-select" id="f-cat" data-rule="required"></select></div>
+              <div class="kd-field"><label class="kd-label" for="f-cat">Category</label>
+                <div class="cat-field"><select class="kd-select" id="f-cat" data-rule="required"></select><button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="f-newcat">+ New</button></div>
+                <span class="kd-help" id="cat-help"></span>
+              </div>
               <div class="kd-field"><label class="kd-label" for="f-desc">Description</label><textarea class="kd-input" id="f-desc" placeholder="A short description customers will see."></textarea></div>
             </section>
 
@@ -48,7 +51,7 @@
               <div id="variant-pricing" hidden>
                 <p class="kd-help" style="margin:0 0 12px">Add each variant with its own price and stock. The cheapest shows as the "from" price, and customers pick a variant before adding to cart.</p>
                 <div id="variant-list" class="variant-list"></div>
-                <button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="add-variant" style="margin-top:12px">+ Add variant</button>
+                <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px;gap:12px"><button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="add-variant">+ Add variant</button><span class="kd-help" id="variant-limit"></span></div>
                 <p class="kd-error" id="variant-err" role="alert" hidden style="margin-top:8px"></p>
               </div>
             </section>
@@ -77,12 +80,45 @@
       var imgZone = K.gallery(K.$('#f-img'), { max: 5 });
 
       var products = [], categories = [], usage = { count: 0, maxProducts: null, plan: '' };
+      var catUsage = { count: 0, maxCategories: null, plan: '' };
+      var varMax = null; // max variants per product (null = unlimited)
       var q = '', cat = 'All', editing = null;
       var initial = new URLSearchParams(location.search); if (initial.get('q')) { q = initial.get('q').toLowerCase(); K.$('#q').value = initial.get('q'); }
 
       function setSelectors() {
+        var current = K.$('#f-cat').value;
         K.$('#cat').innerHTML = ['All'].concat(categories).map(function (c) { return '<option>' + K.esc(c) + '</option>'; }).join('');
-        K.$('#f-cat').innerHTML = '<option value="">Choose one</option>' + categories.map(function (c) { return '<option>' + K.esc(c) + '</option>'; }).join('');
+        K.$('#f-cat').innerHTML = '<option value="">' + (categories.length ? 'Choose one' : 'Create your first category') + '</option>' + categories.map(function (c) { return '<option>' + K.esc(c) + '</option>'; }).join('');
+        if (current && categories.indexOf(current) >= 0) K.$('#f-cat').value = current;
+      }
+      function updateCatHelp() {
+        var limit = catUsage.maxCategories, el = K.$('#cat-help'), btn = K.$('#f-newcat');
+        if (limit == null) { el.textContent = categories.length + ' categories. Add your own to organise products.'; btn.disabled = false; }
+        else {
+          var atCap = categories.length >= limit;
+          el.innerHTML = categories.length + ' of ' + limit + ' categories used' + (atCap ? '. <strong>Upgrade to add more.</strong>' : '.');
+          btn.disabled = atCap;
+        }
+      }
+      function addCategory() {
+        var limit = catUsage.maxCategories;
+        if (limit != null && categories.length >= limit) { K.toast('Your ' + (catUsage.plan || '') + ' plan allows up to ' + limit + ' categories. Upgrade to add more.'); return; }
+        K.prompt({ title: 'New category', label: 'Category name', placeholder: 'e.g. Shirts', help: 'Customers browse your store by category.' }).then(function (name) {
+          if (name == null) return;
+          name = String(name).trim(); if (!name) return;
+          if (categories.some(function (c) { return c.toLowerCase() === name.toLowerCase(); })) { f('cat').value = name; K.toast('You already have that category.'); return; }
+          function added() { categories.push(name); catUsage.count = categories.length; setSelectors(); updateCatHelp(); f('cat').value = name; K.toast('Category added'); }
+          if (API) { KadeApi.createCategory(name).then(added).catch(function (ex) { K.toast(ex.message || 'Could not add category.'); }); }
+          else added();
+        });
+      }
+      function updateVarLimit() {
+        var n = K.$$('#variant-list .variant-item').length;
+        var atCap = varMax != null && n >= varMax;
+        K.$('#add-variant').disabled = atCap;
+        var note = K.$('#variant-limit');
+        if (varMax == null) note.textContent = '';
+        else note.innerHTML = n + ' of ' + varMax + ' variants' + (atCap ? '. <strong>Upgrade to add more.</strong>' : '.');
       }
       function priceCell(p) {
         if (p.variants && p.variants.length) return 'From ' + K.rs(K.fromPrice(p));
@@ -122,7 +158,7 @@
           '<label class="mini">Stock<input class="kd-input" data-vf="stock" type="number" inputmode="numeric" min="0" value="' + (v.stock != null ? v.stock : '') + '"></label>' +
           '<label class="mini">Low at<input class="kd-input" data-vf="lowAt" type="number" inputmode="numeric" min="0" value="' + (v.lowAt != null ? v.lowAt : 5) + '"></label>' +
           '</div>';
-        row.querySelector('.variant-item__rm').addEventListener('click', function () { row.remove(); });
+        row.querySelector('.variant-item__rm').addEventListener('click', function () { row.remove(); updateVarLimit(); });
         vlist().appendChild(row);
       }
       function collectVariants() {
@@ -131,14 +167,18 @@
           return { label: g('label').trim(), price: +g('price') || 0, sale: g('sale') ? +g('sale') : null, stock: g('stock') !== '' ? +g('stock') : 0, lowAt: +g('lowAt') || 0 };
         });
       }
-      function setVariants(arr) { vlist().innerHTML = ''; (arr && arr.length ? arr : [{}]).forEach(addVariantRow); }
+      function setVariants(arr) { vlist().innerHTML = ''; (arr && arr.length ? arr : [{}]).forEach(addVariantRow); updateVarLimit(); }
       function setMode(on) {
         K.$('#simple-pricing').hidden = on;
         K.$('#variant-pricing').hidden = !on;
         if (on && !K.$$('#variant-list .variant-item').length) setVariants([{}]);
       }
       f('hasvar').addEventListener('change', function () { setMode(this.checked); });
-      K.$('#add-variant').addEventListener('click', function () { addVariantRow(); });
+      K.$('#add-variant').addEventListener('click', function () {
+        if (varMax != null && K.$$('#variant-list .variant-item').length >= varMax) { K.toast('Your plan allows up to ' + varMax + ' variants. Upgrade to add more.'); return; }
+        addVariantRow(); updateVarLimit();
+      });
+      K.$('#f-newcat').addEventListener('click', addCategory);
 
       function open(p) {
         editing = p; K.$('#ft').textContent = p ? 'Edit product' : 'Add product';
@@ -226,16 +266,21 @@
 
       function load() {
         if (API) {
-          return Promise.all([KadeApi.myProducts(), KadeApi.myStore()]).then(function (r) {
-            products = r[0].products; usage = r[0].usage || usage; categories = (r[1].store && r[1].store.categories) || [];
-            if (usage.maxImages) imgZone.setMax(usage.maxImages);
-            setSelectors(); render();
+          return Promise.all([KadeApi.myProducts(), KadeApi.categories()]).then(function (r) {
+            products = r[0].products; usage = r[0].usage || usage;
+            categories = r[1].categories || []; catUsage = r[1].usage || catUsage;
+            imgZone.setMax(usage.maxImages);          // null => unlimited
+            varMax = usage.maxVariants != null ? usage.maxVariants : null;
+            setSelectors(); updateCatHelp(); render();
           }).catch(function () { K.$('#rows').innerHTML = '<tr><td colspan="5" class="muted" style="padding:16px">Could not load products. Please refresh.</td></tr>'; });
         }
         var S = D.stores['abc-fashion'], me = D.businesses[0], plan = D.plans.filter(function (p) { return p.name === me.plan; })[0];
         products = D.products.filter(function (p) { return p.store === 'abc-fashion'; });
-        categories = S.categories; usage = { count: products.length, maxProducts: plan.maxProducts, plan: plan.name };
-        setSelectors(); render(); return Promise.resolve();
+        categories = (S.categories || []).slice(); usage = { count: products.length, maxProducts: plan.maxProducts, plan: plan.name };
+        // Demo shop is on Pro, so categories/images/variants are unlimited in the sandbox.
+        catUsage = { count: categories.length, maxCategories: null, plan: plan.name };
+        varMax = null; imgZone.setMax(null);
+        setSelectors(); updateCatHelp(); render(); return Promise.resolve();
       }
 
       load().then(function () { if (initial.get('new')) open(null); });

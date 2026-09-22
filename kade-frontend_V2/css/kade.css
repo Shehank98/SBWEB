@@ -480,6 +480,12 @@ body.has-cartbar { padding-bottom: 84px; }
 .gallery__add:hover { border-color: var(--brand); background: var(--brand-soft); }
 .gallery__add svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .gallery__meta { margin: 12px 0 0; font-size: 13px; }
+.gallery__upgrade { color: var(--brand); font-weight: 600; }
+
+/* Category field with inline create */
+.cat-field { display: flex; gap: var(--space-2); align-items: stretch; }
+.cat-field .kd-select { flex: 1; }
+.cat-field .kd-btn { flex: none; white-space: nowrap; }
 
 /* Product-page photo gallery (storefront) */
 .pdp__media { display: flex; flex-direction: column; gap: var(--space-3); aspect-ratio: auto; border: 0; overflow: visible; }

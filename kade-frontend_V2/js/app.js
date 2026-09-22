@@ -146,7 +146,8 @@
   K.gallery = function (input, opts) {
     opts = opts || {};
     if (!input || input.__gal) return input && input.__gal;
-    var max = opts.max || 5;
+    // max may be a number or Infinity (unlimited, when a plan has no photo cap).
+    var max = opts.max === undefined ? 5 : (opts.max == null ? Infinity : opts.max);
     var existing = [];   // URLs of photos already saved on the product
     var files = [];      // newly picked File objects
     input.setAttribute('multiple', '');
@@ -167,11 +168,16 @@
           (i === 0 ? '<span class="gallery__badge">Cover</span>' : '') +
           '<button type="button" class="gallery__remove" data-i="' + i + '" aria-label="Remove photo ' + (i + 1) + '">&times;</button></div>';
       }).join('');
-      var addTile = total() < max
+      var atCap = total() >= max;
+      var addTile = !atCap
         ? '<button type="button" class="gallery__add" aria-label="Add photos">' + K.icon('upload') + '<span>Add photo</span></button>'
         : '';
+      var metaText = max === Infinity
+        ? total() + ' photos. The first one is your cover. PNG or JPG, up to 8MB each.'
+        : total() + ' of ' + max + ' photo' + (max === 1 ? '' : 's') + '. The first one is your cover.';
+      var upgrade = (max !== Infinity && atCap) ? '<span class="gallery__upgrade"> Upgrade your plan to add more images.</span>' : '';
       zone.innerHTML = '<div class="gallery__grid">' + tiles + addTile + '</div>' +
-        '<p class="gallery__meta muted">' + total() + ' of ' + max + ' photos. The first one is your cover. PNG or JPG, up to 8MB each.</p>';
+        '<p class="gallery__meta muted">' + metaText + upgrade + '</p>';
       var add = zone.querySelector('.gallery__add');
       if (add) add.addEventListener('click', function () { input.click(); });
       zone.querySelectorAll('.gallery__remove').forEach(function (b) {
@@ -204,7 +210,7 @@
       files: function () { return files.slice(); },
       kept: function () { return existing.slice(); },
       count: function () { return total(); },
-      setMax: function (m) { if (m) { max = m; render(); } },
+      setMax: function (m) { max = (m == null ? Infinity : m); render(); },
     };
     input.__gal = api;
     return api;

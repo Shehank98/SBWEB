@@ -101,6 +101,9 @@
       return req('PUT', '/api/products/' + id, productForm(fields, imageFiles, keepImages), true);
     },
     deleteProduct(id) { return req('DELETE', '/api/products/' + id); },
+    categories() { return req('GET', '/api/dashboard/categories'); },
+    createCategory(name) { return req('POST', '/api/dashboard/categories', { name: name }); },
+    deleteCategory(name) { return req('DELETE', '/api/dashboard/categories/' + encodeURIComponent(name)); },
     overview() { return req('GET', '/api/dashboard/overview'); },
     reports(range) {
       var qs = '';
