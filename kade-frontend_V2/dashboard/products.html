@@ -33,7 +33,7 @@
             </div>
             <div class="kd-field"><label class="kd-label" for="f-opts">Options (optional)</label><textarea class="kd-input" id="f-opts" placeholder="Size: S, M, L&#10;Colour: Black, White"></textarea><span class="kd-help">One option per line. Customers choose from these before adding to cart.</span></div>
             <div class="kd-field"><label class="kd-label" for="f-desc">Description</label><textarea class="kd-input" id="f-desc"></textarea></div>
-            <div class="kd-field"><label class="kd-label" for="f-img">Photo</label><input class="kd-input" id="f-img" type="file" accept="image/*"></div>
+            <div class="kd-field"><label class="kd-label" for="f-img">Photos</label><input class="kd-input" id="f-img" type="file" accept="image/*" multiple><span class="kd-help">Add a few photos so customers can see the product from every angle. The first photo is the cover.</span></div>
           </div>
           <div class="dialog__foot"><button class="kd-btn kd-btn--ghost" type="button" id="cancel">Cancel</button><button class="kd-btn kd-btn--primary" type="submit">Save product</button></div>
         </form></dialog>
@@ -50,7 +50,7 @@
       if (!K.guard('owner', 'products')) return;
       K.shell('dashboard', 'products');
       var API = !!(window.KadeApi && KadeApi.enabled);
-      var imgZone = K.dropzone(K.$('#f-img'), { title: 'Drag & drop a product photo', hint: 'Square photos look best. PNG or JPG, up to 8MB', aria: 'Upload a product photo' });
+      var imgZone = K.gallery(K.$('#f-img'), { max: 5 });
 
       var products = [], categories = [], usage = { count: 0, maxProducts: null, plan: '' };
       var q = '', cat = 'All', editing = null;
@@ -80,7 +80,7 @@
         editing = p; K.$('#ft').textContent = p ? 'Edit product' : 'Add product';
         K.$$('#pf .kd-error').forEach(function (e) { e.remove(); }); K.$$('#pf .kd-field--error').forEach(function (e) { e.classList.remove('kd-field--error'); });
         f('name').value = p ? p.name : ''; f('cat').value = p ? p.category : ''; f('price').value = p ? p.price : ''; f('sale').value = p && p.sale ? p.sale : ''; f('stock').value = p ? p.stock : ''; f('low').value = p ? p.lowAt : 5; f('opts').value = p ? optText(p.options) : ''; f('desc').value = p ? p.desc : '';
-        imgZone.clear(); if (p && p.image) imgZone.existing(p.image);
+        imgZone.set(p ? (p.images && p.images.length ? p.images : (p.image ? [p.image] : [])) : []);
         dlg.showModal(); f('name').focus();
       }
       K.$('#add').addEventListener('click', function () { open(null); });
@@ -111,15 +111,16 @@
         var fields = { name: f('name').value.trim(), category: f('cat').value, price: +f('price').value, sale: f('sale').value ? +f('sale').value : '', stock: +f('stock').value, lowAt: +f('low').value || 0, options: parseOpts(f('opts').value), desc: f('desc').value.trim() };
 
         if (API) {
-          var file = imgZone.file();
+          var newFiles = imgZone.files(), keep = imgZone.kept();
           if (editing) fields.tone = editing.tone;
           var restore = K.btnLoading(K.$('#pf button[type=submit]'), 'Saving…');
-          var save = editing ? KadeApi.updateProduct(editing.id, fields, file) : KadeApi.createProduct(fields, file);
+          var save = editing ? KadeApi.updateProduct(editing.id, fields, newFiles, keep) : KadeApi.createProduct(fields, newFiles, keep);
           save.then(function () { dlg.close(); K.toast(editing ? 'Product updated' : 'Product added'); return load(); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not save the product.'); });
         } else {
           var rec = editing || { id: 'p' + Date.now(), store: 'abc-fashion', tone: ['a', 'b', 'c', 'd', 'e', 'f'][Math.floor(Math.random() * 6)] };
           rec.name = fields.name; rec.category = fields.category; rec.price = fields.price; rec.sale = fields.sale ? fields.sale : undefined; rec.stock = fields.stock; rec.lowAt = fields.lowAt; rec.options = fields.options; rec.desc = fields.desc;
-          var imgFile = imgZone.file(); if (imgFile) rec.image = URL.createObjectURL(imgFile);
+          var imgs = imgZone.kept().concat(imgZone.files().map(function (fl) { return URL.createObjectURL(fl); }));
+          rec.images = imgs; rec.image = imgs[0] || undefined;
           if (!editing) { D.products.unshift(rec); products.unshift(rec); usage.count = products.length; }
           dlg.close(); render(); K.toast(editing ? 'Product updated' : 'Product added');
         }
@@ -129,6 +130,7 @@
         if (API) {
           return Promise.all([KadeApi.myProducts(), KadeApi.myStore()]).then(function (r) {
             products = r[0].products; usage = r[0].usage || usage; categories = (r[1].store && r[1].store.categories) || [];
+            if (usage.maxImages) imgZone.setMax(usage.maxImages);
             setSelectors(); render();
           }).catch(function () { K.$('#rows').innerHTML = '<tr><td colspan="5" class="muted" style="padding:16px">Could not load products. Please refresh.</td></tr>'; });
         }

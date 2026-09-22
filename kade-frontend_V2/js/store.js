@@ -68,4 +68,18 @@
   };
 
   K.priceHtml = function (p) { return '<span class="kd-price">' + K.rs(K.priceOf(p)) + (p.sale ? '<s>' + K.rs(p.price) + '</s>' : '') + '</span>'; };
+
+  /* Product-page media: a big cover image plus a clickable thumbnail strip when the
+     product has more than one photo. Falls back to the placeholder tile when it has none. */
+  K.pdpMedia = function (p) {
+    var imgs = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
+    if (!imgs.length) return '<div class="pdp__media"><div class="pdp__main">' + K.ph(p) + '</div></div>';
+    var main = '<div class="pdp__main"><img id="pdp-main" class="ph ph--img" src="' + K.esc(imgs[0]) + '" alt="' + K.esc(p.name) + '" decoding="async"></div>';
+    var thumbs = imgs.length > 1
+      ? '<div class="pdp__thumbs" aria-label="Product photos">' + imgs.map(function (u, i) {
+          return '<button type="button" class="pdp__thumb' + (i === 0 ? ' is-active' : '') + '" data-src="' + K.esc(u) + '" aria-current="' + (i === 0) + '" aria-label="Show photo ' + (i + 1) + '"><img src="' + K.esc(u) + '" alt="" loading="lazy"></button>';
+        }).join('') + '</div>'
+      : '';
+    return '<div class="pdp__media">' + main + thumbs + '</div>';
+  };
 })();

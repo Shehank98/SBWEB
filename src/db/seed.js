@@ -11,9 +11,9 @@ function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d
 function daysAhead(n) { return daysAgo(-n); }
 
 const plans = [
-  { id: 'starter', name: 'Starter', price: 1500, duration_days: 30, max_products: 100, features: ['Up to 100 products', 'Your own store link', 'Order dashboard', 'Email order alerts'], sort_order: 1 },
-  { id: 'business', name: 'Business', price: 2500, duration_days: 30, max_products: 500, features: ['Up to 500 products', 'Store colour presets', 'Coupons and discounts', 'Sales reports'], sort_order: 2 },
-  { id: 'pro', name: 'Pro', price: 5000, duration_days: 30, max_products: null, features: ['Unlimited products', 'Priority support', 'Staff accounts', 'Advanced reports'], sort_order: 3 },
+  { id: 'starter', name: 'Starter', price: 1500, duration_days: 30, max_products: 100, max_images: 3, features: ['Up to 100 products', 'Up to 3 photos per product', 'Your own store link', 'Order dashboard', 'Email order alerts'], sort_order: 1 },
+  { id: 'business', name: 'Business', price: 2500, duration_days: 30, max_products: 500, max_images: 5, features: ['Up to 500 products', 'Up to 5 photos per product', 'Store colour presets', 'Coupons and discounts', 'Sales reports'], sort_order: 2 },
+  { id: 'pro', name: 'Pro', price: 5000, duration_days: 30, max_products: null, max_images: 8, features: ['Unlimited products', 'Up to 8 photos per product', 'Priority support', 'Staff accounts', 'Advanced reports'], sort_order: 3 },
 ];
 
 // Store detail for the four fully-described shops.
@@ -96,12 +96,12 @@ export async function seed() {
     // Plans (upsert).
     for (const p of plans) {
       await c.query(
-        `INSERT INTO plans (id,name,price,duration_days,max_products,features,sort_order)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)
+        `INSERT INTO plans (id,name,price,duration_days,max_products,max_images,features,sort_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
          ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, price=EXCLUDED.price,
            duration_days=EXCLUDED.duration_days, max_products=EXCLUDED.max_products,
-           features=EXCLUDED.features, sort_order=EXCLUDED.sort_order`,
-        [p.id, p.name, p.price, p.duration_days, p.max_products, JSON.stringify(p.features), p.sort_order]
+           max_images=EXCLUDED.max_images, features=EXCLUDED.features, sort_order=EXCLUDED.sort_order`,
+        [p.id, p.name, p.price, p.duration_days, p.max_products, p.max_images, JSON.stringify(p.features), p.sort_order]
       );
     }
 
@@ -169,10 +169,11 @@ export async function seed() {
     // Products.
     for (const p of products) {
       const image = PRODUCT_IMG[p.name] ? `/img/products/${PRODUCT_IMG[p.name]}.svg` : null;
+      const images = image ? [image] : [];
       await c.query(
-        `INSERT INTO products (business_id,category,name,description,price,sale_price,stock,low_at,options,tone,image_url)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-        [bizId[p.store], p.category, p.name, p.desc, p.price, p.sale ?? null, p.stock, p.lowAt, JSON.stringify(p.options || {}), p.tone, image]
+        `INSERT INTO products (business_id,category,name,description,price,sale_price,stock,low_at,options,tone,image_url,images)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [bizId[p.store], p.category, p.name, p.desc, p.price, p.sale ?? null, p.stock, p.lowAt, JSON.stringify(p.options || {}), p.tone, image, JSON.stringify(images)]
       );
     }
 

@@ -128,6 +128,78 @@
     return api;
   };
 
+  /* Multi-image gallery uploader. Enhances a <input type="file" multiple> into a
+     drag & drop grid of thumbnails (first = cover) with per-photo remove and an
+     "add" tile, capped at opts.max. Keeps existing photos (URLs) and new files
+     apart so the form can send keepImages + new files.
+     Returns { set(urls), clear(), files(), kept(), count(), setMax(n) }. */
+  K.gallery = function (input, opts) {
+    opts = opts || {};
+    if (!input || input.__gal) return input && input.__gal;
+    var max = opts.max || 5;
+    var existing = [];   // URLs of photos already saved on the product
+    var files = [];      // newly picked File objects
+    input.setAttribute('multiple', '');
+    input.classList.add('visually-hidden');
+    input.setAttribute('tabindex', '-1');
+    input.setAttribute('aria-hidden', 'true');
+    var zone = document.createElement('div');
+    zone.className = 'gallery';
+    input.parentNode.insertBefore(zone, input);
+
+    function total() { return existing.length + files.length; }
+    function items() { return existing.map(function (u) { return { url: u }; }).concat(files.map(function (f) { return { file: f }; })); }
+    function render() {
+      var tiles = items().map(function (it, i) {
+        var src = it.url ? K.esc(it.url) : URL.createObjectURL(it.file);
+        return '<div class="gallery__item' + (i === 0 ? ' is-cover' : '') + '">' +
+          '<img alt="Product photo ' + (i + 1) + '" src="' + src + '">' +
+          (i === 0 ? '<span class="gallery__badge">Cover</span>' : '') +
+          '<button type="button" class="gallery__remove" data-i="' + i + '" aria-label="Remove photo ' + (i + 1) + '">&times;</button></div>';
+      }).join('');
+      var addTile = total() < max
+        ? '<button type="button" class="gallery__add" aria-label="Add photos">' + K.icon('upload') + '<span>Add photo</span></button>'
+        : '';
+      zone.innerHTML = '<div class="gallery__grid">' + tiles + addTile + '</div>' +
+        '<p class="gallery__meta muted">' + total() + ' of ' + max + ' photos — the first one is your cover. PNG or JPG, up to 8MB each.</p>';
+      var add = zone.querySelector('.gallery__add');
+      if (add) add.addEventListener('click', function () { input.click(); });
+      zone.querySelectorAll('.gallery__remove').forEach(function (b) {
+        b.addEventListener('click', function (e) { e.stopPropagation(); removeAt(+b.getAttribute('data-i')); });
+      });
+    }
+    function removeAt(i) {
+      if (i < existing.length) existing.splice(i, 1);
+      else files.splice(i - existing.length, 1);
+      render();
+    }
+    function addFiles(list) {
+      for (var i = 0; i < list.length; i++) {
+        if (total() >= max) { if (K.toast) K.toast('You can add up to ' + max + ' photos.'); break; }
+        var f = list[i]; if (f && /^image\//.test(f.type)) files.push(f);
+      }
+      input.value = '';
+      render();
+    }
+    input.addEventListener('change', function () { if (input.files && input.files.length) addFiles(input.files); });
+    ['dragenter', 'dragover'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('is-drag'); }); });
+    ['dragleave', 'dragend'].forEach(function (ev) { zone.addEventListener(ev, function () { zone.classList.remove('is-drag'); }); });
+    zone.addEventListener('drop', function (e) { e.preventDefault(); zone.classList.remove('is-drag'); if (e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+
+    render();
+    var api = {
+      input: input,
+      set: function (urls) { existing = (urls || []).slice(); files = []; render(); },
+      clear: function () { existing = []; files = []; render(); },
+      files: function () { return files.slice(); },
+      kept: function () { return existing.slice(); },
+      count: function () { return total(); },
+      setMax: function (m) { if (m) { max = m; render(); } },
+    };
+    input.__gal = api;
+    return api;
+  };
+
   /* ---------- Prompt dialog (single text input, with validation) ---------- */
   K.prompt = function (o) {
     return new Promise(function (resolve) {

@@ -140,7 +140,8 @@ CREATE TABLE IF NOT EXISTS products (
   -- Variants kept as { "Size": ["S","M"], "Colour": ["Red"] } to match the storefront's
   -- option picker. A dedicated product_variants table is the v2 upgrade path.
   options      JSONB NOT NULL DEFAULT '{}'::jsonb,
-  image_url    TEXT,
+  image_url    TEXT,                                -- cover photo (kept in sync with images[0])
+  images       JSONB NOT NULL DEFAULT '[]'::jsonb,   -- ordered gallery of photo URLs (first = cover)
   tone         TEXT NOT NULL DEFAULT 'f',           -- placeholder tile colour until image_url is set
   status       TEXT NOT NULL DEFAULT 'ACTIVE',      -- ACTIVE | HIDDEN
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -241,3 +242,9 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+-- Products gained a multi-photo gallery (older rows keep their single image_url as cover).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
+-- Backfill the gallery from the existing single cover photo so old products show it.
+UPDATE products SET images = jsonb_build_array(image_url)
+ WHERE image_url IS NOT NULL AND (images IS NULL OR jsonb_array_length(images) = 0);

@@ -33,7 +33,7 @@
       function waMsg() { return 'Hello ' + s.name + ', I would like to order:\n\n' + p.name + (groups.length ? '\n' + optText() : '') + '\nQuantity: ' + qty + '\nTotal: ' + K.rs(total()) + '\n\n' + pageUrl; }
       main.innerHTML =
         '<nav class="crumbs" aria-label="Breadcrumb"><a href="' + K.sUrl('index') + '">Home</a><span aria-hidden="true">/</span><span>' + K.esc(p.category) + '</span></nav>' +
-        '<div class="pdp"><div class="pdp__media">' + K.ph(p) + '</div><div class="stack-lg">' +
+        '<div class="pdp">' + K.pdpMedia(p) + '<div class="stack-lg">' +
         '<div class="stack" style="gap:8px"><h1>' + K.esc(p.name) + '</h1>' + K.priceHtml(p) + '<div>' + (out ? '<span class="kd-badge kd-badge--danger">Out of stock</span>' : low ? '<span class="kd-badge kd-badge--warning">Only ' + p.stock + ' left</span>' : '<span class="kd-badge kd-badge--success">In stock</span>') + '</div></div>' +
         '<p>' + K.esc(p.desc) + '</p>' +
         groups.map(function (g) { return '<div class="option-group" role="group" aria-labelledby="og-' + g + '"><span class="kd-label" id="og-' + g + '">' + K.esc(g) + '</span><div class="option-row">' + p.options[g].map(function (v) { return '<button type="button" class="kd-chip" aria-pressed="false" data-g="' + K.esc(g) + '" data-v="' + K.esc(v) + '">' + K.esc(v) + '</button>'; }).join('') + '</div></div>'; }).join('') +
@@ -56,6 +56,12 @@
           K.$$('.kd-chip[data-g="' + g + '"]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
           K.$('#optErr').hidden = true; sync();
         });
+      });
+      var thumbsEl = K.$('.pdp__thumbs');
+      if (thumbsEl) thumbsEl.addEventListener('click', function (e) {
+        var b = e.target.closest('.pdp__thumb'); if (!b) return;
+        K.$('#pdp-main').src = b.getAttribute('data-src');
+        K.$$('.pdp__thumb').forEach(function (x) { var on = x === b; x.classList.toggle('is-active', on); x.setAttribute('aria-current', String(on)); });
       });
       K.$('#minus').addEventListener('click', function () { if (qty > 1) { qty--; sync(); } });
       K.$('#plus').addEventListener('click', function () { if (qty < Math.min(p.stock, 20)) { qty++; sync(); } else K.toast('That is all we have in stock'); });

@@ -51,6 +51,16 @@
     return data;
   }
 
+  // Build the multipart body for creating/updating a product: text fields, the
+  // list of existing images to keep, and any new image files (field name 'images').
+  function productForm(fields, imageFiles, keepImages) {
+    var fd = new FormData();
+    Object.keys(fields).forEach(function (k) { fd.append(k, k === 'options' ? JSON.stringify(fields[k]) : fields[k]); });
+    fd.append('keepImages', JSON.stringify(keepImages || []));
+    (imageFiles || []).forEach(function (file) { if (file) fd.append('images', file); });
+    return fd;
+  }
+
   var KadeApi = {
     base: BASE,
     enabled: ENABLED,          // pages check this to decide API vs. mock
@@ -82,17 +92,13 @@
 
     // ---- Owner dashboard (token required) ----
     myProducts() { return req('GET', '/api/products'); },
-    createProduct(fields, imageFile) {
-      var fd = new FormData();
-      Object.keys(fields).forEach(function (k) { fd.append(k, k === 'options' ? JSON.stringify(fields[k]) : fields[k]); });
-      if (imageFile) fd.append('image', imageFile);
-      return req('POST', '/api/products', fd, true);
+    // imageFiles: array of new File objects. keepImages: existing image URLs to retain
+    // (in the desired order); the server keeps those first, then appends the new files.
+    createProduct(fields, imageFiles, keepImages) {
+      return req('POST', '/api/products', productForm(fields, imageFiles, keepImages), true);
     },
-    updateProduct(id, fields, imageFile) {
-      var fd = new FormData();
-      Object.keys(fields).forEach(function (k) { fd.append(k, k === 'options' ? JSON.stringify(fields[k]) : fields[k]); });
-      if (imageFile) fd.append('image', imageFile);
-      return req('PUT', '/api/products/' + id, fd, true);
+    updateProduct(id, fields, imageFiles, keepImages) {
+      return req('PUT', '/api/products/' + id, productForm(fields, imageFiles, keepImages), true);
     },
     deleteProduct(id) { return req('DELETE', '/api/products/' + id); },
     overview() { return req('GET', '/api/dashboard/overview'); },
