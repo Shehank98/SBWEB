@@ -493,6 +493,30 @@ body.has-cartbar { padding-bottom: 84px; }
 .pdp__thumb:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 @media (max-width: 640px) { .pdp__main { aspect-ratio: 4 / 3; } }
 
+/* Product form: sections + variant editor */
+.form-section { padding: var(--space-5) 0; border-top: 1px solid var(--line); }
+.dialog__body > .form-section:first-child { padding-top: 0; border-top: 0; }
+.form-section__title { font: 700 13px/1 var(--font-sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-muted); margin: 0 0 var(--space-4); }
+.variant-list { display: flex; flex-direction: column; gap: var(--space-3); }
+.variant-item { border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--surface-sunken); padding: var(--space-3); }
+.variant-item__head { display: flex; gap: var(--space-2); align-items: center; margin-bottom: var(--space-3); }
+.variant-item__head .kd-input { flex: 1; }
+.variant-item__rm { flex: none; width: 36px; height: 36px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--danger); font-size: 22px; line-height: 1; cursor: pointer; }
+.variant-item__rm:hover { background: var(--surface); }
+.variant-item__nums { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-2); }
+@media (min-width: 560px) { .variant-item__nums { grid-template-columns: repeat(4, 1fr); } }
+.variant-item__nums .mini { display: flex; flex-direction: column; gap: 4px; font: 600 12px/1.3 var(--font-sans); color: var(--ink-muted); }
+.variant-item__nums .mini .kd-input { padding: 8px var(--space-3); min-height: 42px; }
+
+/* Priced variant picker (storefront product page) */
+.variant-row { gap: var(--space-2); }
+.variant-chip { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px var(--space-4); height: auto; border-radius: var(--radius-md); text-align: left; }
+.variant-chip__label { font-weight: 600; }
+.variant-chip__price { font: 600 12.5px/16px var(--font-mono); color: var(--ink-muted); }
+.variant-chip[aria-pressed="true"] .variant-chip__price { color: var(--on-brand); }
+.variant-chip.is-oos { opacity: 0.55; cursor: not-allowed; }
+.kd-price__from { font: 500 13px/1 var(--font-sans); color: var(--ink-muted); vertical-align: middle; }
+
 /* Reports date-range control */
 .rangebar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-2); }
 .rangebar__presets { display: flex; flex-wrap: wrap; gap: var(--space-2); }

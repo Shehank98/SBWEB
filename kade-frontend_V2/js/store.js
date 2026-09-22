@@ -67,7 +67,10 @@
     }
   };
 
-  K.priceHtml = function (p) { return '<span class="kd-price">' + K.rs(K.priceOf(p)) + (p.sale ? '<s>' + K.rs(p.price) + '</s>' : '') + '</span>'; };
+  K.priceHtml = function (p) {
+    if (p.variants && p.variants.length) return '<span class="kd-price"><span class="kd-price__from">From</span> ' + K.rs(K.fromPrice(p)) + '</span>';
+    return '<span class="kd-price">' + K.rs(K.priceOf(p)) + (p.sale ? '<s>' + K.rs(p.price) + '</s>' : '') + '</span>';
+  };
 
   /* Product-page media: a big cover image plus a clickable thumbnail strip when the
      product has more than one photo. Falls back to the placeholder tile when it has none. */

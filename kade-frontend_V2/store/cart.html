@@ -29,7 +29,7 @@
         return K.cart.get(s.slug).map(function (i) { var p = products.filter(function (x) { return x.id === i.pid; })[0]; return p ? { i: i, p: p } : null; }).filter(Boolean);
       }
       function money() {
-        var sub = lines().reduce(function (n, l) { return n + K.priceOf(l.p) * l.i.qty; }, 0);
+        var sub = lines().reduce(function (n, l) { return n + K.linePrice(l.p, l.i) * l.i.qty; }, 0);
         var free = s.delivery.freeAbove > 0 && sub >= s.delivery.freeAbove;
         var fee = method === 'pickup' || free ? 0 : s.delivery.fee;
         var discount = applied ? Math.min(applied.discount, sub) : 0;
@@ -42,6 +42,7 @@
         return { valid: false, message: 'That code is not valid.' };
       }
       function optTxt(o) { var k = Object.keys(o || {}); return k.length ? k.map(function (g) { return o[g]; }).join(', ') : ''; }
+      function lineLabel(l) { return l.i.variant || optTxt(l.i.opts); }
 
       function view() {
         var ls = lines();
@@ -52,8 +53,8 @@
         var payOpts = [['cod', 'Cash on delivery', 'Pay the rider when your order arrives.'], ['bank', 'Bank transfer', 'Send the amount to the shop account and share the slip on WhatsApp.']].filter(function (o) { return s.payments[o[0]]; });
         main.innerHTML = '<h1 class="display-md" style="padding-top:24px">Your cart</h1><div class="cart-layout">' +
           '<section class="kd-card" aria-label="Items in your cart">' + ls.map(function (l, n) {
-            return '<div class="cart-line"><div class="cart-line__img">' + K.ph(l.p, true) + '</div><div><a class="kd-link" href="' + K.sUrl('product', '&p=' + l.p.id) + '">' + K.esc(l.p.name) + '</a><div class="muted" style="font-size:14px">' + K.esc(optTxt(l.i.opts)) + '</div>' +
-              '<div class="cart-line__row"><div class="qty" role="group" aria-label="Quantity of ' + K.esc(l.p.name) + '"><button type="button" data-dec="' + n + '" aria-label="Decrease quantity">&minus;</button><output>' + l.i.qty + '</output><button type="button" data-inc="' + n + '" aria-label="Increase quantity">+</button></div><span class="price-sm">' + K.rs(K.priceOf(l.p) * l.i.qty) + '</span></div>' +
+            return '<div class="cart-line"><div class="cart-line__img">' + K.ph(l.p, true) + '</div><div><a class="kd-link" href="' + K.sUrl('product', '&p=' + l.p.id) + '">' + K.esc(l.p.name) + '</a><div class="muted" style="font-size:14px">' + K.esc(lineLabel(l)) + '</div>' +
+              '<div class="cart-line__row"><div class="qty" role="group" aria-label="Quantity of ' + K.esc(l.p.name) + '"><button type="button" data-dec="' + n + '" aria-label="Decrease quantity">&minus;</button><output>' + l.i.qty + '</output><button type="button" data-inc="' + n + '" aria-label="Increase quantity">+</button></div><span class="price-sm">' + K.rs(K.linePrice(l.p, l.i) * l.i.qty) + '</span></div>' +
               '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" data-rm="' + n + '" style="margin-top:4px;padding-left:0">Remove</button></div></div>';
           }).join('') + '</section>' +
           '<form class="kd-card panel stack-lg" id="co" novalidate style="padding:24px"><h2 class="heading">Checkout</h2>' +
@@ -156,7 +157,7 @@
         /* Steps 1-2: advance. Step 3: place the order. */
         if (step < 3) { showStep(step + 1); focusStep(); return; }
         var ls = lines(), m = money(), v = function (id) { var x = document.getElementById(id); return x ? x.value.trim() : ''; };
-        var itemsOut = ls.map(function (l) { var o = optTxt(l.i.opts); return { name: l.p.name + (o ? ' (' + o + ')' : ''), qty: l.i.qty, price: K.priceOf(l.p) }; });
+        var itemsOut = ls.map(function (l) { var o = lineLabel(l); return { name: l.p.name + (o ? ' (' + o + ')' : ''), qty: l.i.qty, price: K.linePrice(l.p, l.i) }; });
         var payLabel = pay === 'cod' ? 'Cash on delivery' : 'Bank transfer';
         if (window.KadeApi && KadeApi.enabled) {
           var restore = K.btnLoading(K.$('#co-next'), 'Placing order…');
@@ -165,7 +166,7 @@
             address: v('ad'), city: method === 'pickup' ? 'Pickup' : v('ct'), district: v('ds'),
             delivery: method === 'pickup' ? 'Pickup' : 'Delivery', payment: payLabel, note: v('nt'),
             coupon: applied ? applied.code : '',
-            items: ls.map(function (l) { return { pid: l.p.id, qty: l.i.qty, variant: optTxt(l.i.opts) }; })
+            items: ls.map(function (l) { return { pid: l.p.id, qty: l.i.qty, variant: lineLabel(l) }; })
           }).then(function (res) {
             K.cart.clear(s.slug); K.updateCartCount();
             var od = res.order || {};

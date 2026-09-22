@@ -142,6 +142,9 @@ CREATE TABLE IF NOT EXISTS products (
   options      JSONB NOT NULL DEFAULT '{}'::jsonb,
   image_url    TEXT,                                -- cover photo (kept in sync with images[0])
   images       JSONB NOT NULL DEFAULT '[]'::jsonb,   -- ordered gallery of photo URLs (first = cover)
+  -- Optional priced variants: [{label, price, sale, stock, lowAt}]. When set, the
+  -- product-level price/stock are derived (min price / summed stock) for listings.
+  variants     JSONB NOT NULL DEFAULT '[]'::jsonb,
   tone         TEXT NOT NULL DEFAULT 'f',           -- placeholder tile colour until image_url is set
   status       TEXT NOT NULL DEFAULT 'ACTIVE',      -- ACTIVE | HIDDEN
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -245,6 +248,8 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '
 
 -- Products gained a multi-photo gallery (older rows keep their single image_url as cover).
 ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
+-- Products can now have priced variants (sizes/weights), each with its own price and stock.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS variants JSONB NOT NULL DEFAULT '[]'::jsonb;
 -- Backfill the gallery from the existing single cover photo so old products show it.
 UPDATE products SET images = jsonb_build_array(image_url)
  WHERE image_url IS NOT NULL AND (images IS NULL OR jsonb_array_length(images) = 0);

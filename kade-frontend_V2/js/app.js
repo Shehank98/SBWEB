@@ -12,6 +12,16 @@
   K.daysUntil = function (iso) { var a = new Date(D.today + 'T00:00:00'), b = new Date(iso + 'T00:00:00'); return Math.round((b - a) / 86400000); };
   K.initials = function (name) { return String(name).replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase(); };
   K.priceOf = function (p) { return p.sale || p.price; };
+  // Cheapest variant price (the "from" price shown on cards for variant products).
+  K.fromPrice = function (p) { if (p && p.variants && p.variants.length) return Math.min.apply(null, p.variants.map(function (v) { return v.sale != null ? v.sale : v.price; })); return K.priceOf(p); };
+  // Price of a specific cart line: the chosen variant's price, else the base price.
+  K.linePrice = function (p, item) {
+    if (item && item.variant && p && p.variants && p.variants.length) {
+      var v = p.variants.filter(function (x) { return x.label === item.variant; })[0];
+      if (v) return v.sale != null ? v.sale : v.price;
+    }
+    return K.priceOf(p);
+  };
   K.$ = function (sel, root) { return (root || document).querySelector(sel); };
   K.$$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
   K.storage = {
@@ -232,9 +242,10 @@
     get: function (slug) { return K.storage.get(K.cart.key(slug)) || []; },
     set: function (slug, items) { K.storage.set(K.cart.key(slug), items); },
     count: function (slug) { return K.cart.get(slug).reduce(function (n, i) { return n + i.qty; }, 0); },
+    sig: function (i) { return JSON.stringify({ o: i.opts || {}, v: i.variant || null }); },
     add: function (slug, item) {
-      var items = K.cart.get(slug), sig = JSON.stringify(item.opts || {});
-      var hit = items.filter(function (i) { return i.pid === item.pid && JSON.stringify(i.opts || {}) === sig; })[0];
+      var items = K.cart.get(slug), sig = K.cart.sig(item);
+      var hit = items.filter(function (i) { return i.pid === item.pid && K.cart.sig(i) === sig; })[0];
       if (hit) hit.qty += item.qty; else items.push(item);
       K.cart.set(slug, items);
     },
@@ -249,7 +260,7 @@
     return 'abc-fashion';
   };
   K.applyStore = function (s) { document.documentElement.setAttribute('data-preset', s.preset); document.title = s.name; };
-  K.cartTotal = function (slug) { var list = K.storeProducts || D.products || []; return K.cart.get(slug).reduce(function (n, i) { var p = list.filter(function (x) { return x.id === i.pid; })[0]; return n + (p ? K.priceOf(p) * i.qty : 0); }, 0); };
+  K.cartTotal = function (slug) { var list = K.storeProducts || D.products || []; return K.cart.get(slug).reduce(function (n, i) { var p = list.filter(function (x) { return x.id === i.pid; })[0]; return n + (p ? K.linePrice(p, i) * i.qty : 0); }, 0); };
   K.storeUrl = function (slug) { return location.origin.replace(/^null$/, '') + location.pathname.replace(/\/(dashboard|admin|store)\/[^\/]*$/, '/store/index') + '?s=' + slug; };
 
   /* ---------- Icons (24px outline, 1.5px stroke) ---------- */

@@ -47,6 +47,14 @@ const products = [
   { store: 'abc-fashion', name: 'Silk Scarf', category: 'Accessories', price: 1800, stock: 32, lowAt: 5, tone: 'e', options: { Colour: ['Rose', 'Teal', 'Gold'] }, desc: 'Soft printed scarf, 90 x 90 cm.' },
   { store: 'abc-fashion', name: 'Leather Sandals', category: 'Shoes', price: 6400, stock: 9, lowAt: 5, tone: 'c', options: { Size: ['38', '39', '40', '41', '42'] }, desc: 'Hand-stitched leather sandals with a cushioned sole.' },
   { store: 'abc-fashion', name: 'Batik Sarong', category: 'Dresses', price: 3200, sale: 2900, stock: 18, lowAt: 5, tone: 'd', options: { Colour: ['Indigo', 'Maroon'] }, desc: 'Locally made batik sarong, 2 metres, colour-fast.' },
+  // A product with priced variants: each size has its own price and stock.
+  { store: 'abc-fashion', name: 'Party Frock', category: 'Dresses', price: 2800, stock: 15, lowAt: 2, tone: 'e', options: {}, desc: 'Flowing party frock, fully lined, with a back zip. Choose the age size.',
+    variants: [
+      { label: 'Age 2-3', price: 2800, sale: null, stock: 6, lowAt: 2 },
+      { label: 'Age 4-5', price: 3200, sale: null, stock: 4, lowAt: 2 },
+      { label: 'Age 6-7', price: 3600, sale: 2999, stock: 0, lowAt: 2 },
+      { label: 'Age 8-9', price: 3900, sale: null, stock: 5, lowAt: 2 }
+    ] },
   { store: 'nimal-bakery', name: 'Chocolate Cake 1kg', category: 'Cakes', price: 4200, stock: 6, lowAt: 2, tone: 'c', options: { Message: ['No message', 'Happy Birthday'] }, desc: 'Moist chocolate cake with ganache. Order a day ahead.' },
   { store: 'nimal-bakery', name: 'Butter Cake 500g', category: 'Cakes', price: 2400, stock: 10, lowAt: 2, tone: 'a', options: {}, desc: 'Traditional butter cake, baked fresh each morning.' },
   { store: 'nimal-bakery', name: 'Vanilla Cupcakes (6)', category: 'Cupcakes', price: 1500, stock: 20, lowAt: 4, tone: 'f', options: {}, desc: 'Box of six vanilla cupcakes with butter icing.' },
@@ -171,9 +179,9 @@ export async function seed() {
       const image = PRODUCT_IMG[p.name] ? `/img/products/${PRODUCT_IMG[p.name]}.svg` : null;
       const images = image ? [image] : [];
       await c.query(
-        `INSERT INTO products (business_id,category,name,description,price,sale_price,stock,low_at,options,tone,image_url,images)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-        [bizId[p.store], p.category, p.name, p.desc, p.price, p.sale ?? null, p.stock, p.lowAt, JSON.stringify(p.options || {}), p.tone, image, JSON.stringify(images)]
+        `INSERT INTO products (business_id,category,name,description,price,sale_price,stock,low_at,options,tone,image_url,images,variants)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [bizId[p.store], p.category, p.name, p.desc, p.price, p.sale ?? null, p.stock, p.lowAt, JSON.stringify(p.options || {}), p.tone, image, JSON.stringify(images), JSON.stringify(p.variants || [])]
       );
     }
 

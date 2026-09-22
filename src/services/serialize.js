@@ -45,6 +45,7 @@ export function product(row) {
     desc: row.description || '',
     image: row.image_url || (Array.isArray(row.images) && row.images[0]) || null,
     images: Array.isArray(row.images) && row.images.length ? row.images : (row.image_url ? [row.image_url] : []),
+    variants: Array.isArray(row.variants) ? row.variants : [],
     status: row.status,
   };
   if (row.sale_price != null) out.sale = row.sale_price;

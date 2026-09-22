@@ -20,20 +20,43 @@
         <div class="page-head"><div><h1>Products</h1><p id="limit"></p></div><button class="kd-btn kd-btn--primary" type="button" id="add">Add product</button></div>
         <div class="toolbar"><label class="visually-hidden" for="q">Search products</label><input class="kd-input" id="q" type="search" placeholder="Search products"><label class="visually-hidden" for="cat">Category</label><select class="kd-select" id="cat"></select></div>
         <section class="kd-card" aria-label="Products"><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Product</th><th scope="col" class="kd-num">Price</th><th scope="col" class="kd-num">Stock</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="rows"></tbody></table></div><div id="none" class="empty" hidden><h2>No products found</h2><p class="muted">Try a different search, or add a new product.</p></div></section>
+
         <dialog id="form-dlg" aria-labelledby="ft"><form id="pf" novalidate>
           <div class="dialog__head"><h2 class="heading" id="ft">Add product</h2></div>
           <div class="dialog__body">
-            <div class="kd-field"><label class="kd-label" for="f-name">Product name</label><input class="kd-input" id="f-name" data-rule="required"></div>
-            <div class="kd-field"><label class="kd-label" for="f-cat">Category</label><select class="kd-select" id="f-cat" data-rule="required"></select></div>
-            <div class="form-grid form-grid--2" style="gap:16px">
-              <div class="kd-field"><label class="kd-label" for="f-price">Price (Rs.)</label><input class="kd-input" id="f-price" type="number" inputmode="numeric" min="1" data-rule="price"></div>
-              <div class="kd-field"><label class="kd-label" for="f-sale">Sale price (optional)</label><input class="kd-input" id="f-sale" type="number" inputmode="numeric" min="1" data-rule="sale"></div>
-              <div class="kd-field"><label class="kd-label" for="f-stock">Stock</label><input class="kd-input" id="f-stock" type="number" inputmode="numeric" min="0" data-rule="stock"></div>
-              <div class="kd-field"><label class="kd-label" for="f-low">Low stock alert at</label><input class="kd-input" id="f-low" type="number" inputmode="numeric" min="0" value="5"></div>
-            </div>
-            <div class="kd-field"><label class="kd-label" for="f-opts">Options (optional)</label><textarea class="kd-input" id="f-opts" placeholder="Size: S, M, L&#10;Colour: Black, White"></textarea><span class="kd-help">One option per line. Customers choose from these before adding to cart.</span></div>
-            <div class="kd-field"><label class="kd-label" for="f-desc">Description</label><textarea class="kd-input" id="f-desc"></textarea></div>
-            <div class="kd-field"><label class="kd-label" for="f-img">Photos</label><input class="kd-input" id="f-img" type="file" accept="image/*" multiple><span class="kd-help">Add a few photos so customers can see the product from every angle. The first photo is the cover.</span></div>
+            <section class="form-section">
+              <h3 class="form-section__title">Basics</h3>
+              <div class="kd-field"><label class="kd-label" for="f-name">Product name</label><input class="kd-input" id="f-name" data-rule="required" placeholder="e.g. Linen Shirt"></div>
+              <div class="kd-field"><label class="kd-label" for="f-cat">Category</label><select class="kd-select" id="f-cat" data-rule="required"></select></div>
+              <div class="kd-field"><label class="kd-label" for="f-desc">Description</label><textarea class="kd-input" id="f-desc" placeholder="A short description customers will see."></textarea></div>
+            </section>
+
+            <section class="form-section">
+              <h3 class="form-section__title">Pricing &amp; stock</h3>
+              <label class="kd-check" style="margin-bottom:4px"><input type="checkbox" id="f-hasvar"><span>This product comes in variants (sizes, weights, colours&hellip;) with different prices</span></label>
+
+              <div id="simple-pricing">
+                <div class="form-grid form-grid--2" style="gap:16px">
+                  <div class="kd-field"><label class="kd-label" for="f-price">Price (Rs.)</label><input class="kd-input" id="f-price" type="number" inputmode="numeric" min="1" data-rule="price"></div>
+                  <div class="kd-field"><label class="kd-label" for="f-sale">Sale price (optional)</label><input class="kd-input" id="f-sale" type="number" inputmode="numeric" min="1" data-rule="sale"></div>
+                  <div class="kd-field"><label class="kd-label" for="f-stock">Stock</label><input class="kd-input" id="f-stock" type="number" inputmode="numeric" min="0" data-rule="stock"></div>
+                  <div class="kd-field"><label class="kd-label" for="f-low">Low stock alert at</label><input class="kd-input" id="f-low" type="number" inputmode="numeric" min="0" value="5"></div>
+                </div>
+                <div class="kd-field"><label class="kd-label" for="f-opts">Options (optional)</label><textarea class="kd-input" id="f-opts" placeholder="Size: S, M, L&#10;Colour: Black, White"></textarea><span class="kd-help">One option per line. Customers pick these at checkout. Prices stay the same for every choice.</span></div>
+              </div>
+
+              <div id="variant-pricing" hidden>
+                <p class="kd-help" style="margin:0 0 12px">Add each variant with its own price and stock. The cheapest shows as the "from" price, and customers pick a variant before adding to cart.</p>
+                <div id="variant-list" class="variant-list"></div>
+                <button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="add-variant" style="margin-top:12px">+ Add variant</button>
+                <p class="kd-error" id="variant-err" role="alert" hidden style="margin-top:8px"></p>
+              </div>
+            </section>
+
+            <section class="form-section">
+              <h3 class="form-section__title">Photos</h3>
+              <div class="kd-field"><input class="kd-input" id="f-img" type="file" accept="image/*" multiple><span class="kd-help">Add a few photos so customers can see the product from every angle. The first photo is the cover.</span></div>
+            </section>
           </div>
           <div class="dialog__foot"><button class="kd-btn kd-btn--ghost" type="button" id="cancel">Cancel</button><button class="kd-btn kd-btn--primary" type="submit">Save product</button></div>
         </form></dialog>
@@ -61,14 +84,22 @@
         K.$('#cat').innerHTML = ['All'].concat(categories).map(function (c) { return '<option>' + K.esc(c) + '</option>'; }).join('');
         K.$('#f-cat').innerHTML = '<option value="">Choose one</option>' + categories.map(function (c) { return '<option>' + K.esc(c) + '</option>'; }).join('');
       }
+      function priceCell(p) {
+        if (p.variants && p.variants.length) return 'From ' + K.rs(K.fromPrice(p));
+        return K.rs(K.priceOf(p)) + (p.sale ? '<span class="sub" style="text-decoration:line-through">' + K.rs(p.price) + '</span>' : '');
+      }
+      function metaCell(p) {
+        if (p.variants && p.variants.length) return p.variants.length + ' variant' + (p.variants.length === 1 ? '' : 's');
+        return Object.keys(p.options || {}).map(function (g) { return g + ': ' + p.options[g].length; }).join(', ');
+      }
       function render() {
         K.$('#limit').textContent = usage.count + (usage.maxProducts == null ? ' products' : ' of ' + usage.maxProducts + ' products') + ' used' + (usage.plan ? ' on your ' + usage.plan + ' plan.' : '.');
         var list = products.filter(function (p) { return (cat === 'All' || p.category === cat) && (!q || p.name.toLowerCase().indexOf(q) >= 0); });
         K.$('#none').hidden = list.length > 0;
         K.$('#rows').innerHTML = list.map(function (p) {
-          var opts = Object.keys(p.options || {}).map(function (g) { return g + ': ' + p.options[g].length; }).join(', ');
-          return '<tr><td><div class="cell-flex"><div class="thumb">' + K.ph(p, true) + '</div><div><strong>' + K.esc(p.name) + '</strong><span class="sub">' + K.esc(p.category) + (opts ? ' | ' + K.esc(opts) : '') + '</span></div></div></td>' +
-            '<td class="kd-num">' + K.rs(K.priceOf(p)) + (p.sale ? '<span class="sub" style="text-decoration:line-through">' + K.rs(p.price) + '</span>' : '') + '</td><td class="kd-num">' + p.stock + '</td><td>' + K.stockBadge(p) + '</td>' +
+          var meta = metaCell(p);
+          return '<tr><td><div class="cell-flex"><div class="thumb">' + K.ph(p, true) + '</div><div><strong>' + K.esc(p.name) + '</strong><span class="sub">' + K.esc(p.category) + (meta ? ' | ' + K.esc(meta) : '') + '</span></div></div></td>' +
+            '<td class="kd-num">' + priceCell(p) + '</td><td class="kd-num">' + p.stock + '</td><td>' + K.stockBadge(p) + '</td>' +
             '<td><div class="actions"><button class="kd-btn kd-btn--secondary kd-btn--sm" data-edit="' + p.id + '" aria-label="Edit ' + K.esc(p.name) + '">Edit</button><button class="kd-btn kd-btn--ghost kd-btn--sm" style="color:var(--danger)" data-del="' + p.id + '" aria-label="Delete ' + K.esc(p.name) + '">Delete</button></div></td></tr>';
         }).join('');
       }
@@ -77,10 +108,49 @@
       function parseOpts(t) { var o = {}; t.split('\n').forEach(function (line) { var i = line.indexOf(':'); if (i < 1) return; var vals = line.slice(i + 1).split(',').map(function (v) { return v.trim(); }).filter(Boolean); if (vals.length) o[line.slice(0, i).trim()] = vals; }); return o; }
       function optText(o) { return Object.keys(o || {}).map(function (g) { return g + ': ' + o[g].join(', '); }).join('\n'); }
       function err(inp, msg) { var fl = inp.closest('.kd-field'), o = fl.querySelector('.kd-error'); if (o) o.remove(); fl.classList.toggle('kd-field--error', !!msg); inp.setAttribute('aria-invalid', msg ? 'true' : 'false'); if (msg) { var e = document.createElement('span'); e.className = 'kd-error'; e.textContent = msg; fl.appendChild(e); } }
+
+      // ---- Variants editor ----
+      function vlist() { return K.$('#variant-list'); }
+      function addVariantRow(v) {
+        v = v || {};
+        var row = document.createElement('div'); row.className = 'variant-item';
+        row.innerHTML =
+          '<div class="variant-item__head"><input class="kd-input" data-vf="label" placeholder="Variant name, e.g. 500g or Large" value="' + K.esc(v.label || '') + '"><button type="button" class="variant-item__rm" aria-label="Remove variant">&times;</button></div>' +
+          '<div class="variant-item__nums">' +
+          '<label class="mini">Price (Rs.)<input class="kd-input" data-vf="price" type="number" inputmode="numeric" min="1" value="' + (v.price != null ? v.price : '') + '"></label>' +
+          '<label class="mini">Sale (optional)<input class="kd-input" data-vf="sale" type="number" inputmode="numeric" min="1" value="' + (v.sale != null ? v.sale : '') + '"></label>' +
+          '<label class="mini">Stock<input class="kd-input" data-vf="stock" type="number" inputmode="numeric" min="0" value="' + (v.stock != null ? v.stock : '') + '"></label>' +
+          '<label class="mini">Low at<input class="kd-input" data-vf="lowAt" type="number" inputmode="numeric" min="0" value="' + (v.lowAt != null ? v.lowAt : 5) + '"></label>' +
+          '</div>';
+        row.querySelector('.variant-item__rm').addEventListener('click', function () { row.remove(); });
+        vlist().appendChild(row);
+      }
+      function collectVariants() {
+        return K.$$('#variant-list .variant-item').map(function (row) {
+          function g(k) { return row.querySelector('[data-vf="' + k + '"]').value; }
+          return { label: g('label').trim(), price: +g('price') || 0, sale: g('sale') ? +g('sale') : null, stock: g('stock') !== '' ? +g('stock') : 0, lowAt: +g('lowAt') || 0 };
+        });
+      }
+      function setVariants(arr) { vlist().innerHTML = ''; (arr && arr.length ? arr : [{}]).forEach(addVariantRow); }
+      function setMode(on) {
+        K.$('#simple-pricing').hidden = on;
+        K.$('#variant-pricing').hidden = !on;
+        if (on && !K.$$('#variant-list .variant-item').length) setVariants([{}]);
+      }
+      f('hasvar').addEventListener('change', function () { setMode(this.checked); });
+      K.$('#add-variant').addEventListener('click', function () { addVariantRow(); });
+
       function open(p) {
         editing = p; K.$('#ft').textContent = p ? 'Edit product' : 'Add product';
-        K.$$('#pf .kd-error').forEach(function (e) { e.remove(); }); K.$$('#pf .kd-field--error').forEach(function (e) { e.classList.remove('kd-field--error'); });
-        f('name').value = p ? p.name : ''; f('cat').value = p ? p.category : ''; f('price').value = p ? p.price : ''; f('sale').value = p && p.sale ? p.sale : ''; f('stock').value = p ? p.stock : ''; f('low').value = p ? p.lowAt : 5; f('opts').value = p ? optText(p.options) : ''; f('desc').value = p ? p.desc : '';
+        K.$$('#pf span.kd-error').forEach(function (e) { e.remove(); }); K.$$('#pf .kd-field--error').forEach(function (e) { e.classList.remove('kd-field--error'); });
+        K.$('#variant-err').hidden = true;
+        var hasVar = !!(p && p.variants && p.variants.length);
+        f('name').value = p ? p.name : ''; f('cat').value = p ? p.category : ''; f('desc').value = p ? p.desc : '';
+        f('price').value = (p && !hasVar) ? p.price : ''; f('sale').value = (p && !hasVar && p.sale) ? p.sale : ''; f('stock').value = (p && !hasVar) ? p.stock : ''; f('low').value = (p && !hasVar) ? p.lowAt : 5;
+        f('opts').value = (p && !hasVar) ? optText(p.options) : '';
+        f('hasvar').checked = hasVar;
+        setVariants(hasVar ? p.variants : []);
+        setMode(hasVar);
         imgZone.set(p ? (p.images && p.images.length ? p.images : (p.image ? [p.image] : [])) : []);
         dlg.showModal(); f('name').focus();
       }
@@ -100,16 +170,34 @@
       });
       K.$('#q').addEventListener('input', function () { q = this.value.trim().toLowerCase(); render(); });
       K.$('#cat').addEventListener('change', function () { cat = this.value; render(); });
+
       K.$('#pf').addEventListener('submit', function (e) {
         e.preventDefault(); var bad = [];
         function chk(id, msg) { err(f(id), msg); if (msg) bad.push(f(id)); }
         chk('name', f('name').value.trim() ? '' : 'Give the product a name.');
         chk('cat', f('cat').value ? '' : 'Choose a category.');
-        chk('price', +f('price').value > 0 ? '' : 'Enter a price above zero.');
-        chk('sale', !f('sale').value || (+f('sale').value > 0 && +f('sale').value < +f('price').value) ? '' : 'The sale price must be lower than the price.');
-        chk('stock', f('stock').value !== '' && +f('stock').value >= 0 && Math.floor(+f('stock').value) === +f('stock').value ? '' : 'Enter how many you have, like 12.');
+        var hasVar = f('hasvar').checked;
+        var fields = { name: f('name').value.trim(), category: f('cat').value, desc: f('desc').value.trim(), options: {}, variants: [] };
+
+        if (hasVar) {
+          var vs = collectVariants(), verr = '';
+          if (!vs.length) verr = 'Add at least one variant.';
+          vs.forEach(function (v, i) {
+            if (verr) return;
+            if (!v.label) verr = 'Give variant ' + (i + 1) + ' a name.';
+            else if (!(v.price > 0)) verr = 'Enter a price above zero for "' + v.label + '".';
+            else if (v.sale != null && !(v.sale > 0 && v.sale < v.price)) verr = 'The sale price for "' + v.label + '" must be lower than its price.';
+            else if (!(v.stock >= 0) || Math.floor(v.stock) !== v.stock) verr = 'Enter a whole number of stock for "' + v.label + '".';
+          });
+          if (verr) { var ve = K.$('#variant-err'); ve.hidden = false; ve.textContent = verr; if (bad.length) bad[0].focus(); return; }
+          fields.variants = vs;
+        } else {
+          chk('price', +f('price').value > 0 ? '' : 'Enter a price above zero.');
+          chk('sale', !f('sale').value || (+f('sale').value > 0 && +f('sale').value < +f('price').value) ? '' : 'The sale price must be lower than the price.');
+          chk('stock', f('stock').value !== '' && +f('stock').value >= 0 && Math.floor(+f('stock').value) === +f('stock').value ? '' : 'Enter how many you have, like 12.');
+          fields.price = +f('price').value; fields.sale = f('sale').value ? +f('sale').value : ''; fields.stock = +f('stock').value; fields.lowAt = +f('low').value || 0; fields.options = parseOpts(f('opts').value);
+        }
         if (bad.length) { bad[0].focus(); return; }
-        var fields = { name: f('name').value.trim(), category: f('cat').value, price: +f('price').value, sale: f('sale').value ? +f('sale').value : '', stock: +f('stock').value, lowAt: +f('low').value || 0, options: parseOpts(f('opts').value), desc: f('desc').value.trim() };
 
         if (API) {
           var newFiles = imgZone.files(), keep = imgZone.kept();
@@ -119,7 +207,16 @@
           save.then(function () { dlg.close(); K.toast(editing ? 'Product updated' : 'Product added'); return load(); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not save the product.'); });
         } else {
           var rec = editing || { id: 'p' + Date.now(), store: 'abc-fashion', tone: ['a', 'b', 'c', 'd', 'e', 'f'][Math.floor(Math.random() * 6)] };
-          rec.name = fields.name; rec.category = fields.category; rec.price = fields.price; rec.sale = fields.sale ? fields.sale : undefined; rec.stock = fields.stock; rec.lowAt = fields.lowAt; rec.options = fields.options; rec.desc = fields.desc;
+          rec.name = fields.name; rec.category = fields.category; rec.desc = fields.desc; rec.options = fields.options;
+          if (hasVar) {
+            rec.variants = fields.variants;
+            rec.price = Math.min.apply(null, fields.variants.map(function (v) { return v.price; }));
+            rec.sale = undefined;
+            rec.stock = fields.variants.reduce(function (n, v) { return n + v.stock; }, 0);
+            rec.lowAt = Math.max.apply(null, [0].concat(fields.variants.map(function (v) { return v.lowAt; })));
+          } else {
+            rec.variants = []; rec.price = fields.price; rec.sale = fields.sale ? fields.sale : undefined; rec.stock = fields.stock; rec.lowAt = fields.lowAt;
+          }
           var imgs = imgZone.kept().concat(imgZone.files().map(function (fl) { return URL.createObjectURL(fl); }));
           rec.images = imgs; rec.image = imgs[0] || undefined;
           if (!editing) { D.products.unshift(rec); products.unshift(rec); usage.count = products.length; }

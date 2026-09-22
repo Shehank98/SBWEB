@@ -30,7 +30,19 @@
     { id: 'p105', store: 'abc-fashion', name: 'Canvas Tote', category: 'Accessories', price: 2200, stock: 0, lowAt: 5, tone: 'f', options: {}, desc: 'Sturdy canvas tote, fits an A4 folder and a laptop.' },
     { id: 'p106', store: 'abc-fashion', name: 'Silk Scarf', category: 'Accessories', price: 1800, stock: 32, lowAt: 5, tone: 'e', options: { Colour: ['Rose', 'Teal', 'Gold'] }, desc: 'Soft printed scarf, 90 x 90 cm.' },
     { id: 'p107', store: 'abc-fashion', name: 'Leather Sandals', category: 'Shoes', price: 6400, stock: 9, lowAt: 5, tone: 'c', options: { Size: ['38', '39', '40', '41', '42'] }, desc: 'Hand-stitched leather sandals with a cushioned sole.' },
-    { id: 'p108', store: 'abc-fashion', name: 'Batik Sarong', category: 'Dresses', price: 3200, sale: 2900, stock: 18, lowAt: 5, tone: 'd', options: { Colour: ['Indigo', 'Maroon'] }, desc: 'Locally made batik sarong, 2 metres, colour-fast.' }
+    { id: 'p108', store: 'abc-fashion', name: 'Batik Sarong', category: 'Dresses', price: 3200, sale: 2900, stock: 18, lowAt: 5, tone: 'd', options: { Colour: ['Indigo', 'Maroon'] }, desc: 'Locally made batik sarong, 2 metres, colour-fast.' },
+    // A product with priced variants (each size has its own price and stock).
+    {
+      id: 'p109', store: 'abc-fashion', name: 'Party Frock', category: 'Dresses', tone: 'e', options: {},
+      desc: 'Flowing party frock, fully lined, with a back zip. Choose the age size.',
+      price: 2800, stock: 15, lowAt: 2,
+      variants: [
+        { label: 'Age 2-3', price: 2800, sale: null, stock: 6, lowAt: 2 },
+        { label: 'Age 4-5', price: 3200, sale: null, stock: 4, lowAt: 2 },
+        { label: 'Age 6-7', price: 3600, sale: 2999, stock: 0, lowAt: 2 },
+        { label: 'Age 8-9', price: 3900, sale: null, stock: 5, lowAt: 2 }
+      ]
+    }
   ];
   var PRODUCT_IMG = {
     'Linen Shirt': 'linen-shirt', 'Summer Dress': 'summer-dress', 'Cotton Kurta': 'cotton-kurta',

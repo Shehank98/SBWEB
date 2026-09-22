@@ -26,30 +26,69 @@
       var main = K.$('#main');
       if (!p) { main.innerHTML = '<div class="empty"><h1 class="heading">We could not find that product</h1><a class="kd-btn kd-btn--primary" href="' + K.sUrl('index') + '">See all products</a></div>'; return; }
       document.title = p.name + ' | ' + s.name;
-      var groups = Object.keys(p.options || {}), chosen = {}, qty = 1, out = p.stock <= 0, low = !out && p.stock <= p.lowAt;
+      var hasVar = !!(p.variants && p.variants.length);
+      var groups = hasVar ? [] : Object.keys(p.options || {}), chosen = {}, vSel = null, qty = 1;
       var pageUrl = location.href;
-      function total() { return K.priceOf(p) * qty; }
+      function curStock() { return hasVar ? (vSel ? vSel.stock : null) : p.stock; }
+      function curLow() { return hasVar ? (vSel ? vSel.lowAt : 0) : p.lowAt; }
+      function curPrice() { return hasVar ? (vSel ? (vSel.sale != null ? vSel.sale : vSel.price) : K.fromPrice(p)) : K.priceOf(p); }
+      function total() { return curPrice() * qty; }
       function optText() { return groups.map(function (g) { return g + ': ' + (chosen[g] || '-'); }).join(', '); }
-      function waMsg() { return 'Hello ' + s.name + ', I would like to order:\n\n' + p.name + (groups.length ? '\n' + optText() : '') + '\nQuantity: ' + qty + '\nTotal: ' + K.rs(total()) + '\n\n' + pageUrl; }
+      function selLabel() { return hasVar ? (vSel ? vSel.label : '') : optText(); }
+      function waMsg() { return 'Hello ' + s.name + ', I would like to order:\n\n' + p.name + (selLabel() ? '\n' + (hasVar ? 'Option' : '') + (hasVar ? ': ' : '') + selLabel() : '') + '\nQuantity: ' + qty + '\nTotal: ' + K.rs(total()) + '\n\n' + pageUrl; }
+      function priceMarkup() {
+        if (hasVar && !vSel) return '<span class="kd-price"><span class="kd-price__from">From</span> ' + K.rs(K.fromPrice(p)) + '</span>';
+        if (hasVar) return '<span class="kd-price">' + K.rs(vSel.sale != null ? vSel.sale : vSel.price) + (vSel.sale != null ? '<s>' + K.rs(vSel.price) + '</s>' : '') + '</span>';
+        return K.priceHtml(p);
+      }
+      function badgeMarkup() {
+        if (hasVar && !vSel) return '<span class="kd-badge kd-badge--neutral">Select an option</span>';
+        var st = curStock();
+        if (st <= 0) return '<span class="kd-badge kd-badge--danger">Out of stock</span>';
+        if (st <= curLow()) return '<span class="kd-badge kd-badge--warning">Only ' + st + ' left</span>';
+        return '<span class="kd-badge kd-badge--success">In stock</span>';
+      }
+      var variantPicker = hasVar
+        ? '<div class="option-group" role="group" aria-labelledby="vg"><span class="kd-label" id="vg">Choose an option</span><div class="option-row variant-row">' +
+            p.variants.map(function (v, i) { var pr = v.sale != null ? v.sale : v.price; var oos = v.stock <= 0; return '<button type="button" class="kd-chip variant-chip' + (oos ? ' is-oos' : '') + '"' + (oos ? ' disabled' : '') + ' aria-pressed="false" data-vi="' + i + '"><span class="variant-chip__label">' + K.esc(v.label) + '</span><span class="variant-chip__price">' + K.rs(pr) + (oos ? ' · Sold out' : '') + '</span></button>'; }).join('') +
+          '</div></div>'
+        : groups.map(function (g) { return '<div class="option-group" role="group" aria-labelledby="og-' + g + '"><span class="kd-label" id="og-' + g + '">' + K.esc(g) + '</span><div class="option-row">' + p.options[g].map(function (v) { return '<button type="button" class="kd-chip" aria-pressed="false" data-g="' + K.esc(g) + '" data-v="' + K.esc(v) + '">' + K.esc(v) + '</button>'; }).join('') + '</div></div>'; }).join('');
       main.innerHTML =
         '<nav class="crumbs" aria-label="Breadcrumb"><a href="' + K.sUrl('index') + '">Home</a><span aria-hidden="true">/</span><span>' + K.esc(p.category) + '</span></nav>' +
         '<div class="pdp">' + K.pdpMedia(p) + '<div class="stack-lg">' +
-        '<div class="stack" style="gap:8px"><h1>' + K.esc(p.name) + '</h1>' + K.priceHtml(p) + '<div>' + (out ? '<span class="kd-badge kd-badge--danger">Out of stock</span>' : low ? '<span class="kd-badge kd-badge--warning">Only ' + p.stock + ' left</span>' : '<span class="kd-badge kd-badge--success">In stock</span>') + '</div></div>' +
+        '<div class="stack" style="gap:8px"><h1>' + K.esc(p.name) + '</h1><div id="price">' + priceMarkup() + '</div><div id="stockbadge">' + badgeMarkup() + '</div></div>' +
         '<p>' + K.esc(p.desc) + '</p>' +
-        groups.map(function (g) { return '<div class="option-group" role="group" aria-labelledby="og-' + g + '"><span class="kd-label" id="og-' + g + '">' + K.esc(g) + '</span><div class="option-row">' + p.options[g].map(function (v) { return '<button type="button" class="kd-chip" aria-pressed="false" data-g="' + K.esc(g) + '" data-v="' + K.esc(v) + '">' + K.esc(v) + '</button>'; }).join('') + '</div></div>'; }).join('') +
+        variantPicker +
         '<p class="kd-error" id="optErr" role="alert" hidden></p>' +
         '<div class="option-group"><span class="kd-label" id="qlabel">Quantity</span><div class="qty" role="group" aria-labelledby="qlabel"><button type="button" id="minus" aria-label="Decrease quantity">&minus;</button><output id="qty" aria-live="polite">1</output><button type="button" id="plus" aria-label="Increase quantity">+</button></div></div>' +
-        '<div class="stack" style="gap:12px"><button class="kd-btn kd-btn--accent kd-btn--block" id="add"' + (out ? ' disabled' : '') + '>' + (out ? 'Sold out' : 'Add to cart') + '</button>' +
+        '<div class="stack" style="gap:12px"><button class="kd-btn kd-btn--accent kd-btn--block" id="add">Add to cart</button>' +
         '<a class="kd-btn kd-btn--secondary kd-btn--block wa-btn" id="wa" target="_blank" rel="noopener">Order on WhatsApp</a></div>' +
         '<div class="option-group"><span class="kd-label">Share this product</span><div class="share-row"><a class="kd-btn kd-btn--secondary kd-btn--sm" id="shWa" target="_blank" rel="noopener">WhatsApp</a><a class="kd-btn kd-btn--secondary kd-btn--sm" id="shFb" target="_blank" rel="noopener">Facebook</a><button class="kd-btn kd-btn--secondary kd-btn--sm" id="copy" type="button">Copy link</button></div></div>' +
         '</div></div>' +
         '<section class="stack" style="padding-bottom:48px" aria-labelledby="more"><h2 class="heading" id="more">More from ' + K.esc(s.name) + '</h2><div class="product-grid" id="related" style="padding-bottom:0"></div></section>';
+      function refresh() {
+        K.$('#price').innerHTML = priceMarkup();
+        K.$('#stockbadge').innerHTML = badgeMarkup();
+        var addBtn = K.$('#add');
+        var soldOut = hasVar ? (vSel && vSel.stock <= 0) : (p.stock <= 0);
+        addBtn.disabled = !!soldOut;
+        addBtn.textContent = soldOut ? 'Sold out' : 'Add to cart';
+        sync();
+      }
       function sync() {
         K.$('#qty').textContent = qty;
         K.$('#wa').href = K.wa(s, waMsg());
         K.$('#shWa').href = 'https://wa.me/?text=' + encodeURIComponent(p.name + ' at ' + s.name + ': ' + pageUrl);
         K.$('#shFb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl);
       }
+      K.$$('.variant-chip[data-vi]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (b.disabled) return;
+          vSel = p.variants[+b.getAttribute('data-vi')]; qty = 1;
+          K.$$('.variant-chip').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+          K.$('#optErr').hidden = true; refresh();
+        });
+      });
       K.$$('.kd-chip[data-g]').forEach(function (b) {
         b.addEventListener('click', function () {
           var g = b.getAttribute('data-g'); chosen[g] = b.getAttribute('data-v');
@@ -64,11 +103,18 @@
         K.$$('.pdp__thumb').forEach(function (x) { var on = x === b; x.classList.toggle('is-active', on); x.setAttribute('aria-current', String(on)); });
       });
       K.$('#minus').addEventListener('click', function () { if (qty > 1) { qty--; sync(); } });
-      K.$('#plus').addEventListener('click', function () { if (qty < Math.min(p.stock, 20)) { qty++; sync(); } else K.toast('That is all we have in stock'); });
+      K.$('#plus').addEventListener('click', function () { var max = curStock(); if (max == null) { K.$('#optErr').hidden = false; K.$('#optErr').textContent = 'Choose an option first.'; return; } if (qty < Math.min(max, 20)) { qty++; sync(); } else K.toast('That is all we have in stock'); });
       K.$('#add').addEventListener('click', function () {
-        var missing = groups.filter(function (g) { return !chosen[g]; });
-        if (missing.length) { var e = K.$('#optErr'); e.hidden = false; e.textContent = 'Choose ' + missing.map(function (m) { return m.toLowerCase(); }).join(' and ') + ' first.'; return; }
-        K.cart.add(s.slug, { pid: p.id, opts: JSON.parse(JSON.stringify(chosen)), qty: qty }); K.updateCartCount(); K.toast('Added to your cart');
+        if (hasVar) {
+          if (!vSel) { var ev = K.$('#optErr'); ev.hidden = false; ev.textContent = 'Please choose an option first.'; return; }
+          if (vSel.stock <= 0) { K.toast('That option is sold out'); return; }
+          K.cart.add(s.slug, { pid: p.id, variant: vSel.label, qty: qty });
+        } else {
+          var missing = groups.filter(function (g) { return !chosen[g]; });
+          if (missing.length) { var e = K.$('#optErr'); e.hidden = false; e.textContent = 'Choose ' + missing.map(function (m) { return m.toLowerCase(); }).join(' and ') + ' first.'; return; }
+          K.cart.add(s.slug, { pid: p.id, opts: JSON.parse(JSON.stringify(chosen)), qty: qty });
+        }
+        K.updateCartCount(); K.toast('Added to your cart');
       });
       K.$('#copy').addEventListener('click', function () {
         var done = function () { K.toast('Link copied'); };

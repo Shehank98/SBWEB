@@ -55,7 +55,7 @@
   // list of existing images to keep, and any new image files (field name 'images').
   function productForm(fields, imageFiles, keepImages) {
     var fd = new FormData();
-    Object.keys(fields).forEach(function (k) { fd.append(k, k === 'options' ? JSON.stringify(fields[k]) : fields[k]); });
+    Object.keys(fields).forEach(function (k) { fd.append(k, (k === 'options' || k === 'variants') ? JSON.stringify(fields[k]) : fields[k]); });
     fd.append('keepImages', JSON.stringify(keepImages || []));
     (imageFiles || []).forEach(function (file) { if (file) fd.append('images', file); });
     return fd;

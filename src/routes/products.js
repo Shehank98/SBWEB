@@ -85,32 +85,66 @@ productsRouter.get(
   })
 );
 
+// Parse and validate the optional priced-variants list.
+function parseVariants(raw) {
+  let v = [];
+  if (raw) {
+    try { v = typeof raw === 'string' ? JSON.parse(raw) : raw; }
+    catch { throw badRequest('Variants are not valid.'); }
+  }
+  if (!Array.isArray(v)) throw badRequest('Variants are not valid.');
+  return v.map((x, i) => {
+    const label = (x.label || '').trim();
+    if (!label) throw badRequest(`Give variant ${i + 1} a name (like "500g" or "Large").`);
+    const price = Number(x.price);
+    if (!(price > 0)) throw badRequest(`Enter a price above zero for "${label}".`);
+    let sale = x.sale === '' || x.sale == null ? null : Number(x.sale);
+    if (sale != null && (!(sale > 0) || sale >= price)) throw badRequest(`The sale price for "${label}" must be lower than its price.`);
+    const stock = Number(x.stock);
+    if (!(stock >= 0) || Math.floor(stock) !== stock) throw badRequest(`Enter a whole number of stock for "${label}".`);
+    return { label, price, sale, stock, lowAt: Number(x.lowAt) || 0 };
+  });
+}
+
 function parseProductBody(b) {
   const name = (b.name || '').trim();
   if (!name) throw badRequest('Give the product a name.');
-  const price = Number(b.price);
-  if (!(price > 0)) throw badRequest('Enter a price above zero.');
-  let sale = b.sale === '' || b.sale == null ? null : Number(b.sale);
-  if (sale != null && (!(sale > 0) || sale >= price)) throw badRequest('The sale price must be lower than the price.');
-  const stock = Number(b.stock);
-  if (!(stock >= 0) || Math.floor(stock) !== stock) throw badRequest('Enter a whole number for stock.');
+  const variants = parseVariants(b.variants);
 
   let options = {};
   if (b.options) {
     try { options = typeof b.options === 'string' ? JSON.parse(b.options) : b.options; }
     catch { throw badRequest('Options are not valid.'); }
   }
-  return {
+  const out = {
     name,
     category: b.category || null,
-    price,
-    sale,
-    stock,
-    low_at: Number(b.lowAt) || 0,
     options,
     description: (b.desc || b.description || '').trim(),
     tone: b.tone || ['a', 'b', 'c', 'd', 'e', 'f'][Math.floor(Math.random() * 6)],
+    variants,
   };
+
+  if (variants.length) {
+    // Derive product-level price/stock from the variants so listings, low-stock
+    // counts and reports keep working. Listing price is the cheapest "from" price.
+    out.price = Math.min(...variants.map((v) => v.price));
+    out.sale = null;
+    out.stock = variants.reduce((n, v) => n + v.stock, 0);
+    out.low_at = Math.max(0, ...variants.map((v) => v.lowAt));
+  } else {
+    const price = Number(b.price);
+    if (!(price > 0)) throw badRequest('Enter a price above zero.');
+    let sale = b.sale === '' || b.sale == null ? null : Number(b.sale);
+    if (sale != null && (!(sale > 0) || sale >= price)) throw badRequest('The sale price must be lower than the price.');
+    const stock = Number(b.stock);
+    if (!(stock >= 0) || Math.floor(stock) !== stock) throw badRequest('Enter a whole number for stock.');
+    out.price = price;
+    out.sale = sale;
+    out.stock = stock;
+    out.low_at = Number(b.lowAt) || 0;
+  }
+  return out;
 }
 
 // POST /api/products  (multipart: fields + optional images[])
@@ -145,9 +179,9 @@ productsRouter.post(
     const imageUrl = images[0] || null;
 
     const { rows } = await query(
-      `INSERT INTO products (business_id, category, name, description, price, sale_price, stock, low_at, options, tone, image_url, images)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-      [bid, p.category, p.name, p.description, p.price, p.sale, p.stock, p.low_at, JSON.stringify(p.options), p.tone, imageUrl, JSON.stringify(images)]
+      `INSERT INTO products (business_id, category, name, description, price, sale_price, stock, low_at, options, tone, image_url, images, variants)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+      [bid, p.category, p.name, p.description, p.price, p.sale, p.stock, p.low_at, JSON.stringify(p.options), p.tone, imageUrl, JSON.stringify(images), JSON.stringify(p.variants)]
     );
     res.status(201).json({ product: S.product(rows[0]) });
   })
@@ -181,9 +215,9 @@ productsRouter.put(
 
     const { rows } = await query(
       `UPDATE products SET category=$3, name=$4, description=$5, price=$6, sale_price=$7, stock=$8, low_at=$9,
-              options=$10, tone=$11, image_url=$12, images=$13, updated_at=now()
+              options=$10, tone=$11, image_url=$12, images=$13, variants=$14, updated_at=now()
         WHERE id=$1 AND business_id=$2 RETURNING *`,
-      [req.params.id, bid, p.category, p.name, p.description, p.price, p.sale, p.stock, p.low_at, JSON.stringify(p.options), p.tone, imageUrl, JSON.stringify(images)]
+      [req.params.id, bid, p.category, p.name, p.description, p.price, p.sale, p.stock, p.low_at, JSON.stringify(p.options), p.tone, imageUrl, JSON.stringify(images), JSON.stringify(p.variants)]
     );
     res.json({ product: S.product(rows[0]) });
   })
