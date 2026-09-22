@@ -59,7 +59,7 @@
           '<form class="kd-card panel stack-lg" id="co" novalidate style="padding:24px"><h2 class="heading">Checkout</h2>' +
           '<ol class="stepper" id="co-steps" aria-label="Checkout progress"><li aria-current="step">1. Contact</li><li>2. Delivery</li><li>3. Payment</li></ol>' +
 
-          /* Step 1 — contact */
+          /* Step 1 - contact */
           '<section data-cstep="1" class="form-grid form-grid--2" aria-label="Contact details">' +
           '<div class="kd-field span-2"><label class="kd-label" for="fn">Full name</label><input class="kd-input" id="fn" data-rule="required" autocomplete="name"></div>' +
           '<div class="kd-field"><label class="kd-label" for="ph">Phone</label><input class="kd-input" id="ph" type="tel" inputmode="tel" data-rule="phone" placeholder="077 123 4567" autocomplete="tel"></div>' +
@@ -67,7 +67,7 @@
           '<div class="kd-field span-2"><label class="kd-label" for="em">Email (optional)</label><input class="kd-input" id="em" type="email" inputmode="email" placeholder="you@example.com" autocomplete="email"><span class="kd-help">For order updates by email.</span></div>' +
           '</section>' +
 
-          /* Step 2 — delivery / pickup */
+          /* Step 2 - delivery / pickup */
           '<section data-cstep="2" class="form-grid form-grid--2" aria-label="Delivery" hidden>' +
           '<fieldset class="span-2" style="border:0;padding:0;margin:0"><legend class="kd-label">How do you want it?</legend><div class="choice" style="margin-top:8px">' +
           '<label><input type="radio" name="method" value="delivery"' + (method === 'delivery' ? ' checked' : '') + '><span><strong>Delivery</strong><br><span class="muted">' + (s.delivery.freeAbove > 0 ? K.rs(s.delivery.fee) + ', free above ' + K.rs(s.delivery.freeAbove) : K.rs(s.delivery.fee)) + '</span></span></label>' +
@@ -78,7 +78,7 @@
             : '<p class="muted span-2">Collect your order from ' + K.esc(s.address) + '.</p>') +
           '</section>' +
 
-          /* Step 3 — payment + review */
+          /* Step 3 - payment + review */
           '<section data-cstep="3" class="stack-lg" aria-label="Payment" hidden>' +
           '<fieldset style="border:0;padding:0;margin:0"><legend class="kd-label">Payment</legend><div class="choice" style="margin-top:8px">' + payOpts.map(function (o) { return '<label><input type="radio" name="pay" value="' + o[0] + '"' + (pay === o[0] ? ' checked' : '') + '><span><strong>' + o[1] + '</strong><br><span class="muted">' + o[2] + '</span></span></label>'; }).join('') + '</div></fieldset>' +
           (pay === 'bank' ? '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Shop bank account</p><p style="margin-top:4px">' + K.esc(s.bank) + '</p></div></div>' : '') +

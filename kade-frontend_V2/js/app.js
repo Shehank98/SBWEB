@@ -97,7 +97,7 @@
         inner.hidden = true; preview.hidden = false; zone.classList.add('has-file');
         var isImg = /^image\//.test(f.type);
         preview.innerHTML = (isImg ? '<img alt="Selected image preview" src="' + URL.createObjectURL(f) + '">' : '<span class="dropzone__file">' + K.icon('file') + '</span>') +
-          '<span class="dropzone__info"><strong>' + K.esc(f.name) + '</strong><span class="muted">' + Math.max(1, Math.round(f.size / 1024)) + ' KB — click to replace</span></span>' +
+          '<span class="dropzone__info"><strong>' + K.esc(f.name) + '</strong><span class="muted">' + Math.max(1, Math.round(f.size / 1024)) + ' KB · click to replace</span></span>' +
           '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm dropzone__remove">Remove</button>';
       } else if (placeholder) {
         inner.hidden = true; preview.hidden = false; zone.classList.add('has-file');
@@ -161,7 +161,7 @@
         ? '<button type="button" class="gallery__add" aria-label="Add photos">' + K.icon('upload') + '<span>Add photo</span></button>'
         : '';
       zone.innerHTML = '<div class="gallery__grid">' + tiles + addTile + '</div>' +
-        '<p class="gallery__meta muted">' + total() + ' of ' + max + ' photos — the first one is your cover. PNG or JPG, up to 8MB each.</p>';
+        '<p class="gallery__meta muted">' + total() + ' of ' + max + ' photos. The first one is your cover. PNG or JPG, up to 8MB each.</p>';
       var add = zone.querySelector('.gallery__add');
       if (add) add.addEventListener('click', function () { input.click(); });
       zone.querySelectorAll('.gallery__remove').forEach(function (b) {

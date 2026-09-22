@@ -1,8 +1,8 @@
-/* Kade API client — the single place the frontend talks to the backend.
+/* Kade API client - the single place the frontend talks to the backend.
  *
  * Set the backend base URL below (or define window.KADE_API_BASE before this script,
  * e.g. from an environment-injected <script>). Leave it empty ('') to keep the pages
- * running on the mock data in js/data.js — every page still works offline for demos.
+ * running on the mock data in js/data.js - every page still works offline for demos.
  *
  * Usage:
  *   const { store, products } = await KadeApi.getStore('abc-fashion');
@@ -11,7 +11,7 @@
  */
 (function () {
   var BASE = (window.KADE_API_BASE || '').replace(/\/$/, '');
-  // The API is enabled when the page is served over http(s) — i.e. by our own Node
+  // The API is enabled when the page is served over http(s) - i.e. by our own Node
   // server (same origin, BASE '') or pointed at a remote API (BASE set). Opening the
   // files directly (file://) with no BASE keeps the offline mock-data prototype.
   // Set window.KADE_API_DISABLED = true to force mock mode anywhere.
@@ -75,7 +75,7 @@
       return d.user;
     },
     logout() { clearSession(); },
-    // register(fields, fileMap) — fields is a plain object; fileMap like { slip: File }.
+    // register(fields, fileMap) - fields is a plain object; fileMap like { slip: File }.
     async register(fields, fileMap) {
       var fd = new FormData();
       Object.keys(fields).forEach(function (k) { if (fields[k] != null) fd.append(k, fields[k]); });

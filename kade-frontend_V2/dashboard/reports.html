@@ -68,7 +68,7 @@
         else K.$('#chart2').innerHTML = '<p class="muted">No orders yet.</p>';
 
         K.$('#toprows').innerHTML = R.topProducts.map(function (r) {
-          return '<tr><td><div class="cell-flex"><div class="thumb">' + K.ph({ name: r.name, image: r.image, tone: r.tone }, true) + '</div><strong>' + K.esc(r.name) + '</strong></div></td><td>' + K.esc(r.category || '—') + '</td><td class="kd-num">' + r.units + '</td><td class="kd-num">' + K.rs(r.revenue) + '</td></tr>';
+          return '<tr><td><div class="cell-flex"><div class="thumb">' + K.ph({ name: r.name, image: r.image, tone: r.tone }, true) + '</div><strong>' + K.esc(r.name) + '</strong></div></td><td>' + K.esc(r.category || '-') + '</td><td class="kd-num">' + r.units + '</td><td class="kd-num">' + K.rs(r.revenue) + '</td></tr>';
         }).join('');
 
         var adv = K.$('#advanced');
@@ -79,7 +79,7 @@
         } else {
           adv.classList.add('locked');
           adv.innerHTML = '<div class="locked__body"><h2 id="r4">Advanced insights</h2>' +
-            '<p class="muted" style="margin-top:8px">Customer and location insights — where your orders come from, repeat customers and more — are part of the <strong>Pro</strong> plan.</p>' +
+            '<p class="muted" style="margin-top:8px">Customer and location insights, like where your orders come from and who your repeat customers are, are part of the <strong>Pro</strong> plan.</p>' +
             '<div class="row" style="margin-top:12px"><a class="kd-btn kd-btn--secondary" href="subscription">Upgrade to Pro</a></div></div>';
         }
       }

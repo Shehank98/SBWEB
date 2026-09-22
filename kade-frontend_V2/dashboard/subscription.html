@@ -50,7 +50,7 @@
       var API = !!(window.KadeApi && KadeApi.enabled);
       var slipZone = K.dropzone(K.$('#slip'), { title: 'Drag & drop your payment slip', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your payment slip' });
 
-      var plans = [], current = { planName: '—', price: 0, durationDays: 30, status: null, expiry: null };
+      var plans = [], current = { planName: '-', price: 0, durationDays: 30, status: null, expiry: null };
 
       function renderCurrent() {
         var days = current.expiry ? K.daysUntil(current.expiry) : null;
@@ -89,7 +89,7 @@
 
       function refresh() {
         return KadeApi.subscription().then(function (sub) {
-          current = { planName: sub.plan ? sub.plan.name : '—', price: sub.plan ? sub.plan.price : 0, durationDays: sub.plan ? sub.plan.durationDays : 30, status: sub.status, expiry: sub.expiryDate };
+          current = { planName: sub.plan ? sub.plan.name : '-', price: sub.plan ? sub.plan.price : 0, durationDays: sub.plan ? sub.plan.durationDays : 30, status: sub.status, expiry: sub.expiryDate };
           renderCurrent(); renderChoices(); renderHist(sub.payments);
         });
       }

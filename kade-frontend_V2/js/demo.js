@@ -1,12 +1,12 @@
 /* Demo sandbox data + banner.
  *
  * Loaded only on the owner dashboard pages, AFTER js/data.js and BEFORE js/app.js.
- * When the tab is in demo mode (see js/config.js — the ?demo=1 link sets a
+ * When the tab is in demo mode (see js/config.js - the ?demo=1 link sets a
  * sessionStorage flag and disables the API), this fills KadeData with a sample
  * shop on the Pro plan so every feature is unlocked, and shows a banner explaining
  * that nothing is saved. In normal mode this file does nothing at all.
  *
- * This is fictional sample data for the public demo — never real tenant data. The
+ * This is fictional sample data for the public demo - never real tenant data. The
  * real dashboard always reads a signed-in shop's own data from the API.
  */
 (function () {
@@ -83,7 +83,7 @@
     bar.className = 'demo-bar';
     bar.setAttribute('role', 'status');
     bar.innerHTML =
-      '<span class="demo-bar__msg"><b>Demo</b> — a sample Pro dashboard. Explore freely; changes are not saved.</span>' +
+      '<span class="demo-bar__msg"><b>Demo</b>: a sample Pro dashboard. Explore freely; changes are not saved.</span>' +
       '<span class="demo-bar__cta"><a class="kd-btn kd-btn--accent kd-btn--sm" href="../register">Open my shop</a>' +
       '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm demo-bar__exit">Exit demo</button></span>';
     document.body.insertBefore(bar, document.body.firstChild);

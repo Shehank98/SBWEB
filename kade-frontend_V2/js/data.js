@@ -2,7 +2,7 @@
  *
  * SECURITY: this file ships to every browser, so it must NOT contain any tenant
  * data. Each shop's stores, products, orders, payments, customers and emails are
- * fetched from the API, scoped to the signed-in business on the server — one shop
+ * fetched from the API, scoped to the signed-in business on the server - one shop
  * can never see another's data. Only the public pricing plans and small date
  * helpers live here (the landing page reads `plans`).
  */
@@ -17,7 +17,7 @@
     { id: 'pro',      name: 'Pro',      price: 5000, durationDays: 30, maxProducts: null, features: ['Unlimited products', 'Priority support', 'Staff accounts', 'Advanced reports'] }
   ];
 
-  // No tenant data here on purpose — the API is the only source for it.
+  // No tenant data here on purpose - the API is the only source for it.
   window.KadeData = {
     today: daysAgo(0),
     plans: plans,
