@@ -29,7 +29,7 @@
               <h3 class="form-section__title">Basics</h3>
               <div class="kd-field"><label class="kd-label" for="f-name">Product name</label><input class="kd-input" id="f-name" data-rule="required" placeholder="e.g. Linen Shirt"></div>
               <div class="kd-field"><label class="kd-label" for="f-cat">Category</label>
-                <div class="cat-field"><select class="kd-select" id="f-cat" data-rule="required"></select><button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="f-newcat">+ New</button></div>
+                <div class="cat-field"><select class="kd-select" id="f-cat" data-rule="required"></select><button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="f-editcat">Rename</button><button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="f-newcat">+ New</button></div>
                 <span class="kd-help" id="cat-help"></span>
               </div>
               <div class="kd-field"><label class="kd-label" for="f-desc">Description</label><textarea class="kd-input" id="f-desc" placeholder="A short description customers will see."></textarea></div>
@@ -113,6 +113,24 @@
           else added();
         });
       }
+      function editCategory() {
+        var from = f('cat').value;
+        if (!from) { K.toast('Pick the category you want to rename first.'); return; }
+        K.prompt({ title: 'Rename category', label: 'Category name', value: from, placeholder: 'e.g. Shirts', help: 'Every product in this category moves to the new name.' }).then(function (name) {
+          if (name == null) return;
+          name = String(name).trim(); if (!name || name === from) return;
+          if (categories.some(function (c) { return c.toLowerCase() === name.toLowerCase() && c.toLowerCase() !== from.toLowerCase(); })) { K.toast('You already have a category with that name.'); return; }
+          function renamed() {
+            categories = categories.map(function (c) { return c === from ? name : c; });
+            products.forEach(function (p) { if (p.category === from) p.category = name; });
+            catUsage.count = categories.length; setSelectors(); updateCatHelp(); f('cat').value = name;
+            if (cat === from) cat = name;
+            render(); K.toast('Category renamed');
+          }
+          if (API) { KadeApi.renameCategory(from, name).then(renamed).catch(function (ex) { K.toast(ex.message || 'Could not rename category.'); }); }
+          else renamed();
+        });
+      }
       function updateVarLimit() {
         var n = K.$$('#variant-list .variant-item').length;
         var atCap = varMax != null && n >= varMax;
@@ -180,6 +198,7 @@
         addVariantRow(); updateVarLimit();
       });
       K.$('#f-newcat').addEventListener('click', addCategory);
+      K.$('#f-editcat').addEventListener('click', editCategory);
 
       function open(p) {
         editing = p; K.$('#ft').textContent = p ? 'Edit product' : 'Add product';

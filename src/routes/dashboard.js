@@ -384,6 +384,35 @@ dashboardRouter.post(
   })
 );
 
+// PUT rename a category. Renames the category and updates the denormalized
+// products.category for every product in that category, so existing
+// product-category links are preserved.
+dashboardRouter.put(
+  '/categories/:name',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const from = req.params.name;
+    const to = (req.body && req.body.name || '').trim();
+    if (!to) throw badRequest('Enter a category name.');
+    if (to.length > 40) throw badRequest('Keep category names under 40 characters.');
+    // A rename that only changes letter case (e.g. "shoes" -> "Shoes") is allowed;
+    // any other name that already exists on this shop is a duplicate.
+    if (to.toLowerCase() !== from.toLowerCase()) {
+      const clash = (await query('SELECT 1 FROM categories WHERE business_id=$1 AND lower(name)=lower($2)', [b, to])).rowCount;
+      if (clash) throw conflict('You already have a category with that name.');
+    }
+    const result = await withTransaction(async (client) => {
+      const r = await client.query('UPDATE categories SET name=$3 WHERE business_id=$1 AND name=$2', [b, from, to]);
+      if (!r.rowCount) throw notFound('Category not found.');
+      // Move every product that pointed at the old name to the new name.
+      await client.query('UPDATE products SET category=$3 WHERE business_id=$1 AND category=$2', [b, from, to]);
+      return true;
+    });
+    res.json({ name: to, ok: result });
+  })
+);
+
 // DELETE a category by name
 dashboardRouter.delete(
   '/categories/:name',

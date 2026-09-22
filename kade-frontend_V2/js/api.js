@@ -103,6 +103,7 @@
     deleteProduct(id) { return req('DELETE', '/api/products/' + id); },
     categories() { return req('GET', '/api/dashboard/categories'); },
     createCategory(name) { return req('POST', '/api/dashboard/categories', { name: name }); },
+    renameCategory(from, to) { return req('PUT', '/api/dashboard/categories/' + encodeURIComponent(from), { name: to }); },
     deleteCategory(name) { return req('DELETE', '/api/dashboard/categories/' + encodeURIComponent(name)); },
     overview() { return req('GET', '/api/dashboard/overview'); },
     reports(range) {
