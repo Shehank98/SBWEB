@@ -25,7 +25,7 @@ export async function queueNotification({ businessId = null, type, recipient, su
 export const templates = {
   registered: (business) => ({
     type: 'REGISTERED',
-    subject: 'We received your Kade application',
+    subject: 'We received your Sidadiya application',
     message: `Thank you for registering ${business.name}. Your application is under review and we will email you once it is approved.`,
     data: { heading: 'Application received', business: business.name, planName: business.planName || '', loginUrl: loginUrl() },
   }),
@@ -46,7 +46,7 @@ export const templates = {
   }),
   rejected: (business, reason) => ({
     type: 'REJECTED',
-    subject: 'Update on your Kade application',
+    subject: 'Update on your Sidadiya application',
     message: `We could not approve ${business.name} yet. Reason: ${reason || 'Please contact support.'} You can reply to this email to resolve it.`,
     data: { heading: 'Application needs attention', business: business.name, reason: reason || '' },
   }),

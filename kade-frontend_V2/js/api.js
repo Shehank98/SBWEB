@@ -1,4 +1,4 @@
-/* Kade API client - the single place the frontend talks to the backend.
+/* Sidadiya API client - the single place the frontend talks to the backend.
  *
  * Set the backend base URL below (or define window.KADE_API_BASE before this script,
  * e.g. from an environment-injected <script>). Leave it empty ('') to keep the pages

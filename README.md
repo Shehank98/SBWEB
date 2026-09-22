@@ -1,4 +1,4 @@
-# Kade — multi-tenant commerce platform
+# Sidadiya — multi-tenant commerce platform
 
 A single deployable service: one Node.js app that serves both the **storefront
 frontend** (`kade-frontend/`) and the **REST API**. Node.js + Express +
@@ -33,11 +33,11 @@ Seeded logins (printed by the seed):
 
 | Role  | Email                 | Password    |
 | ----- | --------------------- | ----------- |
-| Admin | `admin@kade.lk`       | `admin12345`|
-| Owner | `abc-fashion@kade.lk` | `demo12345` |
+| Admin | `admin@sidadiya.lk`       | `admin12345`|
+| Owner | `abc-fashion@sidadiya.lk` | `demo12345` |
 
-Every seeded store has an owner at `<slug>@kade.lk` / `demo12345`
-(`nimal-bakery@kade.lk`, `kandy-mobile@kade.lk`, …).
+Every seeded store has an owner at `<slug>@sidadiya.lk` / `demo12345`
+(`nimal-bakery@sidadiya.lk`, `kandy-mobile@sidadiya.lk`, …).
 
 Health check: `GET /api/health`.
 

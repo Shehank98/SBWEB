@@ -132,7 +132,7 @@ export async function seed() {
 
     for (const b of businesses) {
       const d = storeDetail[b.slug] || { preset: 'orchid', tagline: '', about: '', phone: '', whatsapp: '', address: '', city: '', categories: [], delivery: { fee: 350, freeAbove: 0, pickup: true }, payments: { cod: true, bank: true, online: false }, bank: '' };
-      const email = `${b.slug}@kade.lk`;
+      const email = `${b.slug}@sidadiya.lk`;
       const biz = (
         await c.query(
           `INSERT INTO businesses (name,type,phone,whatsapp,email,address,city,district,status,created_at)
@@ -236,7 +236,7 @@ export async function seed() {
 
   console.log('[db] seed complete.');
   console.log(`      Admin login : ${config.admin.email} / ${config.admin.password}`);
-  console.log(`      Owner login : abc-fashion@kade.lk / ${OWNER_PASSWORD}  (and <slug>@kade.lk for the others)`);
+  console.log(`      Owner login : abc-fashion@sidadiya.lk / ${OWNER_PASSWORD}  (and <slug>@sidadiya.lk for the others)`);
 }
 
 // Run as a CLI: `npm run db:seed`

@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Reports | Kade dashboard</title>
+  <title>Reports | Sidadiya dashboard</title>
   <meta name="robots" content="noindex">
   <script src="../js/theme.js"></script>
   <link rel="stylesheet" href="../css/tokens.css">
@@ -283,7 +284,7 @@
         var delivered = (R.byStatus.filter(function (s) { return s.label === K.orderLabel('DELIVERED'); })[0] || {}).value || 0;
         var rangeLabel = R.range && R.range.from ? (R.range.from + (R.range.to ? ' to ' + R.range.to : '')) : (state.from ? state.from + (state.to ? ' to ' + state.to : '') : 'All time');
         var h = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>';
-        h += '<h2>Kade sales report</h2><p>Range: ' + xesc(rangeLabel) + '</p>';
+        h += '<h2>Sidadiya sales report</h2><p>Range: ' + xesc(rangeLabel) + '</p>';
         h += tbl('Summary', ['Metric', 'Value'], [
           ['Revenue (Rs.)', R.revenue], ['Orders', R.orders], ['Average order (Rs.)', R.avgOrder],
           ['Items sold', R.itemsSold], ['Delivered', delivered], ['Low or out of stock', R.lowStock]

@@ -13,7 +13,7 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'dev-insecure-secret-change-me',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   admin: {
-    email: process.env.ADMIN_EMAIL || 'admin@kade.lk',
+    email: process.env.ADMIN_EMAIL || 'admin@sidadiya.lk',
     password: process.env.ADMIN_PASSWORD || 'admin12345',
     name: process.env.ADMIN_NAME || 'Platform Admin',
   },

@@ -1,7 +1,7 @@
-# Kade email notifications — Google Apps Script
+# Sidadiya email notifications — Google Apps Script
 
 This turns the backend's **notifications outbox** into real emails, sent from your
-Google account, styled to match the Kade site (Figtree / Bricolage, brand green).
+Google account, styled to match the Sidadiya site (Figtree / Bricolage, brand green).
 
 The API never sends email itself — it writes rows to a `notifications` table. This
 script polls those rows every 5 minutes, sends a branded email for each, and marks
@@ -31,7 +31,7 @@ it as sent. If Google is down, nothing is lost — the rows just wait.
    | --- | --- |
    | `API_BASE` | Your backend URL, e.g. `https://sbweb-production.up.railway.app` |
    | `NOTIFY_TOKEN` | The same value as `NOTIFY_TOKEN` in the backend env (falls back to `JWT_SECRET` if you never set one) |
-   | `FROM_NAME` | Optional. The sender name shown in inboxes (default `Kade`) |
+   | `FROM_NAME` | Optional. The sender name shown in inboxes (default `Sidadiya`) |
 
 4. Back in the editor, select the function **`sendPendingEmails`** and click **Run**.
    Google asks you to **review permissions** the first time — approve them
@@ -67,6 +67,6 @@ POST /api/notifications/:id/failed
   to SendGrid/Mailgun (same script, change `MailApp.sendEmail` to a `UrlFetchApp`
   call to their API).
 - Email clients rarely load web fonts, so the templates fall back gracefully to the
-  system sans-serif while keeping the Kade colours, layout and buttons.
+  system sans-serif while keeping the Sidadiya colours, layout and buttons.
 - Customers only get order-status emails if they enter an email at checkout; the
   storefront also offers a WhatsApp message for those who don't.

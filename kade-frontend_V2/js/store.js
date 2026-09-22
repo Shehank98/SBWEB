@@ -12,7 +12,7 @@
   };
 
   function blocked(title, body) {
-    document.body.innerHTML = '<main class="unavailable"><div class="kd-card unavailable__card"><a class="wordmark" href="../index">Kade</a><h1 class="display-md">' + K.esc(title) + '</h1><p class="muted">' + K.esc(body) + '</p><a class="kd-btn kd-btn--secondary" href="../index">Back to Kade</a></div></main>';
+    document.body.innerHTML = '<main class="unavailable"><div class="kd-card unavailable__card"><a class="wordmark" href="../index">Sidadiya</a><h1 class="display-md">' + K.esc(title) + '</h1><p class="muted">' + K.esc(body) + '</p><a class="kd-btn kd-btn--secondary" href="../index">Back to Sidadiya</a></div></main>';
     document.title = title;
   }
   var NOT_FOUND = ['Store not found', 'Check the link you were sent, or ask the shop to share it again.'];
@@ -28,7 +28,7 @@
     var pays = [s.payments.cod && 'Cash on delivery', s.payments.bank && 'Bank transfer', s.payments.online && 'Card payment'].filter(Boolean).join(', ');
     K.$('#store-footer').outerHTML = '<footer class="store-footer"><div class="container"><div class="row"><div class="stack" style="gap:4px;flex:1;min-width:200px"><strong>' + K.esc(s.name) + '</strong><span class="muted">' + K.esc(s.about) + '</span></div>' +
       '<div class="stack" style="gap:4px;flex:1;min-width:200px"><strong>Contact</strong><span>' + K.esc(s.address) + '</span>' + (s.phone ? '<a class="kd-link" href="tel:' + K.esc(s.phone.replace(/\s/g, '')) + '">' + K.esc(s.phone) + '</a>' : '') + '</div>' +
-      '<div class="stack" style="gap:4px;flex:1;min-width:200px"><strong>We accept</strong><span>' + K.esc(pays) + '</span></div></div><p class="muted" style="margin-top:24px">Store powered by <a class="kd-link" href="../index">Kade</a></p></div></footer>';
+      '<div class="stack" style="gap:4px;flex:1;min-width:200px"><strong>We accept</strong><span>' + K.esc(pays) + '</span></div></div><p class="muted" style="margin-top:24px">Store powered by <a class="kd-link" href="../index">Sidadiya</a></p></div></footer>';
     if (opts.cartBar && !K.$('#cartbar')) { var cb = document.createElement('a'); cb.id = 'cartbar'; cb.className = 'cart-bar'; cb.hidden = true; cb.href = K.sUrl('cart'); cb.innerHTML = '<span><strong id="cb-n"></strong> in your cart</span><span class="cart-bar__go"><b id="cb-t"></b> View cart</span>'; document.body.appendChild(cb); }
     K.updateCartCount();
   }

@@ -5,7 +5,7 @@
   var mem = {};
 
   /* ---------- Small utilities ---------- */
-  K.host = 'kade.lk'; /* placeholder platform domain */
+  K.host = 'sidadiya.lk'; /* placeholder platform domain */
   K.esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   K.rs = function (n) { return 'Rs. ' + Math.round(Number(n)).toLocaleString('en-US'); };
   K.fmtDate = function (iso) { if (!iso) return 'None'; return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
@@ -321,7 +321,7 @@
       ? '<a class="kd-link" href="../login" id="logout">Log out</a>'
       : '<a class="kd-link" href="../store/index?s=' + K.esc(mySlug) + '" target="_blank" rel="noopener">View my store</a><a class="kd-link" href="../login" id="logout">Log out</a>';
     var sb = K.$('#sidebar');
-    sb.innerHTML = '<div class="sidebar__brand"><a class="wordmark" href="../index">Kade</a><span class="sidebar__ctx">' + (kind === 'admin' ? 'Admin panel' : 'Owner dashboard') + '</span></div>' +
+    sb.innerHTML = '<div class="sidebar__brand"><a class="wordmark" href="../index">Sidadiya</a><span class="sidebar__ctx">' + (kind === 'admin' ? 'Admin panel' : 'Owner dashboard') + '</span></div>' +
       '<nav class="nav" aria-label="Main">' + nav + '</nav><div class="sidebar__foot">' + foot + '</div>';
     var lo = K.$('#logout'); if (lo) lo.addEventListener('click', function (e) { if (window.KadeApi && KadeApi.enabled) { e.preventDefault(); KadeApi.logout(); location.href = '../login'; } });
     var tb = K.$('#topbar');

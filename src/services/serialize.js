@@ -1,4 +1,4 @@
-// Map DB rows to the exact JSON shapes the Kade frontend already consumes
+// Map DB rows to the exact JSON shapes the Sidadiya frontend already consumes
 // (see kade-frontend/js/data.js). Keeping the contract identical means the
 // frontend swaps `KadeData.*` for `fetch()` with no reshaping.
 

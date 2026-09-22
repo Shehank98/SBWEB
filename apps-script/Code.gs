@@ -1,5 +1,5 @@
 /**
- * Kade: email notifications worker (Google Apps Script)
+ * Sidadiya: email notifications worker (Google Apps Script)
  * ------------------------------------------------------
  * Polls the backend notifications outbox and sends branded HTML emails for:
  *   REGISTERED (waiting for approval), APPROVED (store link + login),
@@ -18,7 +18,7 @@ function cfg_() {
   return {
     apiBase: (p.getProperty('API_BASE') || 'https://sbweb-production.up.railway.app').replace(/\/+$/, ''),
     token: p.getProperty('NOTIFY_TOKEN') || '',
-    fromName: p.getProperty('FROM_NAME') || 'Kade',
+    fromName: p.getProperty('FROM_NAME') || 'Sidadiya',
     batch: Number(p.getProperty('BATCH') || 50)
   };
 }
@@ -73,7 +73,7 @@ function installTrigger() {
 }
 
 // =============================================================================
-// Email rendering. Matches the Kade site (Figtree / Bricolage, brand green)
+// Email rendering. Matches the Sidadiya site (Figtree / Bricolage, brand green)
 // =============================================================================
 var THEME = {
   bg: '#faf7f0', card: '#ffffff', ink: '#17211d', muted: '#4a5650',
@@ -111,14 +111,14 @@ function shell_(bodyHtml) {
         '<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:' + THEME.card + ';border:1px solid ' + THEME.line + ';border-radius:16px;overflow:hidden;">' +
           // header
           '<tr><td style="background:' + THEME.brand + ';padding:20px 28px;">' +
-            '<span style="font-family:' + DISPLAY + ';font-size:24px;font-weight:700;color:' + THEME.onBrand + ';letter-spacing:-0.01em;">Kade</span>' +
+            '<span style="font-family:' + DISPLAY + ';font-size:24px;font-weight:700;color:' + THEME.onBrand + ';letter-spacing:-0.01em;">Sidadiya</span>' +
             '<span style="font-family:' + SANS + ';font-size:13px;color:' + THEME.soft + ';margin-left:10px;">online shops for small businesses</span>' +
           '</td></tr>' +
           // body
           '<tr><td style="padding:28px;">' + bodyHtml + '</td></tr>' +
           // footer
           '<tr><td style="padding:18px 28px;border-top:1px solid ' + THEME.line + ';">' +
-            '<p style="margin:0;font-family:' + SANS + ';font-size:12px;color:' + THEME.muted + ';">You are receiving this because you use Kade. Reply to this email if you need help.</p>' +
+            '<p style="margin:0;font-family:' + SANS + ';font-size:12px;color:' + THEME.muted + ';">You are receiving this because you use Sidadiya. Reply to this email if you need help.</p>' +
           '</td></tr>' +
         '</table>' +
       '</td></tr>' +
@@ -146,7 +146,7 @@ function renderEmail_(n) {
     case 'REGISTERED':
       body = h1_(d.heading || 'Application received') +
         p_('Thank you for registering <strong>' + esc_(d.business) + '</strong>. Our team is checking your payment slip now.') +
-        p_('We will email you the moment your store is approved, usually within a day. Thank you for choosing Kade.');
+        p_('We will email you the moment your store is approved, usually within a day. Thank you for choosing Sidadiya.');
       break;
 
     case 'APPROVED':
@@ -225,7 +225,7 @@ function renderEmail_(n) {
       break;
 
     default:
-      body = h1_(n.subject || 'Kade') + p_(esc_(n.message || ''));
+      body = h1_(n.subject || 'Sidadiya') + p_(esc_(n.message || ''));
   }
   return shell_(body);
 }
@@ -241,5 +241,5 @@ function previewApproved() {
     }
   });
   Logger.log(html);
-  // MailApp.sendEmail({ to: Session.getActiveUser().getEmail(), subject: 'Preview: store ready', htmlBody: html, name: 'Kade' });
+  // MailApp.sendEmail({ to: Session.getActiveUser().getEmail(), subject: 'Preview: store ready', htmlBody: html, name: 'Sidadiya' });
 }

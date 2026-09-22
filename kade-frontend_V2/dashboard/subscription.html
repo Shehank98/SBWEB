@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Subscription | Kade dashboard</title>
+  <title>Subscription | Sidadiya dashboard</title>
   <meta name="robots" content="noindex">
   <script src="../js/theme.js"></script>
   <link rel="stylesheet" href="../css/tokens.css">
@@ -28,7 +29,8 @@
         <section class="kd-card panel" aria-labelledby="s3"><h2 id="s3">Renew or change plan</h2>
           <form id="renew" class="stack-lg" novalidate>
             <fieldset style="border:0;padding:0;margin:0"><legend class="kd-label" style="margin-bottom:8px">Plan</legend><div class="choice" id="choices"></div></fieldset>
-            <div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Pay by bank transfer</p><p style="margin-top:4px">Send <strong id="amt"></strong> to Commercial Bank, Kade (Pvt) Ltd, account 1000 2000 3000, then upload your slip.</p></div></div>
+            <div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Pay by bank transfer</p><p style="margin-top:4px">Send <strong id="amt"></strong> to one of these accounts, then upload your slip.</p>
+              <p style="margin-top:8px;line-height:1.7"><strong>Commercial Bank</strong>: PS Kavishka, account 8006307123, Arpico Super Hyde Park branch.<br><strong>Sampath Bank</strong>: PS Kavishka, account 121057700812, Karagampitiya branch.</p></div></div>
             <div class="kd-field" style="max-width:460px"><label class="kd-label" for="slip">Payment slip</label><input class="kd-input" id="slip" type="file" accept="image/*,application/pdf"></div>
             <div><button class="kd-btn kd-btn--primary" type="submit">Send payment slip</button></div>
           </form>

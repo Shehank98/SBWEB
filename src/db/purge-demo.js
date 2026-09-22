@@ -10,7 +10,7 @@
 import { pool, query } from './pool.js';
 
 // The slugs the seeder creates. A demo shop is only removed when BOTH its store
-// slug is in this list AND its owner's email is "<slug>@kade.lk" — so a real shop
+// slug is in this list AND its owner's email is "<slug>@sidadiya.lk" — so a real shop
 // that happens to pick a similar slug can never be caught by this purge.
 const DEMO_SLUGS = [
   'abc-fashion', 'nimal-bakery', 'kandy-mobile', 'green-leaf', 'lanka-handloom',
@@ -24,7 +24,7 @@ async function purge() {
        FROM businesses b
        JOIN stores s ON s.business_id = b.id
       WHERE s.slug = ANY($1)
-        AND EXISTS (SELECT 1 FROM users u WHERE u.business_id = b.id AND lower(u.email) = lower(s.slug || '@kade.lk'))`,
+        AND EXISTS (SELECT 1 FROM users u WHERE u.business_id = b.id AND lower(u.email) = lower(s.slug || '@sidadiya.lk'))`,
     [DEMO_SLUGS]
   );
 
