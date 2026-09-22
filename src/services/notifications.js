@@ -52,7 +52,7 @@ export const templates = {
   }),
   newOrder: (business, order) => ({
     type: 'NEW_ORDER',
-    subject: `New order ${order.code} — ${business.name}`,
+    subject: `New order ${order.code} for ${business.name}`,
     message: `${business.name} received a new order ${order.code} from ${order.customer_name} for a total of Rs. ${order.total}. Log in to your dashboard to manage it.`,
     data: {
       heading: 'New order received',
@@ -63,6 +63,22 @@ export const templates = {
       total: order.total,
       items: order.items || [],
       ordersUrl: dashUrl('orders.html'),
+    },
+  }),
+  // Sent to the CUSTOMER when they place an order (shop name included).
+  orderConfirmation: (store, order, items) => ({
+    type: 'ORDER_CONFIRMATION',
+    subject: `Your ${store.name} order ${order.code} is confirmed`,
+    message: `Thank you for ordering from ${store.name}. Your order ${order.code} totals Rs. ${order.total}. We will let you know when it is on the way.`,
+    data: {
+      heading: 'Thank you for your order',
+      business: store.name,
+      storeName: store.name,
+      orderCode: order.code,
+      customer: order.customer_name,
+      total: order.total,
+      items: items || [],
+      storeUrl: store.slug ? storeUrl(store.slug) : '',
     },
   }),
   orderStatus: (business, order, status) => ({
@@ -80,7 +96,7 @@ export const templates = {
   suspended: (business) => ({
     type: 'SUSPENDED',
     subject: 'Your store has been paused',
-    message: `${business.name}'s subscription has lapsed and the store is now suspended. Your products and orders are safe — renew to bring the store back online.`,
+    message: `${business.name}'s subscription has lapsed and the store is now suspended. Your products and orders are safe. Renew to bring the store back online.`,
     data: { heading: 'Store paused', business: business.name, renewUrl: dashUrl('subscription.html') },
   }),
 };

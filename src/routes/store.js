@@ -166,6 +166,17 @@ storeRouter.post(
         { businessId: st.biz_id, recipient: st.biz_email, ...templates.newOrder({ name: st.biz_name }, created) },
         client
       );
+      // Confirm the order to the customer (if they left an email), with the shop name.
+      if (body.email) {
+        await queueNotification(
+          {
+            businessId: st.biz_id,
+            recipient: body.email,
+            ...templates.orderConfirmation({ name: st.biz_name, slug: st.slug }, created, lines),
+          },
+          client
+        );
+      }
       return created;
     });
 

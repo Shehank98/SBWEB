@@ -1,12 +1,13 @@
 /**
- * Kade — email notifications worker (Google Apps Script)
+ * Kade: email notifications worker (Google Apps Script)
  * ------------------------------------------------------
  * Polls the backend notifications outbox and sends branded HTML emails for:
- *   REGISTERED · APPROVED (with store link + login) · REJECTED
- *   NEW_ORDER · ORDER_STATUS · EXPIRY_REMINDER · SUSPENDED
+ *   REGISTERED (waiting for approval), APPROVED (store link + login),
+ *   REJECTED, NEW_ORDER (to the owner), ORDER_CONFIRMATION (to the customer),
+ *   ORDER_STATUS (incl. delivered), EXPIRY_REMINDER, SUSPENDED.
  *
- * Setup: see README.md in this folder. In short —
- *   1. Project Settings → Script properties: add API_BASE and NOTIFY_TOKEN.
+ * Setup: see README.md in this folder. In short:
+ *   1. Project Settings, Script properties: add API_BASE and NOTIFY_TOKEN.
  *   2. Run `sendPendingEmails` once and grant permissions.
  *   3. Run `installTrigger` once to send every 5 minutes.
  */
@@ -72,7 +73,7 @@ function installTrigger() {
 }
 
 // =============================================================================
-// Email rendering — matches the Kade site (Figtree / Bricolage, brand green)
+// Email rendering. Matches the Kade site (Figtree / Bricolage, brand green)
 // =============================================================================
 var THEME = {
   bg: '#faf7f0', card: '#ffffff', ink: '#17211d', muted: '#4a5650',
@@ -145,19 +146,19 @@ function renderEmail_(n) {
     case 'REGISTERED':
       body = h1_(d.heading || 'Application received') +
         p_('Thank you for registering <strong>' + esc_(d.business) + '</strong>. Our team is checking your payment slip now.') +
-        p_('We will email you the moment your store is approved — usually within a day.');
+        p_('We will email you the moment your store is approved, usually within a day. Thank you for choosing Kade.');
       break;
 
     case 'APPROVED':
       body = h1_(d.heading || 'Your store is live 🎉') +
-        p_('Congratulations! <strong>' + esc_(d.business) + '</strong> has been approved and your online store is ready to share.') +
+        p_('Congratulations! <strong>' + esc_(d.business) + '</strong> has been approved and your online store is ready.') +
         infoBox_(
           kv_('Your store link', '<a href="' + esc_(d.storeUrl) + '" style="color:' + THEME.brand + ';">' + esc_(d.storeUrl) + '</a>') +
           kv_('Sign in with', esc_(d.email || '')) +
           (d.planName ? kv_('Plan', esc_(d.planName)) : '')
         ) +
-        p_('Log in to add your products, then share your store link on WhatsApp, Facebook and Instagram.') +
-        '<div style="margin-top:6px;">' + button_('Open my store', d.storeUrl, 'accent') + button_('Log in to dashboard', d.loginUrl, 'brand') + '</div>';
+        p_('Log in and create your listings, then share your store link on WhatsApp, Facebook and Instagram to start selling.') +
+        '<div style="margin-top:6px;">' + button_('Create my listings', d.loginUrl, 'accent') + button_('Open my store', d.storeUrl, 'brand') + '</div>';
       break;
 
     case 'REJECTED':
@@ -185,10 +186,28 @@ function renderEmail_(n) {
         button_('View order', d.ordersUrl, 'brand');
       break;
 
+    case 'ORDER_CONFIRMATION':
+      var citems = (d.items || []).map(function (i) {
+        return '<tr><td style="font-family:' + SANS + ';font-size:14px;color:' + THEME.ink + ';padding:4px 0;">' + esc_(i.qty) + ' x ' + esc_(i.name) + '</td>' +
+          '<td align="right" style="font-family:' + MONO + ';font-size:14px;color:' + THEME.ink + ';padding:4px 0;">' + rs_(i.qty * i.price) + '</td></tr>';
+      }).join('');
+      body = h1_(d.heading || 'Thank you for your order') +
+        p_('Thank you for ordering from <strong>' + esc_(d.storeName || d.business) + '</strong>. We have received your order and will let you know when it is on the way.') +
+        infoBox_(
+          kv_('Order', esc_(d.orderCode)) +
+          kv_('Shop', esc_(d.storeName || d.business)) +
+          (citems ? '<table role="presentation" width="100%" style="margin-top:8px;border-top:1px solid ' + THEME.line + ';padding-top:8px;">' + citems +
+            '<tr><td style="font-family:' + SANS + ';font-weight:700;padding-top:8px;">Total</td><td align="right" style="font-family:' + MONO + ';font-weight:700;padding-top:8px;">' + rs_(d.total) + '</td></tr></table>'
+            : kv_('Total', rs_(d.total)))
+        ) +
+        (d.storeUrl ? button_('Visit the shop', d.storeUrl, 'brand') : '');
+      break;
+
     case 'ORDER_STATUS':
-      body = h1_('Order ' + esc_(d.orderCode) + ' update') +
-        p_('Your order from <strong>' + esc_(d.business) + '</strong> is now <strong>' + esc_(String(d.status || '').toLowerCase()) + '</strong>.') +
-        p_('Thank you for shopping with us!');
+      var delivered = String(d.status || '').toUpperCase() === 'DELIVERED';
+      body = h1_(delivered ? 'Your order has been delivered' : 'Order ' + esc_(d.orderCode) + ' update') +
+        p_('Your order <strong>' + esc_(d.orderCode) + '</strong> from <strong>' + esc_(d.business) + '</strong> is now <strong>' + esc_(String(d.status || '').toLowerCase()) + '</strong>.') +
+        p_(delivered ? 'We hope you love it. Thank you for shopping with us!' : 'Thank you for shopping with us!');
       break;
 
     case 'EXPIRY_REMINDER':

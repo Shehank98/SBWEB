@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS payments (
   reason          TEXT,                              -- rejection reason
   submitted_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   reviewed_at     TIMESTAMPTZ,
-  reviewed_by     UUID REFERENCES users(id)
+  reviewed_by     UUID REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_payments_business ON payments(business_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS order_status_history (
   order_id    UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   status      TEXT NOT NULL,
   note        TEXT,
-  changed_by  UUID REFERENCES users(id),
+  changed_by  UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_osh_order ON order_status_history(order_id);
@@ -255,6 +255,14 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS variants JSONB NOT NULL DEFAULT '[
 -- Per-tier caps for categories and variants (NULL = unlimited).
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS max_categories INTEGER;
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS max_variants INTEGER;
+
+-- Deleting a shop cascades to its users; these "who did it" references must null
+-- out rather than block the delete (otherwise removing a shop with order history
+-- or reviewed payments fails).
+ALTER TABLE order_status_history DROP CONSTRAINT IF EXISTS order_status_history_changed_by_fkey;
+ALTER TABLE order_status_history ADD CONSTRAINT order_status_history_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_reviewed_by_fkey;
+ALTER TABLE payments ADD CONSTRAINT payments_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL;
 -- Backfill the gallery from the existing single cover photo so old products show it.
 UPDATE products SET images = jsonb_build_array(image_url)
  WHERE image_url IS NOT NULL AND (images IS NULL OR jsonb_array_length(images) = 0);
