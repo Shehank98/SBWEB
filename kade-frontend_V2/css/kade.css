@@ -154,8 +154,13 @@ textarea.kd-input { padding: var(--space-3); min-height: 96px; resize: vertical;
 /* ---------- Dialog and drawer ---------- */
 dialog { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--ink); box-shadow: var(--shadow-2); padding: 0; width: calc(100% - 32px); max-width: 520px; }
 dialog::backdrop { background: rgba(23, 33, 29, 0.55); }
+/* Only the body scrolls. The dialog is a flex column capped to the viewport, so
+   the header and footer stay put and there is a single scrollbar, not two. */
+dialog:not(.drawer) { display: flex; flex-direction: column; max-height: calc(100dvh - 48px); overflow: hidden; }
+dialog:not(.drawer) > form { display: contents; }
+.dialog__head, .dialog__foot { flex: 0 0 auto; }
 .dialog__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line); }
-.dialog__body { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); max-height: 70vh; overflow-y: auto; }
+.dialog__body { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .dialog__foot { display: flex; justify-content: flex-end; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-top: 1px solid var(--line); flex-wrap: wrap; }
 dialog.drawer { margin: 0 0 0 auto; height: 100dvh; max-height: none; border-radius: 0; max-width: 480px; display: none; flex-direction: column; }
 dialog.drawer[open] { display: flex; }
