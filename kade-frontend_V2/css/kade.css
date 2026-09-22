@@ -173,7 +173,12 @@ dialog.drawer .dialog__body { max-height: none; flex: 1; }
    image is shown via a background, so every .wordmark site-wide updates at once. */
 .wordmark { display: inline-block; height: 30px; aspect-ratio: 1596 / 714; background: url("/assets/logo.png") left center / contain no-repeat; font-size: 0; color: transparent; text-decoration: none; }
 @media (min-width: 900px) { .wordmark { height: 34px; } }
+/* Dark theme: swap to the light logo so it reads on the dark surfaces. */
+[data-theme="dark"] .wordmark { background-image: url("/assets/logo-light.png"); }
 .site-nav { display: flex; align-items: center; gap: var(--space-2); }
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); cursor: pointer; padding: 0; transition: background 120ms, color 120ms, border-color 120ms; }
+.theme-toggle:hover { color: var(--brand); border-color: var(--brand); }
+.theme-toggle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .site-nav a:not(.kd-btn) { color: var(--ink); text-decoration: none; font: 600 14px/18px var(--font-sans); padding: var(--space-3); min-height: var(--size-touch); display: inline-flex; align-items: center; }
 .site-nav a:not(.kd-btn):hover { color: var(--brand); }
 .hero { padding: var(--space-7) 0; }

@@ -30,6 +30,8 @@ function cfg_() {
     apiBase: (p.getProperty('API_BASE') || 'https://sbweb-production.up.railway.app').replace(/\/+$/, ''),
     token: p.getProperty('NOTIFY_TOKEN') || '',
     fromName: p.getProperty('FROM_NAME') || 'Sidadiya',
+    // Absolute base for images in emails (the logo). Defaults to the live site.
+    siteBase: (p.getProperty('SITE_BASE') || 'https://www.sidadiya.com').replace(/\/+$/, ''),
     batch: Number(p.getProperty('BATCH') || 50),
     // Do not send if fewer than this many emails remain in today's quota; keep a
     // buffer for the next run so a burst never drains the account completely.
@@ -175,10 +177,10 @@ function shell_(bodyHtml, footerHtml) {
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:' + THEME.bg + ';padding:24px 12px;">' +
       '<tr><td align="center">' +
         '<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:' + THEME.card + ';border:1px solid ' + THEME.line + ';border-radius:16px;overflow:hidden;">' +
-          // header (Sidadiya logo wordmark)
-          '<tr><td style="background:' + THEME.brand + ';padding:20px 28px;">' +
-            '<span style="font-family:' + DISPLAY + ';font-size:24px;font-weight:700;color:' + THEME.onBrand + ';letter-spacing:-0.01em;">Sidadiya</span>' +
-            '<span style="font-family:' + SANS + ';font-size:13px;color:' + THEME.soft + ';margin-left:10px;">online shops for small businesses</span>' +
+          // header (Sidadiya logo on the brand-green bar; alt text keeps the brand
+          // visible if a mail client blocks images)
+          '<tr><td style="background:' + THEME.brand + ';padding:18px 28px;">' +
+            '<img src="' + cfg_().siteBase + '/assets/logo-light.png" alt="Sidadiya" height="30" style="height:30px;display:inline-block;vertical-align:middle;border:0;">' +
           '</td></tr>' +
           // body
           '<tr><td style="padding:28px;">' + bodyHtml + '</td></tr>' +
