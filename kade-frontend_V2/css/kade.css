@@ -390,7 +390,6 @@ body.has-cartbar { padding-bottom: 84px; }
   .buy-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); position: fixed; left: 0; right: 0; bottom: 0; z-index: 35; padding: 10px var(--space-4) calc(10px + env(safe-area-inset-bottom)); background: var(--surface-raised); border-top: 1px solid var(--line); box-shadow: var(--shadow-2); }
   .buy-bar__price { display: flex; flex-direction: column; }
   .buy-bar .kd-btn { flex: 1; max-width: 220px; min-height: 52px; font-size: 16px; }
-  #add { display: none; }
   body:has(.buy-bar) { padding-bottom: 88px; }
   .pdp__media { aspect-ratio: 4 / 3; }
   .pdp__media .ph { font-size: 72px; }
