@@ -424,5 +424,68 @@
     tb.addEventListener('click', function () { var open = tw.hidden; tw.hidden = !open; tb.setAttribute('aria-expanded', String(open)); tb.textContent = open ? 'Hide table' : 'View as table'; });
   };
 
+  /* ---------- Smooth line chart: single series, auto-thinned x ticks, hover + table ---------- */
+  function smoothPath(pts) {
+    if (!pts.length) return '';
+    if (pts.length < 3) return pts.reduce(function (s, p, i) { return s + (i ? 'L' : 'M') + p.x + ' ' + p.y; }, '');
+    var d = 'M' + pts[0].x + ' ' + pts[0].y;
+    for (var i = 0; i < pts.length - 1; i++) {
+      var p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      var c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+      var c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+      d += 'C' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ' ' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ' ' + p2.x.toFixed(1) + ' ' + p2.y.toFixed(1);
+    }
+    return d;
+  }
+  K.line = function (el, data, o) {
+    o = o || {};
+    var W = 720, H = 260, ml = 48, mr = 14, mt = 20, mb = 30, pw = W - ml - mr, ph = H - mt - mb;
+    var n = data.length, fmt = o.format || K.rs;
+    var max = Math.max.apply(null, data.map(function (d) { return d.value; }).concat([0]));
+    var sc = nice(max || 1);
+    var x = function (i) { return n <= 1 ? ml + pw / 2 : ml + (i / (n - 1)) * pw; };
+    var y = function (v) { return mt + ph - (v / sc.top) * ph; };
+    var pts = data.map(function (d, i) { return { x: x(i), y: y(d.value) }; });
+    var line = smoothPath(pts);
+    var area = pts.length ? line + 'L' + pts[pts.length - 1].x + ' ' + (mt + ph) + 'L' + pts[0].x + ' ' + (mt + ph) + 'Z' : '';
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + K.esc(o.label || 'Line chart') + '">';
+    for (var t = 0; t <= sc.top + 0.001; t += sc.step) {
+      svg += '<line class="grid" x1="' + ml + '" x2="' + (W - mr) + '" y1="' + y(t) + '" y2="' + y(t) + '"/><text class="axis" x="' + (ml - 8) + '" y="' + (y(t) + 4) + '" text-anchor="end">' + compact(t) + '</text>';
+    }
+    if (area) svg += '<path class="line-area" d="' + area + '"/>';
+    if (line) svg += '<path class="line-path" d="' + line + '"/>';
+    // Thin x-axis labels to at most ~8 so long daily ranges stay readable.
+    var stepT = Math.max(1, Math.ceil(n / 8));
+    data.forEach(function (d, i) {
+      if (i % stepT === 0 || i === n - 1) {
+        var anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
+        svg += '<text class="axis" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="' + anchor + '">' + K.esc(d.label) + '</text>';
+      }
+    });
+    if (n <= 31) data.forEach(function (d, i) { svg += '<circle class="line-dot" cx="' + x(i) + '" cy="' + y(d.value) + '" r="3" style="pointer-events:none"/>'; });
+    svg += '<circle class="line-cursor" r="4.5" cx="0" cy="0" hidden/>';
+    var band = n > 1 ? pw / (n - 1) : pw;
+    data.forEach(function (d, i) { var cx = x(i); svg += '<rect class="hit" tabindex="0" data-i="' + i + '" x="' + (cx - band / 2) + '" y="' + mt + '" width="' + band + '" height="' + ph + '" aria-label="' + K.esc(d.label + ': ' + fmt(d.value)) + '"/>'; });
+    svg += '</svg>';
+    var table = '<table class="kd-table"><caption class="visually-hidden">' + K.esc(o.label || 'Chart data') + '</caption><thead><tr><th scope="col">' + K.esc(o.xLabel || 'Period') + '</th><th scope="col" class="kd-num">' + K.esc(o.yLabel || 'Value') + '</th></tr></thead><tbody>' +
+      data.map(function (d) { return '<tr><td>' + K.esc(d.label) + '</td><td class="kd-num">' + fmt(d.value) + '</td></tr>'; }).join('') + '</tbody></table>';
+    el.innerHTML = '<div class="chart">' + svg + '<div class="chart-tip" hidden></div></div><div class="row" style="margin-top:8px"><button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" aria-expanded="false">View as table</button></div><div class="table-wrap" hidden>' + table + '</div>';
+    var tip = K.$('.chart-tip', el), sv = K.$('svg', el), cursor = K.$('.line-cursor', el);
+    function show(i) {
+      var d = data[i], rect = sv.getBoundingClientRect(), k = rect.width / W;
+      tip.hidden = false; tip.innerHTML = K.esc(d.title || d.label) + '<br><b>' + fmt(d.value) + '</b>';
+      tip.style.left = x(i) * k + 'px'; tip.style.top = (y(d.value) - 8) * k + 'px';
+      cursor.hidden = false; cursor.setAttribute('cx', x(i)); cursor.setAttribute('cy', y(d.value));
+    }
+    function hide() { tip.hidden = true; cursor.hidden = true; }
+    K.$$('.hit', el).forEach(function (h) {
+      var i = +h.getAttribute('data-i');
+      h.addEventListener('mouseenter', function () { show(i); }); h.addEventListener('focus', function () { show(i); });
+      h.addEventListener('mouseleave', hide); h.addEventListener('blur', hide);
+    });
+    var tb = K.$('button', el), tw = K.$('.table-wrap', el);
+    tb.addEventListener('click', function () { var open = tw.hidden; tw.hidden = !open; tb.setAttribute('aria-expanded', String(open)); tb.textContent = open ? 'Hide table' : 'View as table'; });
+  };
+
   window.Kade = K;
 })();
