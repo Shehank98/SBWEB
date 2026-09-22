@@ -87,7 +87,7 @@ const payments = [
   { business: 'Pet Palace', plan: 'starter', amount: 1500, method: 'Bank transfer', ref: 'TXN 87990001', submitted: daysAgo(3), status: 'REJECTED', reason: 'Amount does not match the plan.' },
 ];
 
-async function main() {
+export async function seed() {
   await withTransaction(async (c) => {
     // Clear (order matters for FKs).
     await c.query(`TRUNCATE notifications, order_status_history, order_items, orders, coupons, products, categories,
@@ -220,10 +220,12 @@ async function main() {
   console.log('[db] seed complete.');
   console.log(`      Admin login : ${config.admin.email} / ${config.admin.password}`);
   console.log(`      Owner login : abc-fashion@kade.lk / ${OWNER_PASSWORD}  (and <slug>@kade.lk for the others)`);
-  await pool.end();
 }
 
-main().catch((err) => {
-  console.error('[db] seed failed:', err);
-  process.exit(1);
-});
+// Run as a CLI: `npm run db:seed`
+if (process.argv[1] && process.argv[1].replace(/\\/g, '/').endsWith('src/db/seed.js')) {
+  seed().then(() => pool.end()).catch((err) => {
+    console.error('[db] seed failed:', err);
+    process.exit(1);
+  });
+}

@@ -6,6 +6,7 @@ import { config } from './config.js';
 import { UPLOAD_DIR } from './services/uploads.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
 import { query } from './db/pool.js';
+import { bootstrapDb } from './db/bootstrap.js';
 import { hashPassword } from './utils/auth.js';
 
 // Create or update the SUPER_ADMIN account from environment variables, so admin
@@ -77,10 +78,16 @@ app.get('/', (_req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')))
 app.use('/api', notFoundHandler);
 app.use(errorHandler);
 
-const server = app.listen(config.port, () => {
+const server = app.listen(config.port, async () => {
   console.log(`[kade] API listening on http://localhost:${config.port}`);
-  // Ensure the platform admin exists, from env vars (ADMIN_EMAIL / ADMIN_PASSWORD).
-  // Runs every boot so changing the Railway variables updates the admin login.
+  // Prepare the database on boot: apply the schema (idempotent) and seed demo data
+  // if empty, then ensure the admin from env vars. This makes a fresh deploy work
+  // without running any manual db commands.
+  try {
+    await bootstrapDb();
+  } catch (e) {
+    console.error('[db] bootstrap failed:', e.message);
+  }
   ensureAdmin().catch((e) => console.warn('[admin] ensureAdmin skipped:', e.message));
 });
 
