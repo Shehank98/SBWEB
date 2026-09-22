@@ -281,11 +281,20 @@ dashboardRouter.put(
         'INSERT INTO order_status_history (order_id, status, changed_by) VALUES ($1,$2,$3)',
         [order.id, status, req.user.sub]
       );
-      // Email the customer their order update, if they left an email at checkout.
-      if (order.customer_email) {
-        const biz = (await client.query('SELECT name FROM businesses WHERE id=$1', [b])).rows[0];
+      // Email the customer only at the two milestones that matter to them:
+      // when the shop confirms the order and when it ships. Other status changes
+      // stay internal. The dedupe key makes a repeated click a no-op.
+      if (order.customer_email && (status === 'CONFIRMED' || status === 'SHIPPED')) {
+        const shop = (await client.query(
+          `SELECT COALESCE(s.name, bz.name) AS name, s.slug, s.phone, s.whatsapp, s.address
+             FROM businesses bz LEFT JOIN stores s ON s.business_id = bz.id
+            WHERE bz.id = $1`,
+          [b]
+        )).rows[0] || { name: 'Your store' };
+        const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [order.id])).rows;
+        const tpl = status === 'CONFIRMED' ? templates.orderConfirmed : templates.orderShipped;
         await queueNotification(
-          { businessId: b, recipient: order.customer_email, ...templates.orderStatus({ name: biz ? biz.name : 'Your store' }, order, status) },
+          { businessId: b, recipient: order.customer_email, dedupeKey: `${status}:${order.id}`, ...tpl(shop, order, items) },
           client
         );
       }

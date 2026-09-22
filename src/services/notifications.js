@@ -9,15 +9,47 @@ const dashUrl = (page = '') => `${BASE}/dashboard/${page}`;
 // Writes a row to the notifications outbox. A Google Apps Script (or any worker)
 // polls `WHERE status = 'PENDING'`, sends the email, then marks it SENT.
 // This decouples the API from the mail transport, exactly as the plan describes.
-export async function queueNotification({ businessId = null, type, recipient, subject, message, data = {} }, client) {
+export async function queueNotification({ businessId = null, type, recipient, subject, message, data = {}, dedupeKey = null }, client) {
   const runner = client || { query };
   if (!recipient) return null;
+  // When a dedupeKey is given, ON CONFLICT DO NOTHING makes the enqueue idempotent:
+  // a repeated status change (or a race between two writers) inserts nothing the
+  // second time. Rows without a key skip the unique index entirely.
   const { rows } = await runner.query(
-    `INSERT INTO notifications (business_id, type, recipient, subject, message, data)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [businessId, type, recipient, subject, message, JSON.stringify(data || {})]
+    `INSERT INTO notifications (business_id, type, recipient, subject, message, data, dedupe_key)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+     RETURNING *`,
+    [businessId, type, recipient, subject, message, JSON.stringify(data || {}), dedupeKey]
   );
-  return rows[0];
+  return rows[0] || null;
+}
+
+// Build the structured payload the Apps Script order emails render: shop name,
+// order summary lines, totals and the delivery-or-pickup block plus shop contact.
+function orderEmailData(shop, order, items) {
+  const method = String(order.delivery_method || '').toLowerCase();
+  const isPickup = method.includes('pickup') || String(order.city || '').toLowerCase() === 'pickup';
+  return {
+    business: shop.name,
+    storeName: shop.name,
+    orderCode: order.code,
+    customer: order.customer_name,
+    items: (items || []).map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
+    subtotal: order.subtotal,
+    discount: order.discount || 0,
+    deliveryFee: order.delivery_fee || 0,
+    total: order.total,
+    fulfilment: isPickup ? 'pickup' : 'delivery',
+    address: order.address || '',
+    city: isPickup ? '' : (order.city || ''),
+    district: order.district || '',
+    payment: order.payment_method || '',
+    shopPhone: shop.phone || '',
+    shopWhatsapp: shop.whatsapp || '',
+    shopAddress: shop.address || '',
+    storeUrl: shop.slug ? storeUrl(shop.slug) : '',
+  };
 }
 
 // Each template returns { type, subject, message, data }. `message` is the plain-text
@@ -86,6 +118,28 @@ export const templates = {
     subject: `Your order ${order.code} is ${status.toLowerCase()}`,
     message: `${business.name}: your order ${order.code} is now ${status}.`,
     data: { heading: 'Order update', business: business.name, orderCode: order.code, status },
+  }),
+  // Sent to the CUSTOMER when the shop marks the order confirmed.
+  orderConfirmed: (shop, order, items) => ({
+    type: 'ORDER_CONFIRMED',
+    subject: `Your ${shop.name} order ${order.code} is confirmed`,
+    message: `Thank you for ordering from ${shop.name}. Your order ${order.code} is confirmed. Total Rs. ${order.total}. We will let you know when it is on the way.`,
+    data: {
+      ...orderEmailData(shop, order, items),
+      heading: 'Your order is confirmed',
+      intro: `Thanks for shopping with ${shop.name}. We have confirmed your order and started getting it ready.`,
+    },
+  }),
+  // Sent to the CUSTOMER when the shop marks the order shipped.
+  orderShipped: (shop, order, items) => ({
+    type: 'ORDER_SHIPPED',
+    subject: `Your ${shop.name} order ${order.code} is on the way`,
+    message: `Good news. Your ${shop.name} order ${order.code} has shipped. Total Rs. ${order.total}.`,
+    data: {
+      ...orderEmailData(shop, order, items),
+      heading: 'Your order is on the way',
+      intro: `Your order from ${shop.name} has left the shop and is on its way to you.`,
+    },
   }),
   expiryReminder: (business, days) => ({
     type: 'EXPIRY_REMINDER',

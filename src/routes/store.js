@@ -163,22 +163,13 @@ storeRouter.post(
       }
       await client.query('INSERT INTO order_status_history (order_id, status) VALUES ($1, $2)', [created.id, 'PENDING']);
 
-      // Notify the store owner of the new order.
+      // Notify the store owner of the new order. The customer is not emailed at
+      // placement: they receive a branded email only when the shop confirms the
+      // order and again when it ships (see the order-status handler).
       await queueNotification(
         { businessId: st.biz_id, recipient: st.biz_email, ...templates.newOrder({ name: st.biz_name }, created) },
         client
       );
-      // Confirm the order to the customer (if they left an email), with the shop name.
-      if (body.email) {
-        await queueNotification(
-          {
-            businessId: st.biz_id,
-            recipient: body.email,
-            ...templates.orderConfirmation({ name: st.biz_name, slug: st.slug }, created, lines),
-          },
-          client
-        );
-      }
       return created;
     });
 

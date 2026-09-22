@@ -247,6 +247,15 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS data JSONB NOT NULL DEFAULT '{}'::jsonb;
+-- Deduplication: a stable key (e.g. "CONFIRMED:<order-id>") so the same event
+-- is queued only once even if the status handler runs twice or two writers race.
+-- A partial unique index lets rows without a key (the older notification types)
+-- coexist freely while guaranteeing at most one row per keyed event.
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS dedupe_key TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_notifications_dedupe
+  ON notifications(dedupe_key) WHERE dedupe_key IS NOT NULL;
+-- Delivery attempts, so a worker can back off or give up after repeated failures.
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0;
 
 -- Products gained a multi-photo gallery (older rows keep their single image_url as cover).
 ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;

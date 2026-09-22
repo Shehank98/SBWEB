@@ -39,11 +39,20 @@ notificationsRouter.post(
   })
 );
 
-// POST /api/notifications/:id/failed — mark a row failed (Apps Script can retry later).
+// POST /api/notifications/:id/failed — record a failed attempt. The row stays
+// PENDING (so the next run retries it) until it has failed several times, then
+// it is parked as FAILED. `attempts` gives the admin an audit trail either way.
 notificationsRouter.post(
   '/:id/failed',
   wrap(async (req, res) => {
-    await query(`UPDATE notifications SET status='FAILED' WHERE id=$1`, [req.params.id]);
-    res.json({ ok: true });
+    const r = await query(
+      `UPDATE notifications
+          SET attempts = attempts + 1,
+              status = CASE WHEN attempts + 1 >= 5 THEN 'FAILED' ELSE 'PENDING' END
+        WHERE id=$1
+        RETURNING attempts, status`,
+      [req.params.id]
+    );
+    res.json({ ok: true, attempts: r.rows[0] ? r.rows[0].attempts : null, status: r.rows[0] ? r.rows[0].status : null });
   })
 );
