@@ -29,6 +29,7 @@ export function storePublic(store, categories) {
     },
     payments: { cod: store.pay_cod, bank: store.pay_bank, online: store.pay_online },
     bank: store.bank_details || '',
+    bankAccount: store.bank_account || {},
   };
 }
 

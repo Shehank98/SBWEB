@@ -85,6 +85,8 @@ CREATE TABLE IF NOT EXISTS stores (
 CREATE INDEX IF NOT EXISTS idx_stores_business ON stores(business_id);
 -- Storefront layout template (classic | showcase | minimal).
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS template TEXT NOT NULL DEFAULT 'classic';
+-- Structured bank account shown to customers: { bankName, holder, branch, accountNo }.
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS bank_account JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 -- ---------------------------------------------------------------------------
 -- Subscriptions & payments

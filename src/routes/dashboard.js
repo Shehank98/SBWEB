@@ -469,17 +469,36 @@ dashboardRouter.put(
     if (!store) throw notFound('Store not found.');
     const d = s.delivery || {};
     const p = s.payments || {};
+    // Structured bank account (shown to customers, copyable). Keep bank_details as a
+    // human-readable one-line summary composed from the fields, for the plain-text
+    // fallback and any legacy readers.
+    const clean = (v) => String(v == null ? '' : v).trim().slice(0, 120);
+    let bankAccount = store.bank_account || {};
+    let bankLine = store.bank_details;
+    if (s.bankAccount && typeof s.bankAccount === 'object') {
+      bankAccount = {
+        bankName: clean(s.bankAccount.bankName),
+        holder: clean(s.bankAccount.holder),
+        branch: clean(s.bankAccount.branch),
+        accountNo: clean(s.bankAccount.accountNo),
+      };
+      bankLine = [bankAccount.bankName, bankAccount.holder, bankAccount.branch && bankAccount.branch + ' branch', bankAccount.accountNo && 'A/C ' + bankAccount.accountNo]
+        .filter(Boolean).join(', ');
+    } else if (s.bank != null) {
+      bankLine = s.bank;
+    }
     await query(
       `UPDATE stores SET name=$2, tagline=$3, about=$4, preset=$5, phone=$6, whatsapp=$7, address=$8, city=$9,
-              delivery_fee=$10, delivery_free_above=$11, pickup=$12, pay_cod=$13, pay_bank=$14, pay_online=$15, bank_details=$16, template=$17
+              delivery_fee=$10, delivery_free_above=$11, pickup=$12, pay_cod=$13, pay_bank=$14, pay_online=$15, bank_details=$16, template=$17, bank_account=$18
         WHERE business_id=$1`,
       [b, s.name || store.name, s.tagline || null, s.about || null, s.preset || store.preset,
        s.phone || null, s.whatsapp || null, s.address || null, s.city || null,
        d.fee != null ? d.fee : store.delivery_fee, d.freeAbove != null ? d.freeAbove : store.delivery_free_above,
        d.pickup != null ? d.pickup : store.pickup,
        p.cod != null ? p.cod : store.pay_cod, p.bank != null ? p.bank : store.pay_bank, p.online != null ? p.online : store.pay_online,
-       s.bank != null ? s.bank : store.bank_details,
-       ['classic', 'showcase', 'minimal'].includes(s.template) ? s.template : store.template]
+       bankLine,
+       ['classic', 'showcase', 'minimal'].includes(s.template) ? s.template : store.template,
+       JSON.stringify(bankAccount)]
     );
 
     // Replace category list if provided (deduped, and capped to the plan's limit).

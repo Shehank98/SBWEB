@@ -64,7 +64,15 @@
           <section class="kd-card panel" aria-labelledby="a4"><h2 id="a4">Payment methods</h2>
             <label class="kd-switch"><span class="kd-check__text"><strong>Cash on delivery</strong><span class="muted">Customers pay when the order arrives.</span></span><input type="checkbox" role="switch" id="cod"></label>
             <label class="kd-switch"><span class="kd-check__text"><strong>Bank transfer</strong><span class="muted">Customers send money to your account and share the slip.</span></span><input type="checkbox" role="switch" id="bank"></label>
-            <div class="kd-field" id="bankBox"><label class="kd-label" for="bankTxt">Bank account details shown to customers</label><input class="kd-input" id="bankTxt"></div>
+            <div id="bankBox">
+              <p class="kd-help" style="margin-bottom:8px">These details are shown to customers who pay by bank transfer. They can copy each one.</p>
+              <div class="form-grid form-grid--2" style="gap:16px">
+                <div class="kd-field"><label class="kd-label" for="bankName">Bank name</label><input class="kd-input" id="bankName" placeholder="e.g. Commercial Bank"></div>
+                <div class="kd-field"><label class="kd-label" for="bankHolder">Account holder name</label><input class="kd-input" id="bankHolder" placeholder="e.g. P S Kavishka"></div>
+                <div class="kd-field"><label class="kd-label" for="bankBranch">Branch</label><input class="kd-input" id="bankBranch" placeholder="e.g. Karagampitiya"></div>
+                <div class="kd-field"><label class="kd-label" for="bankAcc">Account number</label><input class="kd-input" id="bankAcc" inputmode="numeric" placeholder="e.g. 8006307123"></div>
+              </div>
+            </div>
             <label class="kd-switch"><span class="kd-check__text"><strong>Card payment</strong><span class="muted">Not available yet.</span></span><input type="checkbox" role="switch" id="online" disabled></label>
           </section>
           <section class="kd-card panel" aria-labelledby="a5"><h2 id="a5">Delivery</h2>
@@ -164,7 +172,9 @@
         $('open').href = '../store/index?s=' + S.slug;
         ['name', 'tagline', 'about', 'phone', 'address'].forEach(function (k) { $(k).value = S[k] || ''; });
         $('wa').value = S.whatsapp || '';
-        $('cod').checked = !!S.payments.cod; $('bank').checked = !!S.payments.bank; $('online').checked = !!S.payments.online; $('bankTxt').value = S.bank || '';
+        $('cod').checked = !!S.payments.cod; $('bank').checked = !!S.payments.bank; $('online').checked = !!S.payments.online;
+        var ba = S.bankAccount || {};
+        $('bankName').value = ba.bankName || ''; $('bankHolder').value = ba.holder || ''; $('bankBranch').value = ba.branch || ''; $('bankAcc').value = ba.accountNo || '';
         $('fee').value = S.delivery.fee; $('free').value = S.delivery.freeAbove; $('pickup').checked = !!S.delivery.pickup;
         bankBox();
         $('presets').innerHTML = PRESETS.map(function (p) { return '<label class="preset"><input type="radio" name="preset" value="' + p[0] + '"' + (p[0] === preset ? ' checked' : '') + '><span class="preset__swatch" style="--sw-brand:' + p[2] + ';--sw-accent:' + p[3] + ';--sw-soft:' + p[4] + '"><i></i><i></i><i></i></span><strong>' + p[1] + '</strong></label>'; }).join('');
@@ -209,7 +219,8 @@
         var payload = {
           name: $('name').value.trim(), tagline: $('tagline').value.trim(), about: $('about').value.trim(),
           phone: $('phone').value.trim(), whatsapp: $('wa').value.trim(), address: $('address').value.trim(),
-          preset: preset, template: template, bank: $('bankTxt').value.trim(),
+          preset: preset, template: template,
+          bankAccount: { bankName: $('bankName').value.trim(), holder: $('bankHolder').value.trim(), branch: $('bankBranch').value.trim(), accountNo: $('bankAcc').value.trim() },
           payments: { cod: $('cod').checked, bank: $('bank').checked, online: false },
           delivery: { fee: +$('fee').value || 0, freeAbove: +$('free').value || 0, pickup: $('pickup').checked }
         };
@@ -217,7 +228,7 @@
           var restore = K.btnLoading(K.$('#sf button[type=submit]'), 'Saving…');
           KadeApi.updateStore(payload).then(function () { restore(); K.toast('Settings saved'); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not save.'); });
         } else {
-          S.name = payload.name; S.tagline = payload.tagline; S.about = payload.about; S.phone = payload.phone; S.whatsapp = payload.whatsapp; S.address = payload.address; S.preset = preset; S.template = template; S.bank = payload.bank;
+          S.name = payload.name; S.tagline = payload.tagline; S.about = payload.about; S.phone = payload.phone; S.whatsapp = payload.whatsapp; S.address = payload.address; S.preset = preset; S.template = template; S.bankAccount = payload.bankAccount;
           S.payments.cod = payload.payments.cod; S.payments.bank = payload.payments.bank;
           S.delivery.fee = payload.delivery.fee; S.delivery.freeAbove = payload.delivery.freeAbove; S.delivery.pickup = payload.delivery.pickup;
           K.toast('Settings saved');

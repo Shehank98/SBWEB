@@ -378,6 +378,13 @@ body.has-demo .topbar { top: var(--demo-h, 46px); }
 .preset__swatch { display: flex; height: 40px; border-radius: var(--radius-md); overflow: hidden; }
 .preset__swatch i { flex: 2; background: var(--sw-brand); } .preset__swatch i + i { flex: 1; background: var(--sw-accent); } .preset__swatch i + i + i { flex: 1; background: var(--sw-soft); }
 
+/* Bank transfer details for customers (storefront checkout), copyable per row */
+.bankgrid { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
+.bankrow { display: flex; align-items: center; gap: var(--space-2); background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); }
+.bankrow__k { color: var(--ink-muted); font: 600 13px/1.3 var(--font-sans); flex: 0 0 108px; }
+.bankrow__v { flex: 1; min-width: 0; font: 600 15px/1.3 var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bankrow__copy { flex: none; }
+
 /* Category management list (store settings) */
 .cat-list { display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-3) 0; }
 .cat-row { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-raised); }

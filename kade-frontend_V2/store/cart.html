@@ -36,6 +36,18 @@
         var discount = applied ? Math.min(applied.discount, sub) : 0;
         return { sub: sub, fee: fee, free: free, discount: discount, total: Math.max(0, sub - discount) + fee };
       }
+      // Bank transfer details for the customer: structured rows with a copy button
+      // each, falling back to the shop's plain text if no structured account is set.
+      function bankBlock(s) {
+        var a = s.bankAccount || {};
+        var rows = [['Bank', a.bankName], ['Account name', a.holder], ['Branch', a.branch], ['Account number', a.accountNo]].filter(function (r) { return r[1]; });
+        if (!rows.length) return s.bank ? '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Shop bank account</p><p style="margin-top:4px">' + K.esc(s.bank) + '</p></div></div>' : '';
+        return '<div class="kd-banner kd-banner--info"><div style="width:100%"><p class="kd-banner__title">Pay to this account</p>' +
+          '<div class="bankgrid">' + rows.map(function (r) {
+            return '<div class="bankrow"><span class="bankrow__k">' + K.esc(r[0]) + '</span><span class="bankrow__v">' + K.esc(r[1]) + '</span>' +
+              '<button type="button" class="kd-btn kd-btn--secondary kd-btn--sm bankrow__copy" data-copy="' + K.esc(r[1]) + '" aria-label="Copy ' + K.esc(r[0]) + '">Copy</button></div>';
+          }).join('') + '</div></div></div>';
+      }
       function applyLocal(code, sub) {
         var c = String(code).toUpperCase();
         if (c === 'WELCOME10') return { valid: true, code: 'WELCOME10', discount: Math.round(sub * 0.1) };
@@ -84,7 +96,7 @@
           /* Step 3 - payment + review */
           '<section data-cstep="3" class="stack-lg" aria-label="Payment" hidden>' +
           '<fieldset style="border:0;padding:0;margin:0"><legend class="kd-label">Payment</legend><div class="choice" style="margin-top:8px">' + payOpts.map(function (o) { return '<label><input type="radio" name="pay" value="' + o[0] + '"' + (pay === o[0] ? ' checked' : '') + '><span><strong>' + o[1] + '</strong><br><span class="muted">' + o[2] + '</span></span></label>'; }).join('') + '</div></fieldset>' +
-          (pay === 'bank' ? '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Shop bank account</p><p style="margin-top:4px">' + K.esc(s.bank) + '</p></div></div>' : '') +
+          (pay === 'bank' ? bankBlock(s) : '') +
           '<div class="kd-field"><label class="kd-label" for="nt">Note for the shop (optional)</label><textarea class="kd-input" id="nt"></textarea></div>' +
           (applied
             ? '<div class="kd-banner kd-banner--success"><div><p class="kd-banner__title">Code ' + K.esc(applied.code) + ' applied</p><p style="margin-top:4px">' + K.rs(m.discount) + ' off your order.</p></div><button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" id="removeCoupon">Remove</button></div>'
@@ -128,6 +140,7 @@
 
       main.addEventListener('click', function (e) {
         var t = e.target.closest('button'); if (!t) return;
+        if (t.hasAttribute('data-copy')) { var v = t.getAttribute('data-copy'); if (navigator.clipboard) navigator.clipboard.writeText(v).then(function () { K.toast('Copied'); }, function () { K.toast('Copy failed'); }); else K.toast('Copy: ' + v); return; }
         if (t.id === 'co-back') { showStep(step - 1); focusStep(); return; }
         if (t.id === 'applyCoupon') { applyCode(); return; }
         if (t.id === 'removeCoupon') { applied = null; var fr = saveForm(); view(); restore(fr); showStep(3); return; }
