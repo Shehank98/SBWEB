@@ -5,7 +5,7 @@
   var mem = {};
 
   /* ---------- Small utilities ---------- */
-  K.host = 'sidadiya.com'; /* platform domain shown in store links */
+  K.host = 'www.sidadiya.com'; /* platform domain shown in store links */
   K.esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   K.rs = function (n) { return 'Rs. ' + Math.round(Number(n)).toLocaleString('en-US'); };
   K.fmtDate = function (iso) { if (!iso) return 'None'; return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
