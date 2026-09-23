@@ -265,7 +265,7 @@
     var m = location.pathname.match(/\/store\/([^\/]+)\/?$/); if (m && !/\.html$/.test(m[1])) return m[1];
     return 'abc-fashion';
   };
-  K.applyStore = function (s) { document.documentElement.setAttribute('data-preset', s.preset); document.title = s.name; };
+  K.applyStore = function (s) { document.documentElement.setAttribute('data-preset', s.preset); document.documentElement.setAttribute('data-template', s.template || 'classic'); document.title = s.name; };
   K.cartTotal = function (slug) { var list = K.storeProducts || D.products || []; return K.cart.get(slug).reduce(function (n, i) { var p = list.filter(function (x) { return x.id === i.pid; })[0]; return n + (p ? K.linePrice(p, i) * i.qty : 0); }, 0); };
   K.storeUrl = function (slug) { return location.origin.replace(/^null$/, '') + location.pathname.replace(/\/(dashboard|admin|store)\/[^\/]*$/, '/store/index') + '?s=' + slug; };
 

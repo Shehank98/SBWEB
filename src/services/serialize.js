@@ -12,6 +12,7 @@ export function storePublic(store, categories) {
     slug: store.slug,
     name: store.name,
     preset: store.preset,
+    template: store.template || 'classic',
     status: store.status, // business status, injected by caller
     tagline: store.tagline || '',
     about: store.about || '',

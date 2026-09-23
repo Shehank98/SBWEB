@@ -30,7 +30,7 @@
           <form id="renew" class="stack-lg" novalidate>
             <fieldset style="border:0;padding:0;margin:0"><legend class="kd-label" style="margin-bottom:8px">Plan</legend><div class="choice" id="choices"></div></fieldset>
             <div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Pay by bank transfer</p><p style="margin-top:4px">Send <strong id="amt"></strong> to one of these accounts, then upload your slip.</p>
-              <p style="margin-top:8px;line-height:1.7"><strong>Commercial Bank</strong>: PS Kavishka, account 8006307123, Arpico Super Hyde Park branch.<br><strong>Sampath Bank</strong>: PS Kavishka, account 121057700812, Karagampitiya branch.</p></div></div>
+              <p id="bankAccts" style="margin-top:8px;line-height:1.7"><strong>Commercial Bank</strong>: PS Kavishka, account 8006307123, Arpico Super Hyde Park branch.<br><strong>Sampath Bank</strong>: PS Kavishka, account 121057700812, Karagampitiya branch.</p></div></div>
             <div class="kd-field" style="max-width:460px"><label class="kd-label" for="slip">Payment slip</label><input class="kd-input" id="slip" type="file" accept="image/*,application/pdf"></div>
             <div><button class="kd-btn kd-btn--primary" type="submit">Send payment slip</button></div>
           </form>
@@ -48,6 +48,8 @@
     (function () {
       var K = Kade, D = KadeData;
       if (!K.guard('owner', 'subscription')) return;
+      // Never expose the real payment accounts on the public demo.
+      try { if (sessionStorage.getItem('kade-demo') === '1') { var ba = document.getElementById('bankAccts'); if (ba) ba.textContent = 'Your Sidadiya payment account details appear here once you sign in.'; } } catch (e) {}
       K.shell('dashboard', 'subscription');
       var API = !!(window.KadeApi && KadeApi.enabled);
       var slipZone = K.dropzone(K.$('#slip'), { title: 'Drag & drop your payment slip', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your payment slip' });

@@ -22,7 +22,8 @@
   function applyChrome(s, opts) {
     opts = opts || {};
     K.applyStore(s);
-    K.$('#store-header').outerHTML = '<header class="store-header"><div class="container"><span class="store-logo" aria-hidden="true">' + K.esc(K.initials(s.name)) + '</span>' +
+    var logoHtml = s.logo ? '<img class="store-logo store-logo--img" src="' + K.esc(s.logo) + '" alt="' + K.esc(s.name) + '">' : '<span class="store-logo" aria-hidden="true">' + K.esc(K.initials(s.name)) + '</span>';
+    K.$('#store-header').outerHTML = '<header class="store-header"><div class="container">' + logoHtml +
       '<a class="store-name" href="' + K.sUrl('index') + '">' + K.esc(s.name) + '</a>' +
       '<a class="cart-link" href="' + K.sUrl('cart') + '">' + K.icon('cart').replace('<svg ', '<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" ') + '<span>Cart</span><span class="cart-count" id="cc">0</span></a></div></header>';
     var pays = [s.payments.cod && 'Cash on delivery', s.payments.bank && 'Bank transfer', s.payments.online && 'Card payment'].filter(Boolean).join(', ');

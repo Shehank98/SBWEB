@@ -83,6 +83,8 @@ CREATE TABLE IF NOT EXISTS stores (
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_stores_business ON stores(business_id);
+-- Storefront layout template (classic | showcase | minimal).
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS template TEXT NOT NULL DEFAULT 'classic';
 
 -- ---------------------------------------------------------------------------
 -- Subscriptions & payments

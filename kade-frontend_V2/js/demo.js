@@ -18,7 +18,7 @@
   var daysAgo = D.daysAgo, daysAhead = D.daysAhead;
 
   var stores = {
-    'abc-fashion': { slug: 'abc-fashion', name: 'ABC Fashion', preset: 'orchid', status: 'ACTIVE', tagline: 'Beautiful clothing for everyone', about: 'Family-run fashion shop in Galle. New arrivals every week.', phone: '077 123 4567', whatsapp: '94771234567', address: '12 Main Street, Galle', city: 'Galle',
+    'abc-fashion': { slug: 'abc-fashion', name: 'ABC Fashion', preset: 'orchid', template: 'classic', logo: null, status: 'ACTIVE', tagline: 'Beautiful clothing for everyone', about: 'Family-run fashion shop in Galle. New arrivals every week.', phone: '077 123 4567', whatsapp: '94771234567', address: '12 Main Street, Galle', city: 'Galle',
       categories: ['Shirts', 'Dresses', 'Kurtas', 'Jackets', 'Accessories', 'Shoes'], delivery: { fee: 350, freeAbove: 10000, pickup: true }, payments: { cod: true, bank: true, online: false }, bank: 'Commercial Bank, ABC Fashion, 1234567890' }
   };
 
@@ -109,6 +109,12 @@
       '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm demo-bar__exit">Exit demo</button></span>';
     document.body.insertBefore(bar, document.body.firstChild);
     bar.querySelector('.demo-bar__exit').addEventListener('click', exitDemo);
+    // The bar can wrap to two rows on small screens; keep the page offset and the
+    // sticky topbar (with the menu button) matched to its real height.
+    function syncOffset() { document.documentElement.style.setProperty('--demo-h', bar.offsetHeight + 'px'); }
+    syncOffset();
+    window.addEventListener('resize', syncOffset);
+    if (window.ResizeObserver) new ResizeObserver(syncOffset).observe(bar);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectBanner);
   else injectBanner();

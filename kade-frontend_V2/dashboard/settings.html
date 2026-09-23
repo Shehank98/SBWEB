@@ -34,6 +34,20 @@
               <div class="kd-field span-2"><label class="kd-label" for="address">Address</label><input class="kd-input" id="address"></div>
             </div>
           </section>
+          <section class="kd-card panel" aria-labelledby="alogo"><h2 id="alogo">Shop logo</h2>
+            <p class="muted">Your logo shows at the top of your store. A clear, square image works best.</p>
+            <div class="row" style="gap:16px;align-items:center;flex-wrap:wrap">
+              <div id="logoPrev" class="logo-prev"></div>
+              <div class="row" style="gap:8px">
+                <label class="kd-btn kd-btn--secondary kd-btn--sm" style="cursor:pointer">Upload logo<input type="file" id="logo" accept="image/*" hidden></label>
+                <button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" id="logoRm" hidden style="color:var(--danger)">Remove</button>
+              </div>
+            </div>
+          </section>
+          <section class="kd-card panel" aria-labelledby="atpl"><h2 id="atpl">Store template</h2>
+            <p class="muted">Choose how your storefront is laid out. You can change it any time.</p>
+            <div class="preset-grid" id="templates" role="radiogroup" aria-labelledby="atpl"></div>
+          </section>
           <section class="kd-card panel" aria-labelledby="a3"><h2 id="a3">Colours</h2>
             <p class="muted">Pick the look for your store. Every colour set is checked to be easy to read.</p>
             <div class="preset-grid" id="presets" role="radiogroup" aria-labelledby="a3"></div>
@@ -75,14 +89,23 @@
       K.shell('dashboard', 'settings');
       var API = !!(window.KadeApi && KadeApi.enabled);
       var PRESETS = [['tea', 'Tea', '#0f5b4a', '#e8a317', '#d9eee5'], ['sapphire', 'Sapphire', '#1b4f9c', '#f2b73f', '#dbe6f7'], ['cinnamon', 'Cinnamon', '#8a3b12', '#f0c36a', '#f4e2d6'], ['orchid', 'Orchid', '#7a2e5c', '#f4b6c2', '#f3dfeb'], ['ink', 'Ink', '#1f2624', '#d9a441', '#e6e9e7']];
+      var TEMPLATES = [['classic', 'Classic', 'A tidy grid of product cards.'], ['showcase', 'Showcase', 'A bold banner and large product cards.'], ['minimal', 'Minimal', 'A clean, compact layout with less chrome.']];
       var $ = function (id) { return document.getElementById(id); };
-      var S = null, preset = 'orchid';
+      var S = null, preset = 'orchid', template = 'classic';
+
+      function initials(n) { return (n || 'S').trim().split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase(); }
+      function paintLogo() {
+        var el = $('logoPrev');
+        if (S && S.logo) { el.innerHTML = '<img src="' + K.esc(S.logo) + '" alt="Store logo">'; $('logoRm').hidden = false; }
+        else { el.textContent = initials(($('name') && $('name').value) || (S && S.name) || 'S'); $('logoRm').hidden = true; }
+      }
 
       function bankBox() { $('bankBox').hidden = !$('bank').checked; }
       function paintPreview() { $('prev').setAttribute('data-preset', preset); $('pname').textContent = $('name').value || 'Your store'; }
 
       function fill() {
         preset = S.preset || 'orchid';
+        template = S.template || 'classic';
         $('url').innerHTML = K.host + '/store/<strong>' + K.esc(S.slug) + '</strong>';
         $('open').href = '../store/index?s=' + S.slug;
         ['name', 'tagline', 'about', 'phone', 'address'].forEach(function (k) { $(k).value = S[k] || ''; });
@@ -91,14 +114,32 @@
         $('fee').value = S.delivery.fee; $('free').value = S.delivery.freeAbove; $('pickup').checked = !!S.delivery.pickup;
         bankBox();
         $('presets').innerHTML = PRESETS.map(function (p) { return '<label class="preset"><input type="radio" name="preset" value="' + p[0] + '"' + (p[0] === preset ? ' checked' : '') + '><span class="preset__swatch" style="--sw-brand:' + p[2] + ';--sw-accent:' + p[3] + ';--sw-soft:' + p[4] + '"><i></i><i></i><i></i></span><strong>' + p[1] + '</strong></label>'; }).join('');
+        $('templates').innerHTML = TEMPLATES.map(function (t) { return '<label class="preset preset--tpl"><input type="radio" name="template" value="' + t[0] + '"' + (t[0] === template ? ' checked' : '') + '><span class="tpl__thumb tpl__thumb--' + t[0] + '" aria-hidden="true"><b></b><i></i><i></i></span><strong>' + t[1] + '</strong><span class="muted" style="font-size:13px">' + t[2] + '</span></label>'; }).join('');
+        paintLogo();
         paintPreview();
       }
 
       var copyUrl = function () { return 'https://' + K.host + '/store/' + (S ? S.slug : ''); };
       $('copy').addEventListener('click', function () { if (navigator.clipboard) navigator.clipboard.writeText(copyUrl()).then(function () { K.toast('Link copied'); }, function () { K.toast('Copy failed. Select the link and copy it.'); }); else K.toast('Select the link and copy it.'); });
-      $('name').addEventListener('input', paintPreview);
+      $('name').addEventListener('input', function () { paintPreview(); if (!(S && S.logo)) paintLogo(); });
       $('bank').addEventListener('change', bankBox);
       $('presets').addEventListener('change', function (e) { preset = e.target.value; paintPreview(); });
+      $('templates').addEventListener('change', function (e) { template = e.target.value; });
+
+      // Logo upload / remove (uploads immediately; saved on the store record).
+      $('logo').addEventListener('change', function () {
+        var file = this.files && this.files[0]; this.value = '';
+        if (!file) return;
+        if (!API) { K.toast('Uploading a logo is disabled in the demo.'); return; }
+        K.toast('Uploading logo…');
+        KadeApi.uploadStoreLogo(file).then(function (r) { S.logo = r.logo; paintLogo(); K.toast('Logo updated'); })
+          .catch(function (ex) { K.toast(ex.message || 'Could not upload the logo.'); });
+      });
+      $('logoRm').addEventListener('click', function () {
+        if (!API) { S.logo = null; paintLogo(); return; }
+        KadeApi.removeStoreLogo().then(function () { S.logo = null; paintLogo(); K.toast('Logo removed'); })
+          .catch(function (ex) { K.toast(ex.message || 'Could not remove the logo.'); });
+      });
 
       $('sf').addEventListener('submit', function (e) {
         e.preventDefault();
@@ -107,7 +148,7 @@
         var payload = {
           name: $('name').value.trim(), tagline: $('tagline').value.trim(), about: $('about').value.trim(),
           phone: $('phone').value.trim(), whatsapp: $('wa').value.trim(), address: $('address').value.trim(),
-          preset: preset, bank: $('bankTxt').value.trim(),
+          preset: preset, template: template, bank: $('bankTxt').value.trim(),
           payments: { cod: $('cod').checked, bank: $('bank').checked, online: false },
           delivery: { fee: +$('fee').value || 0, freeAbove: +$('free').value || 0, pickup: $('pickup').checked }
         };
@@ -115,7 +156,7 @@
           var restore = K.btnLoading(K.$('#sf button[type=submit]'), 'Saving…');
           KadeApi.updateStore(payload).then(function () { restore(); K.toast('Settings saved'); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not save.'); });
         } else {
-          S.name = payload.name; S.tagline = payload.tagline; S.about = payload.about; S.phone = payload.phone; S.whatsapp = payload.whatsapp; S.address = payload.address; S.preset = preset; S.bank = payload.bank;
+          S.name = payload.name; S.tagline = payload.tagline; S.about = payload.about; S.phone = payload.phone; S.whatsapp = payload.whatsapp; S.address = payload.address; S.preset = preset; S.template = template; S.bank = payload.bank;
           S.payments.cod = payload.payments.cod; S.payments.bank = payload.payments.bank;
           S.delivery.fee = payload.delivery.fee; S.delivery.freeAbove = payload.delivery.freeAbove; S.delivery.pickup = payload.delivery.pickup;
           K.toast('Settings saved');

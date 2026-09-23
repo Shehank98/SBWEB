@@ -129,6 +129,8 @@
     adminBadges() { return req('GET', '/api/admin/badges'); },
     myStore() { return req('GET', '/api/dashboard/store'); },
     updateStore(store) { return req('PUT', '/api/dashboard/store', store); },
+    uploadStoreLogo(file) { var fd = new FormData(); fd.append('logo', file); return req('POST', '/api/dashboard/store/logo', fd, true); },
+    removeStoreLogo() { return req('DELETE', '/api/dashboard/store/logo'); },
     deleteMyShop(password) { return req('DELETE', '/api/dashboard/account', { password: password }); },
     coupons() { return req('GET', '/api/dashboard/coupons'); },
     createCoupon(c) { return req('POST', '/api/dashboard/coupons', c); },
