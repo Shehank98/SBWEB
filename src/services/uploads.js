@@ -3,6 +3,13 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from '../config.js';
+import { badRequest } from '../utils/http.js';
+
+// Allowed upload types. Raster images only for photos/logos: never SVG or HTML,
+// which can carry scripts and would run as stored XSS when served from our origin.
+// Payment slips may also be PDFs.
+export const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+export const SLIP_TYPES = new Set([...IMAGE_TYPES, 'application/pdf']);
 
 // Pluggable file storage. Default "local" driver writes to ./uploads and returns a
 // public URL — zero setup. Set UPLOAD_DRIVER=firebase to push to Firebase Storage
@@ -41,7 +48,14 @@ async function getFirebaseBucket() {
  * @param {string} folder  logical folder, e.g. `products/<slug>` or `slips`
  * @returns {Promise<string>} public URL
  */
-export async function saveUpload(file, folder = 'misc') {
+export async function saveUpload(file, folder = 'misc', opts = {}) {
+  const allow = opts.allow || IMAGE_TYPES;
+  if (!file || !file.buffer) throw badRequest('No file was uploaded.');
+  if (!allow.has(file.mimetype)) {
+    throw badRequest(allow.has('application/pdf')
+      ? 'Please upload a JPG, PNG, WEBP, GIF or PDF file.'
+      : 'Please upload a JPG, PNG, WEBP or GIF image.');
+  }
   const safeName = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   const key = `${folder}/${safeName}`;
 

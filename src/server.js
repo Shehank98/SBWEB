@@ -34,8 +34,21 @@ import { productsRouter } from './routes/products.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { storeRouter } from './routes/store.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { serveStorePage, serveProductPage } from './services/pages.js';
 
 const app = express();
+// Behind Railway's proxy: trust it so req.ip reflects the real client (used by the
+// login rate limiter below).
+app.set('trust proxy', 1);
+
+// Baseline security headers on every response.
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');       // don't sniff uploads as HTML/SVG
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');           // clickjacking
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  next();
+});
 
 app.use(
   cors({
@@ -48,6 +61,23 @@ app.use(express.json({ limit: '1mb' }));
 app.use('/uploads', express.static(UPLOAD_DIR));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+
+// Simple in-memory rate limit for login, to blunt password brute-forcing.
+const loginHits = new Map();
+function loginLimiter(req, res, next) {
+  const ip = req.ip || 'unknown';
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const max = 20;
+  if (loginHits.size > 10000) loginHits.clear();
+  let rec = loginHits.get(ip);
+  if (!rec || now - rec.t > windowMs) rec = { c: 0, t: now };
+  rec.c += 1;
+  loginHits.set(ip, rec);
+  if (rec.c > max) return res.status(429).json({ error: 'Too many attempts. Please wait a few minutes and try again.' });
+  next();
+}
+app.use('/api/auth/login', loginLimiter);
 
 app.use('/api/auth', authRouter);
 app.use('/api/plans', plansRouter);
@@ -68,20 +98,25 @@ app.get(/\.html$/i, (req, res, next) => {
   res.redirect(301, clean + qs);
 });
 
+// Storefront and product pages: served with server-side social link previews
+// (Open Graph / Twitter meta with the store name, product name and image) so a
+// shared link shows the shop, not a generic page. Registered before the static
+// middleware so they take precedence over the raw files. The page's own JS still
+// renders the body. Pretty URL /store/<slug> also resolves the storefront here.
+const RESERVED_STORE = new Set(['index', 'product', 'cart']);
+app.get('/store/product', (req, res, next) => serveProductPage(req, res, next));
+app.get(['/store', '/store/index'], (req, res, next) => serveStorePage(req, res, next, req.query.s));
+app.get('/store/:slug', (req, res, next) => {
+  const slug = req.params.slug;
+  if (slug.includes('.') || RESERVED_STORE.has(slug)) return next(); // real files handled by static
+  serveStorePage(req, res, next, slug);
+});
+
 // Serve the frontend (landing, storefront, dashboard, admin) from the same origin.
 // This makes the whole platform a single deployable service: the pages call the API
 // at a relative path, so there is no CORS and no second service to run.
 app.use(express.static(FRONTEND_DIR, { extensions: ['html'] }));
 app.get('/', (_req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
-
-// Pretty storefront URLs: /store/<slug> serves the storefront shell, which reads
-// the slug from the path. The real pages (index, product, cart) are files and are
-// already served by express.static above, so only a genuine slug reaches here.
-// This is what makes the "Visit the shop" links in emails and shared links resolve.
-app.get('/store/:slug', (req, res, next) => {
-  if (req.params.slug.includes('.')) return next(); // let a real asset 404 normally
-  res.sendFile(path.join(FRONTEND_DIR, 'store', 'index.html'));
-});
 
 // Unknown /api routes -> JSON 404; everything else falls through to the frontend 404.
 app.use('/api', notFoundHandler);
@@ -95,6 +130,9 @@ const server = app.listen(config.port, async () => {
     console.log(`[uploads] driver=firebase bucket=${config.firebase.bucket || '(FIREBASE_STORAGE_BUCKET not set!)'}`);
   } else {
     console.log('[uploads] driver=local — files save to ./uploads and are LOST on redeploy. Set UPLOAD_DRIVER=firebase for permanent storage.');
+  }
+  if (config.jwtSecret === 'dev-insecure-secret-change-me') {
+    console.warn('[security] JWT_SECRET is the INSECURE DEFAULT. Anyone could forge login tokens. Set a long random JWT_SECRET before going live!');
   }
   // Prepare the database on boot: apply the schema (idempotent) and seed demo data
   // if empty, then ensure the admin from env vars. This makes a fresh deploy work

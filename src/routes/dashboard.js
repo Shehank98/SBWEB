@@ -3,7 +3,7 @@ import multer from 'multer';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate, requireBusiness, requireOwner, requirePermission } from '../middleware/auth.js';
 import { wrap, badRequest, notFound, conflict, forbidden } from '../utils/http.js';
-import { saveUpload } from '../services/uploads.js';
+import { saveUpload, SLIP_TYPES } from '../services/uploads.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { currentPlan, cap } from '../services/plan.js';
@@ -359,7 +359,7 @@ dashboardRouter.post(
     const plan = (await query('SELECT * FROM plans WHERE id=$1', [planId])).rows[0];
     if (!plan) throw badRequest('Unknown plan.');
     let slipUrl = null;
-    if (req.file) slipUrl = await saveUpload(req.file, 'slips');
+    if (req.file) slipUrl = await saveUpload(req.file, 'slips', { allow: SLIP_TYPES });
     await query(
       `INSERT INTO payments (business_id, subscription_id, plan_id, amount, method, reference, slip_url, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,'PENDING')`,

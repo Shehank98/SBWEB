@@ -4,7 +4,7 @@ import { query, withTransaction } from '../db/pool.js';
 import { hashPassword, verifyPassword, signToken } from '../utils/auth.js';
 import { slugify } from '../utils/slug.js';
 import { wrap, badRequest, unauthorized, conflict } from '../utils/http.js';
-import { saveUpload } from '../services/uploads.js';
+import { saveUpload, SLIP_TYPES } from '../services/uploads.js';
 import { queueNotification, templates } from '../services/notifications.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -44,7 +44,7 @@ authRouter.post(
     let slipUrl = null;
     if (req.file) {
       try {
-        slipUrl = await saveUpload(req.file, 'slips');
+        slipUrl = await saveUpload(req.file, 'slips', { allow: SLIP_TYPES });
       } catch (e) {
         console.error('[register] slip upload failed, continuing without it:', e.message);
       }

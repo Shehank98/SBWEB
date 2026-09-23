@@ -74,7 +74,7 @@ function sendPendingEmails() {
     // Send at most: the batch size, and never more than the quota buffer allows.
     var allowance = Math.min(c.batch, remaining - c.quotaFloor);
     var sent = 0, failed = 0, skipped = 0;
-    var seen = {}; // in-run guard against an exact duplicate slipping through
+    var seen = {}; // in-run guard: never process the same row id twice in one run
 
     for (var i = 0; i < list.length; i++) {
       if (sent >= allowance) {
@@ -82,9 +82,12 @@ function sendPendingEmails() {
         break;
       }
       var n = list[i];
-      var key = (n.recipient || '') + '|' + (n.subject || '');
-      if (seen[key]) { mark_(c, n.id, 'sent'); skipped++; continue; }
-      seen[key] = true;
+      // Guard on the unique row id only. Each notification row is a distinct email
+      // for a specific order and customer, so two rows must never be collapsed by
+      // their content (order codes are unique per shop, not globally). Deduplication
+      // of repeated events is already enforced in the database (dedupe_key).
+      if (seen[n.id]) { skipped++; continue; }
+      seen[n.id] = true;
 
       try {
         MailApp.sendEmail({
