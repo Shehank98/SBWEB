@@ -34,6 +34,14 @@
               <div class="kd-field span-2"><label class="kd-label" for="address">Address</label><input class="kd-input" id="address"></div>
             </div>
           </section>
+          <section class="kd-card panel" aria-labelledby="acat"><h2 id="acat">Product categories</h2>
+            <p class="muted">Customers browse your store by category. Add, rename or delete them here. Renaming moves every product to the new name.</p>
+            <div id="catList" class="cat-list"></div>
+            <div class="row" style="justify-content:space-between;align-items:center;gap:12px;margin-top:4px">
+              <button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="catAdd">+ Add category</button>
+              <span class="kd-help" id="catUsage"></span>
+            </div>
+          </section>
           <section class="kd-card panel" aria-labelledby="alogo"><h2 id="alogo">Shop logo</h2>
             <p class="muted">Your logo shows at the top of your store. A clear, square image works best.</p>
             <div class="row" style="gap:16px;align-items:center;flex-wrap:wrap">
@@ -92,6 +100,52 @@
       var TEMPLATES = [['classic', 'Classic', 'A tidy grid of product cards.'], ['showcase', 'Showcase', 'A bold banner and large product cards.'], ['minimal', 'Minimal', 'A clean, compact layout with less chrome.']];
       var $ = function (id) { return document.getElementById(id); };
       var S = null, preset = 'orchid', template = 'classic';
+      var categories = [], catUsage = { maxCategories: null, plan: '' };
+
+      function renderCats() {
+        var list = $('catList');
+        list.innerHTML = categories.length
+          ? categories.map(function (c) {
+              return '<div class="cat-row"><span class="cat-row__name">' + K.esc(c) + '</span>' +
+                '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" data-ren="' + K.esc(c) + '">Rename</button>' +
+                '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" data-del="' + K.esc(c) + '" style="color:var(--danger)">Delete</button></div>';
+            }).join('')
+          : '<p class="muted">No categories yet. Add your first one below.</p>';
+        var limit = catUsage.maxCategories, u = $('catUsage');
+        if (limit == null) u.textContent = categories.length + ' categories.';
+        else u.innerHTML = categories.length + ' of ' + limit + ' categories used' + (categories.length >= limit ? '. <strong>Upgrade to add more.</strong>' : '.');
+        $('catAdd').disabled = limit != null && categories.length >= limit;
+      }
+      function loadCategories() {
+        if (API) {
+          KadeApi.categories().then(function (r) { categories = r.categories || []; catUsage = r.usage || catUsage; renderCats(); }).catch(function () {});
+        } else { categories = (S.categories || []).slice(); renderCats(); }
+      }
+      function addCat() {
+        var limit = catUsage.maxCategories;
+        if (limit != null && categories.length >= limit) { K.toast('Your ' + (catUsage.plan || '') + ' plan allows up to ' + limit + ' categories. Upgrade to add more.'); return; }
+        K.prompt({ title: 'New category', label: 'Category name', placeholder: 'e.g. Shirts', help: 'Customers browse your store by category.' }).then(function (name) {
+          if (name == null) return; name = String(name).trim(); if (!name) return;
+          if (categories.some(function (c) { return c.toLowerCase() === name.toLowerCase(); })) { K.toast('You already have that category.'); return; }
+          function done() { categories.push(name); catUsage.count = categories.length; renderCats(); K.toast('Category added'); }
+          if (API) KadeApi.createCategory(name).then(done).catch(function (ex) { K.toast(ex.message || 'Could not add category.'); }); else done();
+        });
+      }
+      function renameCat(from) {
+        K.prompt({ title: 'Rename category', label: 'Category name', value: from, help: 'Every product in this category moves to the new name.' }).then(function (name) {
+          if (name == null) return; name = String(name).trim(); if (!name || name === from) return;
+          if (categories.some(function (c) { return c.toLowerCase() === name.toLowerCase() && c.toLowerCase() !== from.toLowerCase(); })) { K.toast('You already have a category with that name.'); return; }
+          function done() { categories = categories.map(function (c) { return c === from ? name : c; }); renderCats(); K.toast('Category renamed'); }
+          if (API) KadeApi.renameCategory(from, name).then(done).catch(function (ex) { K.toast(ex.message || 'Could not rename category.'); }); else done();
+        });
+      }
+      function deleteCat(name) {
+        K.confirm({ title: 'Delete ' + name + '?', body: 'It is removed from your category list. Products keep their details.', confirmLabel: 'Delete category', danger: true }).then(function (ok) {
+          if (!ok) return;
+          function done() { categories = categories.filter(function (c) { return c !== name; }); catUsage.count = categories.length; renderCats(); K.toast('Category deleted'); }
+          if (API) KadeApi.deleteCategory(name).then(done).catch(function (ex) { K.toast(ex.message || 'Could not delete category.'); }); else done();
+        });
+      }
 
       function initials(n) { return (n || 'S').trim().split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase(); }
       function paintLogo() {
@@ -117,6 +171,7 @@
         $('templates').innerHTML = TEMPLATES.map(function (t) { return '<label class="preset preset--tpl"><input type="radio" name="template" value="' + t[0] + '"' + (t[0] === template ? ' checked' : '') + '><span class="tpl__thumb tpl__thumb--' + t[0] + '" aria-hidden="true"><b></b><i></i><i></i></span><strong>' + t[1] + '</strong><span class="muted" style="font-size:13px">' + t[2] + '</span></label>'; }).join('');
         paintLogo();
         paintPreview();
+        loadCategories();
       }
 
       var copyUrl = function () { return 'https://' + K.host + '/store/' + (S ? S.slug : ''); };
@@ -125,6 +180,12 @@
       $('bank').addEventListener('change', bankBox);
       $('presets').addEventListener('change', function (e) { preset = e.target.value; paintPreview(); });
       $('templates').addEventListener('change', function (e) { template = e.target.value; });
+      $('catAdd').addEventListener('click', addCat);
+      $('catList').addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        if (b.getAttribute('data-ren')) renameCat(b.getAttribute('data-ren'));
+        else if (b.getAttribute('data-del')) deleteCat(b.getAttribute('data-del'));
+      });
 
       // Logo upload / remove (uploads immediately; saved on the store record).
       $('logo').addEventListener('change', function () {

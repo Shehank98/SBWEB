@@ -378,6 +378,11 @@ body.has-demo .topbar { top: var(--demo-h, 46px); }
 .preset__swatch { display: flex; height: 40px; border-radius: var(--radius-md); overflow: hidden; }
 .preset__swatch i { flex: 2; background: var(--sw-brand); } .preset__swatch i + i { flex: 1; background: var(--sw-accent); } .preset__swatch i + i + i { flex: 1; background: var(--sw-soft); }
 
+/* Category management list (store settings) */
+.cat-list { display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-3) 0; }
+.cat-row { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-raised); }
+.cat-row__name { flex: 1; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* Shop logo: settings preview + storefront image */
 .logo-prev { width: 72px; height: 72px; border-radius: var(--radius-md); background: var(--brand); color: var(--on-brand); display: flex; align-items: center; justify-content: center; font: 700 26px/1 var(--font-display); overflow: hidden; flex: none; }
 .logo-prev img { width: 100%; height: 100%; object-fit: cover; }
