@@ -36,6 +36,7 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { storeRouter } from './routes/store.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { siteRouter } from './routes/site.js';
+import { onepayRouter } from './routes/onepay.js';
 import { serveStorePage, serveProductPage } from './services/pages.js';
 
 const app = express();
@@ -99,6 +100,8 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/store', storeRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/site', siteRouter);
+// OnePay webhook (JSON per the spec; form-encoded accepted too) and buyer return page.
+app.use('/api/onepay', express.urlencoded({ extended: false, limit: '100kb' }), onepayRouter);
 
 // Clean URLs: never expose ".html". Redirect any .html request to the extensionless
 // path (301), and let express.static resolve the extensionless path back to the file.

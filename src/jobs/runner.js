@@ -8,6 +8,7 @@
 // the jobs queue also carries its own dedupe key as a second safety net.
 import { query } from '../db/pool.js';
 import { runLifecycle } from '../services/subscription.js';
+import { cancelStaleCheckouts } from '../services/cardPayments.js';
 
 const SL_OFFSET_MS = 5.5 * 3600 * 1000; // Asia/Colombo is UTC+05:30 all year (no DST)
 
@@ -50,7 +51,7 @@ async function once(job, period, fn, { force = false } = {}) {
 
 // Daily: subscription lifecycle + trial reminders/expiry.
 export function runDaily(opts) {
-  return once('daily-lifecycle', slDate(), runLifecycle, opts);
+  return once('daily-lifecycle', slDate(), async () => ({ ...(await runLifecycle()), ...(await cancelStaleCheckouts()) }), opts);
 }
 
 // Registry of weekly jobs (filled in by later features, e.g. the Monday summary).

@@ -148,6 +148,7 @@
       if (slipFile) fd.append('slip', slipFile);
       return req('POST', '/api/dashboard/subscription/renew', fd, true);
     },
+    payByCard(planId) { return req('POST', '/api/dashboard/subscription/onepay', { planId: planId }); },
     dashboardBadges() { return req('GET', '/api/dashboard/badges'); },
     access() { return req('GET', '/api/dashboard/access'); },
     adminBadges() { return req('GET', '/api/admin/badges'); },

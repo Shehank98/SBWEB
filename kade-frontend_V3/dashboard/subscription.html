@@ -117,7 +117,7 @@
         K.$$('input[name=plan]').forEach(function (r) { r.addEventListener('change', amt); });
         amt();
       }
-      function amt() { var p = selected(); if (!p) return; K.$('#amt').textContent = K.rs(p.price); K.$('#payPlan').textContent = p.name; }
+      function amt() { var p = selected(); if (!p) return; K.$('#amt').textContent = K.rs(p.price); K.$('#payPlan').textContent = p.name; var b = K.$('#payCard'); if (b) b.textContent = 'Pay ' + K.rs(p.price) + ' securely'; }
 
       function renderBanks(list) {
         if (DEMO) { K.$('#bankAccts').innerHTML = '<p class="muted">Your Sidadiya payment account details appear here once you sign in.</p>'; return; }
@@ -127,6 +127,23 @@
             '<div class="bankrow"><span class="bankrow__k">Name</span><span class="bankrow__v">' + K.esc(a.holder) + '</span></div>' +
             (a.branch ? '<div class="bankrow"><span class="bankrow__k">Branch</span><span class="bankrow__v">' + K.esc(a.branch) + '</span></div>' : '') + '</div>';
         }).join('<hr style="border:0;border-top:1px solid var(--line);margin:8px 0">') || '<p class="muted">Contact us for bank details.</p>';
+      }
+      // Card payment (OnePay, Sidadiya's own merchant account). Same window redirect.
+      function renderCard() {
+        var slot = K.$('#cardSlot'), cp = sub && sub.cardPayments;
+        slot.hidden = !(cp && cp.enabled);
+        if (slot.hidden) return;
+        var p = selected();
+        slot.className = 'pay-option pay-option--card';
+        slot.innerHTML = '<h3>Pay by card <span class="kd-badge kd-badge--success">Instant</span></h3>' +
+          '<p class="muted">Visa, Mastercard or Amex on OnePay\'s secure page (3D Secure). Your plan starts as soon as the payment is confirmed.' + (cp.mode === 'sandbox' ? ' <strong>(Test mode)</strong>' : '') + '</p>' +
+          '<button class="kd-btn kd-btn--primary kd-btn--block" type="button" id="payCard">Pay ' + K.rs(p ? p.price : 0) + ' securely</button>' +
+          '<p class="kd-help" style="display:flex;gap:6px;align-items:center">🔒 We never see or store your card details.</p>';
+        K.$('#payCard').addEventListener('click', function () {
+          var restore = K.btnLoading(this, 'Opening secure payment…');
+          KadeApi.payByCard(selected().id).then(function (r) { location.href = r.redirectUrl; })
+            .catch(function (ex) { restore(); K.toast(ex.message || 'Could not open the card payment.'); });
+        });
       }
       function renderHist(list) {
         K.$('#hist').innerHTML = (list || []).map(function (p) { return '<tr><td>' + K.fmtDate(p.submitted) + '</td><td>' + K.esc(p.plan || '-') + '</td><td>' + K.esc(p.method) + (p.ref ? '<br><span class="muted" style="font-size:13px">' + K.esc(p.ref) + '</span>' : '') + '</td><td>' + K.badge('pay', p.status) + (p.reason ? '<br><span class="muted" style="font-size:13px">' + K.esc(p.reason) + '</span>' : '') + '</td><td class="kd-num">' + K.rs(p.amount) + '</td></tr>'; }).join('') || '<tr><td colspan="5" class="muted" style="padding:12px">No payments yet.</td></tr>';
@@ -148,11 +165,18 @@
       function refresh() {
         return KadeApi.subscription().then(function (s) {
           sub = s;
-          renderWall(); renderCurrent(); renderChoices(); renderBanks(s.bankAccounts); renderHist(s.payments);
+          renderWall(); renderCurrent(); renderChoices(); renderBanks(s.bankAccounts); renderHist(s.payments); renderCard();
           return s;
         });
       }
       window.KadeSubscription = { selected: selected, refresh: refresh, notice: notice, get sub() { return sub; } };
+
+      // Back from OnePay: show the verified outcome.
+      var back = new URLSearchParams(location.search).get('payment');
+      if (back === 'success') notice('Payment received. Thank you!', 'Your plan is active and your store is open. A receipt is on its way to your email.');
+      else if (back === 'failed') notice('The card payment did not go through', 'Nothing was charged for this attempt. Please try again, or pay by bank transfer.', 'danger');
+      else if (back === 'pending') notice('We are confirming your payment', 'If you completed the payment, this page updates within a few minutes. If you cancelled, you can try again below.', 'warning');
+      if (back) history.replaceState(null, '', location.pathname);
 
       if (API) {
         K.loading(K.$('#current'), 'Loading…');

@@ -147,6 +147,14 @@ export const templates = {
     message: `${business.name}'s subscription expires in ${days} day${days === 1 ? '' : 's'}. Renew now to keep your store online.`,
     data: { heading: 'Renewal reminder', business: business.name, days, expiry: business.expiry || '', renewUrl: dashUrl('subscription') },
   }),
+  // ---- Card payment receipts ----
+  subscriptionReceipt: (business, r) => ({
+    type: 'SUBSCRIPTION_RECEIPT',
+    subject: `Receipt: ${r.plan} plan, Rs. ${Number(r.amount).toLocaleString('en-US')}`,
+    message: `Thank you. We received Rs. ${r.amount} for the ${r.plan} plan for ${business.name}. Reference ${r.reference} (OnePay ${r.transactionId}). Paid on ${r.paidOn}. Your plan is active until ${r.validUntil}.`,
+    data: { heading: 'Payment received', business: business.name, plan: r.plan, amount: r.amount, reference: r.reference, transactionId: r.transactionId, paidOn: r.paidOn, validUntil: r.validUntil, method: 'Card (OnePay)', planUrl: dashUrl('subscription') },
+  }),
+
   // ---- Seller verification ----
   verificationSubmitted: (business) => ({
     type: 'VERIFICATION_SUBMITTED',

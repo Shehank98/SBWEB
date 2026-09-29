@@ -5,6 +5,8 @@ import { authenticate, requireBusiness, requireOwner, requirePermission } from '
 import { wrap, badRequest, notFound, conflict, forbidden } from '../utils/http.js';
 import { saveUpload, savePrivate, SLIP_TYPES } from '../services/uploads.js';
 import { config } from '../config.js';
+import { startSubscriptionCheckout } from '../services/cardPayments.js';
+import { platformCreds } from '../services/onepay.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { currentPlan, cap, businessAccess, assertFeature, paywall, trialInfo } from '../services/plan.js';
@@ -369,8 +371,21 @@ dashboardRouter.get(
       renewalDate: sub && sub.expiry_date ? sub.expiry_date.toISOString().slice(0, 10) : null,
       preferredPlanId: biz ? biz.preferred_plan_id : null,
       bankAccounts: await getSetting('platform_bank_accounts', []),
+      cardPayments: { enabled: !!platformCreds(), mode: platformCreds() ? platformCreds().mode : null },
       payments,
     });
+  })
+);
+
+// ---- Pay the platform subscription by card (OnePay, the platform's own account) ----
+// Returns the OnePay page to send the seller to (same window). Activation happens
+// only after the payment is verified (webhook or return page).
+dashboardRouter.post(
+  '/subscription/onepay',
+  requireOwner,
+  wrap(async (req, res) => {
+    const out = await startSubscriptionCheckout(bid(req), String((req.body && req.body.planId) || ''));
+    res.status(201).json(out);
   })
 );
 
