@@ -147,6 +147,26 @@ export const templates = {
     message: `${business.name}'s subscription expires in ${days} day${days === 1 ? '' : 's'}. Renew now to keep your store online.`,
     data: { heading: 'Renewal reminder', business: business.name, days, expiry: business.expiry || '', renewUrl: dashUrl('subscription') },
   }),
+  // ---- Seller verification ----
+  verificationSubmitted: (business) => ({
+    type: 'VERIFICATION_SUBMITTED',
+    subject: `Verification to review: ${business.name}`,
+    message: `${business.name} uploaded an ID copy and address proof. Review them in the admin panel: ${BASE}/admin/shop?id=${business.id}`,
+    data: { heading: 'New verification to review', business: business.name, reviewUrl: `${BASE}/admin/shop?id=${business.id}` },
+  }),
+  verificationApproved: (business, store) => ({
+    type: 'VERIFICATION_APPROVED',
+    subject: 'Your business is verified ✓',
+    message: `Good news! ${business.name} is now a Verified Sri Lankan Business on Sidadiya. The verified seal now shows on your store and product pages.`,
+    data: { heading: 'Your business is verified', business: business.name, storeUrl: store && store.slug ? storeUrl(store.slug) : '' },
+  }),
+  verificationRejected: (business, reason) => ({
+    type: 'VERIFICATION_REJECTED',
+    subject: 'We could not verify your business yet',
+    message: `We could not verify ${business.name} yet. Reason: ${reason}. Please upload clearer documents in Store settings and submit again.`,
+    data: { heading: 'Verification needs attention', business: business.name, reason, settingsUrl: dashUrl('settings#verification') },
+  }),
+
   // ---- Free trial ----
   trialStarted: (business, store, trial) => ({
     type: 'TRIAL_STARTED',

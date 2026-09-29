@@ -3,7 +3,8 @@ import multer from 'multer';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate, requireBusiness, requireOwner, requirePermission } from '../middleware/auth.js';
 import { wrap, badRequest, notFound, conflict, forbidden } from '../utils/http.js';
-import { saveUpload, SLIP_TYPES } from '../services/uploads.js';
+import { saveUpload, savePrivate, SLIP_TYPES } from '../services/uploads.js';
+import { config } from '../config.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { currentPlan, cap, businessAccess, assertFeature, paywall, trialInfo } from '../services/plan.js';
@@ -568,6 +569,61 @@ dashboardRouter.post(
     const url = await saveUpload(req.file, `logos/${store.slug}`);
     await query('UPDATE stores SET logo_url=$2 WHERE business_id=$1', [b, url]);
     res.json({ logo: url });
+  })
+);
+
+// ---- Seller verification: ID copy + address proof, stored PRIVATELY ----
+dashboardRouter.get(
+  '/verification',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const biz = (await query('SELECT verification_status, verification_reason, verification_submitted_at, verification_reviewed_at FROM businesses WHERE id=$1', [b])).rows[0];
+    const docs = (await query('SELECT kind, filename, uploaded_at FROM verification_documents WHERE business_id=$1', [b])).rows;
+    res.json({
+      status: biz.verification_status,
+      reason: biz.verification_status === 'REJECTED' ? biz.verification_reason : null,
+      submittedAt: biz.verification_submitted_at,
+      reviewedAt: biz.verification_reviewed_at,
+      // File names only. Sellers never get a link back: the documents stay private.
+      documents: docs.map((d) => ({ kind: d.kind, filename: d.filename, uploadedAt: d.uploaded_at })),
+    });
+  })
+);
+
+dashboardRouter.post(
+  '/verification',
+  requireOwner,
+  upload.fields([{ name: 'idDoc', maxCount: 1 }, { name: 'addressDoc', maxCount: 1 }]),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const f = (k) => (req.files && req.files[k] && req.files[k][0]) || null;
+    const biz = (await query('SELECT id, name, verification_status FROM businesses WHERE id=$1', [b])).rows[0];
+    if (biz.verification_status === 'VERIFIED') throw badRequest('Your business is already verified.');
+    const have = new Set((await query('SELECT kind FROM verification_documents WHERE business_id=$1', [b])).rows.map((r) => r.kind));
+    // On a resubmission after a rejection, both documents must be uploaded again.
+    const needBoth = biz.verification_status === 'REJECTED';
+    if ((!f('idDoc') && (needBoth || !have.has('id'))) || (!f('addressDoc') && (needBoth || !have.has('address')))) {
+      throw badRequest('Upload both your ID copy and your address proof.');
+    }
+    for (const [field, kind] of [['idDoc', 'id'], ['addressDoc', 'address']]) {
+      const file = f(field);
+      if (!file) continue;
+      const key = await savePrivate(file, b, kind);
+      await query(
+        `INSERT INTO verification_documents (business_id, kind, storage_key, filename, content_type, size_bytes, uploaded_at)
+         VALUES ($1,$2,$3,$4,$5,$6, now())
+         ON CONFLICT (business_id, kind) DO UPDATE SET storage_key=EXCLUDED.storage_key, filename=EXCLUDED.filename,
+           content_type=EXCLUDED.content_type, size_bytes=EXCLUDED.size_bytes, uploaded_at=now()`,
+        [b, kind, key, String(file.originalname || kind).slice(0, 120), file.mimetype, file.size]
+      );
+    }
+    await query(
+      `UPDATE businesses SET verification_status='PENDING', verification_reason=NULL, verification_submitted_at=now() WHERE id=$1`,
+      [b]
+    );
+    await queueNotification({ businessId: b, recipient: config.admin.email, dedupeKey: `VERIFY_SUBMITTED:${b}:${Date.now()}`, ...templates.verificationSubmitted(biz) });
+    res.status(201).json({ ok: true, status: 'PENDING' });
   })
 );
 

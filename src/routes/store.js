@@ -18,7 +18,7 @@ const LIVE = LIVE_STATUSES;
 async function loadStore(slug) {
   const row = (
     await query(
-      `SELECT st.*, b.status AS business_status, b.id AS biz_id, b.name AS biz_name, b.email AS biz_email
+      `SELECT st.*, b.status AS business_status, b.id AS biz_id, b.name AS biz_name, b.email AS biz_email, b.verification_status
          FROM stores st JOIN businesses b ON b.id = st.business_id
         WHERE st.slug = $1`,
       [slug]
@@ -37,6 +37,8 @@ storeRouter.get(
     const cats = (await query('SELECT name FROM categories WHERE business_id=$1 ORDER BY sort_order, name', [st.biz_id])).rows.map((r) => r.name);
     const store = S.storePublic(st, cats);
     store.status = st.business_status;
+    // Shown as the "Verified Sri Lankan Business" seal on the store header and product pages.
+    store.verified = st.verification_status === 'VERIFIED';
 
     if (!LIVE.has(st.business_status)) {
       return res.json({ store, products: [], available: false });

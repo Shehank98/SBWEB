@@ -302,7 +302,7 @@
     function can(sec) { if (role !== 'BUSINESS_STAFF') return true; return (perms || []).indexOf(sec) >= 0; }
     var ownerOnly = role !== 'BUSINESS_STAFF';
     var items = kind === 'admin'
-      ? [['index', 'Overview', 'home'], ['businesses', 'Businesses', 'shop', pendingApprovals], ['payments', 'Payments', 'receipt', pendingPay], ['settings', 'Settings', 'gear']]
+      ? [['index', 'Overview', 'home'], ['shops', 'Shops', 'shop'], ['payments', 'Payments', 'receipt', pendingPay], ['businesses', 'Approvals', 'users', pendingApprovals], ['settings', 'Settings', 'gear']]
       : [
           ['index', 'Overview', 'home'],
           can('orders') && ['orders', 'Orders', 'bag', pendingOrders],
@@ -334,7 +334,7 @@
     function loadBadges() {
       if (!api) return;
       if (kind === 'admin' && KadeApi.adminBadges) {
-        KadeApi.adminBadges().then(function (r) { setBadge('businesses', r.pendingApprovals || 0); setBadge('payments', r.pendingPayments || 0); }).catch(function () {});
+        KadeApi.adminBadges().then(function (r) { setBadge('businesses', r.pendingApprovals || 0); setBadge('payments', r.pendingPayments || 0); setBadge('shops', r.pendingVerifications || 0); }).catch(function () {});
       } else if (KadeApi.dashboardBadges) {
         KadeApi.dashboardBadges().then(function (r) { setBadge('orders', r.pendingOrders || 0); }).catch(function () {});
       }
@@ -353,7 +353,7 @@
       '<div class="row"><button class="kd-btn kd-btn--ghost" type="button" id="theme-toggle"></button></div>';
 
     /* Bottom tab bar on phones: the main destinations sit under the thumb */
-    var SHORT = { settings: kind === 'admin' ? 'Settings' : 'Store', index: 'Home', orders: 'Orders', products: 'Products', reports: 'Reports', coupons: 'Coupons', staff: 'Staff', subscription: 'Plan', policies: 'Policies', businesses: 'Businesses', payments: 'Payments' };
+    var SHORT = { settings: kind === 'admin' ? 'Settings' : 'Store', index: 'Home', orders: 'Orders', products: 'Products', reports: 'Reports', coupons: 'Coupons', staff: 'Staff', subscription: 'Plan', policies: 'Policies', shops: 'Shops', businesses: 'Approvals', payments: 'Payments' };
     var oldTab = K.$('.tabbar'); if (oldTab) oldTab.remove();
     var tabbar = document.createElement('nav'); tabbar.className = 'tabbar'; tabbar.setAttribute('aria-label', 'Primary');
     tabbar.innerHTML = items.slice(0, 5).map(function (i) { return '<a href="' + i[0] + '"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + (SHORT[i[0]] || i[1]) + '</span>' + (i[3] ? '<b class="tcount" aria-label="' + i[3] + ' waiting">' + i[3] + '</b>' : '') + '</a>'; }).join('');

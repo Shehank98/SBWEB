@@ -52,6 +52,15 @@
               </div>
             </div>
           </section>
+          <section class="kd-card panel" id="verification" aria-labelledby="aver"><div class="row row--between"><h2 id="aver">Business verification</h2><span id="verBadge"></span></div>
+            <p class="muted">Get the <strong>Verified Sri Lankan Business</strong> seal on your store and product pages. Upload a copy of your NIC (or passport) and a proof of address such as a utility bill. Your documents are stored privately and only Sidadiya admins can see them.</p>
+            <div id="verState" style="margin-top:12px"></div>
+            <div id="verForm" class="form-grid form-grid--2" style="margin-top:12px">
+              <div class="kd-field"><label class="kd-label" for="idDoc">ID copy (NIC or passport)</label><input class="kd-input" id="idDoc" type="file" accept="image/png,image/jpeg,image/webp,application/pdf"></div>
+              <div class="kd-field"><label class="kd-label" for="addrDoc">Address proof (utility bill, bank statement or Grama Niladhari letter)</label><input class="kd-input" id="addrDoc" type="file" accept="image/png,image/jpeg,image/webp,application/pdf"></div>
+              <div class="span-2"><button class="kd-btn kd-btn--primary" type="button" id="verSubmit">Submit for verification</button></div>
+            </div>
+          </section>
           <section class="kd-card panel" aria-labelledby="acover"><h2 id="acover">Cover photo</h2>
             <p class="muted">The wide banner at the top of your store. A bright photo of your products or shop works best (about 1600 × 600).</p>
             <div id="coverPrev" class="cover-prev"></div>
@@ -214,6 +223,33 @@
         KadeApi.uploadStoreLogo(file).then(function (r) { S.logo = r.logo; paintLogo(); K.toast('Logo updated'); })
           .catch(function (ex) { K.toast(ex.message || 'Could not upload the logo.'); });
       });
+      // Business verification: status + private document upload.
+      var idZone = K.dropzone($('idDoc'), { title: 'Add your ID copy', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your ID copy' });
+      var addrZone = K.dropzone($('addrDoc'), { title: 'Add your address proof', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your address proof' });
+      var VER = { NOT_SUBMITTED: ['neutral', 'Not submitted'], PENDING: ['warning', 'Pending review'], VERIFIED: ['success', 'Verified'], REJECTED: ['danger', 'Rejected'] };
+      function paintVerification(v) {
+        var b = VER[v.status] || VER.NOT_SUBMITTED;
+        $('verBadge').innerHTML = '<span class="kd-badge kd-badge--' + b[0] + '">' + b[1] + '</span>';
+        var docs = (v.documents || []).map(function (d) { return (d.kind === 'id' ? 'ID copy' : 'Address proof') + ': ' + K.esc(d.filename || 'uploaded'); }).join('<br>');
+        var msg = {
+          NOT_SUBMITTED: '',
+          PENDING: '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">We are checking your documents</p><p>This usually takes 1 to 2 working days. We will email you.</p>' + (docs ? '<p class="muted" style="margin-top:6px">' + docs + '</p>' : '') + '</div></div>',
+          VERIFIED: '<div class="kd-banner kd-banner--success"><div><p class="kd-banner__title">Your business is verified ✓</p><p>The Verified Sri Lankan Business seal shows on your store and product pages.</p></div></div>',
+          REJECTED: '<div class="kd-banner kd-banner--danger"><div><p class="kd-banner__title">We could not verify your business</p><p>Reason: ' + K.esc(v.reason || 'Please upload clearer documents.') + '</p><p style="margin-top:4px">Upload both documents again and resubmit.</p></div></div>'
+        }[v.status] || '';
+        $('verState').innerHTML = msg;
+        $('verForm').hidden = v.status === 'VERIFIED' || v.status === 'PENDING';
+      }
+      if (API && KadeApi.verification) KadeApi.verification().then(paintVerification).catch(function () {});
+      // A button (not a nested <form>): this section lives inside the main settings form.
+      $('verSubmit').addEventListener('click', function () {
+        if (!idZone.file() || !addrZone.file()) { K.toast('Add both documents first.'); return; }
+        var restore = K.btnLoading($('verSubmit'), 'Uploading…');
+        KadeApi.submitVerification(idZone.file(), addrZone.file()).then(function () {
+          restore(); idZone.clear(); addrZone.clear(); K.toast('Submitted for review'); return KadeApi.verification().then(paintVerification);
+        }).catch(function (ex) { restore(); K.toast(ex.message); });
+      });
+
       // Cover photo upload / remove (same pattern as the logo).
       function paintCover() {
         var el = $('coverPrev');

@@ -5,7 +5,9 @@ import { wrap, badRequest, notFound, conflict } from '../utils/http.js';
 import { slugify } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
-import { activateSubscription, extendSubscription, applyPaidPlan } from '../services/subscription.js';
+import { activateSubscription, extendSubscription, applyPaidPlan, extendTrial } from '../services/subscription.js';
+import { compliance } from '../services/policies.js';
+import { signedPrivateUrl } from '../services/uploads.js';
 import { getSetting, setSetting } from '../services/settings.js';
 
 export const adminRouter = Router();
@@ -23,7 +25,214 @@ adminRouter.get(
     const pendingPayments = Number(
       (await query("SELECT COUNT(*) c FROM payments WHERE status='PENDING'")).rows[0].c
     );
-    res.json({ pendingApprovals, pendingPayments });
+    const pendingVerifications = Number(
+      (await query("SELECT COUNT(*) c FROM businesses WHERE verification_status='PENDING'")).rows[0].c
+    );
+    res.json({ pendingApprovals, pendingPayments, pendingVerifications });
+  })
+);
+
+// =====================================================================================
+// Shops tab: every shop with plan, trial/subscription state, days left, verification
+// and order count. Search, filters, pagination.
+// =====================================================================================
+const SHOP_FILTERS = {
+  trial: "b.status = 'TRIAL'",
+  active: "b.status IN ('ACTIVE','EXPIRING','GRACE_PERIOD')",
+  expired: "b.status IN ('TRIAL_EXPIRED','SUSPENDED','CANCELLED')",
+  verified: "b.verification_status = 'VERIFIED'",
+  pending_verification: "b.verification_status = 'PENDING'",
+  pending_approval: "b.status IN ('PENDING_APPROVAL','PENDING_PAYMENT')",
+};
+
+function daysLeftOf(row) {
+  const end = row.status === 'TRIAL' || row.status === 'TRIAL_EXPIRED' ? row.trial_ends_at : row.expiry_date;
+  if (!end) return null;
+  return Math.ceil((new Date(end) - Date.now()) / 86400000);
+}
+
+function shopRow(r) {
+  return {
+    id: r.id,
+    name: r.store_name || r.name,
+    slug: r.slug,
+    owner: r.owner_name || '',
+    ownerEmail: r.owner_email || r.email || '',
+    plan: r.plan_name || '',
+    planId: r.plan_id || null,
+    status: r.status,
+    onTrial: r.status === 'TRIAL',
+    daysLeft: daysLeftOf(r),
+    endsOn: (r.status === 'TRIAL' || r.status === 'TRIAL_EXPIRED' ? r.trial_ends_at : r.expiry_date) || null,
+    created: r.created_at,
+    verification: r.verification_status,
+    orders: Number(r.order_count || 0),
+  };
+}
+
+const SHOP_SELECT = `
+  SELECT b.*, st.slug, st.name AS store_name, u.name AS owner_name, u.email AS owner_email,
+         sub.plan_id, pl.name AS plan_name, sub.expiry_date,
+         (SELECT COUNT(*) FROM orders o WHERE o.business_id = b.id) AS order_count
+    FROM businesses b
+    LEFT JOIN stores st ON st.business_id = b.id
+    LEFT JOIN LATERAL (SELECT name, email FROM users WHERE business_id = b.id AND role = 'BUSINESS_OWNER' ORDER BY created_at LIMIT 1) u ON true
+    LEFT JOIN LATERAL (SELECT plan_id, expiry_date FROM subscriptions WHERE business_id = b.id ORDER BY created_at DESC LIMIT 1) sub ON true
+    LEFT JOIN plans pl ON pl.id = sub.plan_id`;
+
+adminRouter.get(
+  '/shops',
+  wrap(async (req, res) => {
+    const where = [];
+    const params = [];
+    const q = String(req.query.q || '').trim().slice(0, 80);
+    if (q) {
+      params.push(`%${q.toLowerCase()}%`);
+      where.push(`(lower(b.name) LIKE $${params.length} OR lower(st.name) LIKE $${params.length} OR lower(st.slug) LIKE $${params.length}
+                   OR lower(u.name) LIKE $${params.length} OR lower(u.email) LIKE $${params.length} OR lower(b.email) LIKE $${params.length})`);
+    }
+    const filter = String(req.query.filter || '');
+    if (SHOP_FILTERS[filter]) where.push(SHOP_FILTERS[filter]);
+    const pageSize = Math.min(100, Math.max(5, Number(req.query.pageSize) || 20));
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const total = Number((await query(`SELECT COUNT(*) c FROM (${SHOP_SELECT} ${w}) t`, params)).rows[0].c);
+    const { rows } = await query(
+      `${SHOP_SELECT} ${w} ORDER BY b.created_at DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`,
+      params
+    );
+    const counts = (await query(`SELECT
+        COUNT(*) all_shops,
+        COUNT(*) FILTER (WHERE ${SHOP_FILTERS.trial}) trial,
+        COUNT(*) FILTER (WHERE ${SHOP_FILTERS.active}) active,
+        COUNT(*) FILTER (WHERE ${SHOP_FILTERS.expired}) expired,
+        COUNT(*) FILTER (WHERE ${SHOP_FILTERS.verified}) verified,
+        COUNT(*) FILTER (WHERE ${SHOP_FILTERS.pending_verification}) pending_verification
+      FROM businesses b`)).rows[0];
+    res.json({
+      shops: rows.map(shopRow),
+      page, pageSize, total, pages: Math.max(1, Math.ceil(total / pageSize)),
+      counts: Object.fromEntries(Object.entries(counts).map(([k, v]) => [k, Number(v)])),
+    });
+  })
+);
+
+adminRouter.get(
+  '/shops/:id',
+  wrap(async (req, res) => {
+    const r = (await query(`${SHOP_SELECT} WHERE b.id = $1`, [req.params.id])).rows[0];
+    if (!r) throw notFound('Shop not found.');
+    const store = (await query('SELECT * FROM stores WHERE business_id = $1', [r.id])).rows[0] || {};
+    const payments = (await query(
+      `SELECT p.*, pl.name plan_name FROM payments p LEFT JOIN plans pl ON pl.id = p.plan_id WHERE p.business_id = $1 ORDER BY p.submitted_at DESC LIMIT 50`,
+      [r.id]
+    )).rows.map((p) => ({ id: p.id, plan: p.plan_name || '', amount: p.amount, method: p.method, ref: p.reference || '', status: p.status, submitted: p.submitted_at, reason: p.reason || null, slip: p.slip_url || null }));
+    const docs = (await query('SELECT kind, filename, content_type, size_bytes, uploaded_at FROM verification_documents WHERE business_id = $1', [r.id])).rows;
+    const sales = (await query("SELECT COALESCE(SUM(total),0) s FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'", [r.id])).rows[0];
+    const products = (await query('SELECT COUNT(*) c FROM products WHERE business_id = $1', [r.id])).rows[0];
+    res.json({
+      shop: {
+        ...shopRow(r),
+        business: { type: r.type, phone: r.phone, whatsapp: r.whatsapp, email: r.email, address: r.address, city: r.city, district: r.district, facebook: r.facebook, instagram: r.instagram },
+        trial: r.trial_ends_at ? { startedAt: r.trial_started_at, endsAt: r.trial_ends_at } : null,
+        preferredPlanId: r.preferred_plan_id,
+        store: { slug: store.slug, name: store.name, logo: store.logo_url || null, contactEmail: store.contact_email || '', address: store.address || '' },
+        sales: Number(sales.s),
+        products: Number(products.c),
+        verificationReason: r.verification_reason,
+        verificationSubmittedAt: r.verification_submitted_at,
+        documents: docs.map((d) => ({ kind: d.kind, filename: d.filename, contentType: d.content_type, size: d.size_bytes, uploadedAt: d.uploaded_at })),
+      },
+      payments,
+      compliance: await compliance(r.id),
+    });
+  })
+);
+
+// Short-lived signed URL (5 minutes) for one verification document. Never public.
+adminRouter.get(
+  '/shops/:id/documents/:kind',
+  wrap(async (req, res) => {
+    const d = (await query('SELECT storage_key, content_type, filename FROM verification_documents WHERE business_id = $1 AND kind = $2', [req.params.id, req.params.kind])).rows[0];
+    if (!d) throw notFound('Document not found.');
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ url: await signedPrivateUrl(d.storage_key, 300), contentType: d.content_type, filename: d.filename, expiresIn: 300 });
+  })
+);
+
+adminRouter.post(
+  '/shops/:id/extend-trial',
+  wrap(async (req, res) => {
+    const biz = await loadBusiness(req.params.id);
+    const days = Number(req.body && req.body.days);
+    if (!Number.isInteger(days) || days < 1 || days > 90) throw badRequest('Extend by 1 to 90 days.');
+    if (!['TRIAL', 'TRIAL_EXPIRED'].includes(biz.status)) throw badRequest('Only shops on a trial (or with an ended trial) can have it extended.');
+    const ends = await withTransaction((c) => extendTrial(c, biz.id, days));
+    res.json({ ok: true, status: 'TRIAL', trialEndsAt: ends });
+  })
+);
+
+// Change the plan on the shop's current subscription (feature flags and limits
+// switch immediately; dates are unchanged). Use "activate" to give paid time.
+adminRouter.post(
+  '/shops/:id/plan',
+  wrap(async (req, res) => {
+    const biz = await loadBusiness(req.params.id);
+    const plan = (await query('SELECT id FROM plans WHERE id = $1', [req.body && req.body.planId])).rows[0];
+    if (!plan) throw badRequest('Unknown plan.');
+    const upd = await query(
+      `UPDATE subscriptions SET plan_id = $2 WHERE id = (SELECT id FROM subscriptions WHERE business_id = $1 ORDER BY created_at DESC LIMIT 1)`,
+      [biz.id, plan.id]
+    );
+    if (!upd.rowCount) await query(`INSERT INTO subscriptions (business_id, plan_id, status) VALUES ($1, $2, 'PENDING_PAYMENT')`, [biz.id, plan.id]);
+    res.json({ ok: true, planId: plan.id });
+  })
+);
+
+// Activate (e.g. a manual deal): give N paid days on a plan and open the store.
+adminRouter.post(
+  '/shops/:id/activate',
+  wrap(async (req, res) => {
+    const biz = await loadBusiness(req.params.id);
+    const days = Number(req.body && req.body.days) || 30;
+    if (!Number.isInteger(days) || days < 1 || days > 366) throw badRequest('Activate for 1 to 366 days.');
+    const planId = (req.body && req.body.planId) || (await query('SELECT plan_id FROM subscriptions WHERE business_id=$1 ORDER BY created_at DESC LIMIT 1', [biz.id])).rows[0]?.plan_id || 'starter';
+    const out = await withTransaction(async (c) => {
+      const cur = (await c.query('SELECT id, status FROM subscriptions WHERE business_id=$1 ORDER BY created_at DESC LIMIT 1', [biz.id])).rows[0];
+      if (!cur || ['TRIAL', 'EXPIRED'].includes(cur.status)) {
+        await c.query(`INSERT INTO subscriptions (business_id, plan_id, status, start_date, expiry_date) VALUES ($1,$2,'ACTIVE',now(), now() + ($3 || ' days')::interval)`, [biz.id, planId, String(days)]);
+        await c.query(`UPDATE businesses SET status='ACTIVE' WHERE id=$1`, [biz.id]);
+        return new Date(Date.now() + days * 86400000);
+      }
+      await c.query('UPDATE subscriptions SET plan_id=$2 WHERE id=$1', [cur.id, planId]);
+      return extendSubscription(c, biz.id, days);
+    });
+    res.json({ ok: true, status: 'ACTIVE', expiry: out });
+  })
+);
+
+adminRouter.post(
+  '/shops/:id/verification/approve',
+  wrap(async (req, res) => {
+    const biz = await loadBusiness(req.params.id);
+    if (biz.verification_status !== 'PENDING') throw badRequest('There is no pending verification for this shop.');
+    await query(`UPDATE businesses SET verification_status='VERIFIED', verification_reason=NULL, verification_reviewed_at=now(), verification_reviewed_by=$2 WHERE id=$1`, [biz.id, req.user.sub]);
+    const store = (await query('SELECT slug FROM stores WHERE business_id=$1', [biz.id])).rows[0];
+    await queueNotification({ businessId: biz.id, recipient: biz.email, dedupeKey: `VERIFIED:${biz.id}:${Date.now()}`, ...templates.verificationApproved(biz, store) });
+    res.json({ ok: true, verification: 'VERIFIED' });
+  })
+);
+
+adminRouter.post(
+  '/shops/:id/verification/reject',
+  wrap(async (req, res) => {
+    const biz = await loadBusiness(req.params.id);
+    const reason = String((req.body && req.body.reason) || '').trim().slice(0, 500);
+    if (!reason) throw badRequest('A reason is required to reject.');
+    if (!['PENDING', 'VERIFIED'].includes(biz.verification_status)) throw badRequest('Nothing to reject for this shop.');
+    await query(`UPDATE businesses SET verification_status='REJECTED', verification_reason=$2, verification_reviewed_at=now(), verification_reviewed_by=$3 WHERE id=$1`, [biz.id, reason, req.user.sub]);
+    await queueNotification({ businessId: biz.id, recipient: biz.email, dedupeKey: `VERIFY_REJECTED:${biz.id}:${Date.now()}`, ...templates.verificationRejected(biz, reason) });
+    res.json({ ok: true, verification: 'REJECTED' });
   })
 );
 

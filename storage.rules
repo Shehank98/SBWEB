@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Firebase Storage security rules for Sidadiya.
+// Deploy with:  firebase deploy --only storage   (or paste into Firebase console > Storage > Rules)
+//
+// The backend writes every file with the Admin SDK, which bypasses these rules, so
+// clients never need write access. Browsers do not sign in to Firebase Auth in this
+// app, so private files are effectively readable ONLY through the short-lived signed
+// URLs the backend creates for admins. The owner/admin clause below is ready for the
+// day custom claims are added (admin: true / shopId: "<business uuid>").
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Seller verification documents (ID copy, address proof): private per shop.
+    match /private/shops/{shopId}/{allPaths=**} {
+      allow read: if request.auth != null
+                  && (request.auth.token.admin == true || request.auth.token.shopId == shopId);
+      allow write: if false;
+    }
+
+    // Public storefront media (product photos, logos, covers, payment slips): these are
+    // served with Firebase download-token URLs created by the backend.
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}
