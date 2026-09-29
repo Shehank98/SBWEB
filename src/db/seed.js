@@ -10,10 +10,17 @@ const OWNER_PASSWORD = 'demo12345';
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d; }
 function daysAhead(n) { return daysAgo(-n); }
 
+const FLAGS = {
+  starter: { card_payments: true, weekly_summary: true, coupons: false, reports: false, advanced_reports: false, staff: false },
+  business: { card_payments: true, weekly_summary: true, coupons: true, reports: true, advanced_reports: false, staff: false },
+  pro: { card_payments: true, weekly_summary: true, coupons: true, reports: true, advanced_reports: true, staff: true },
+};
+// Starting values for a brand-new database. After the first insert the admin owns
+// these rows (Admin Settings), see seedPlans below.
 export const plans = [
-  { id: 'starter', name: 'Starter', price: 1500, duration_days: 30, max_products: 100, max_images: 1, max_categories: 5, max_variants: 2, features: ['Up to 100 products', 'Up to 5 categories', '1 photo per product', 'Up to 2 variants per product', 'Order dashboard', 'Email order alerts'], sort_order: 1 },
-  { id: 'business', name: 'Business', price: 2500, duration_days: 30, max_products: 500, max_images: 5, max_categories: 20, max_variants: 5, features: ['Up to 500 products', 'Up to 20 categories', 'Up to 5 photos per product', 'Up to 5 variants per product', 'Coupons and discounts', 'Sales reports'], sort_order: 2 },
-  { id: 'pro', name: 'Pro', price: 5000, duration_days: 30, max_products: null, max_images: null, max_categories: null, max_variants: null, features: ['Unlimited products', 'Unlimited categories', 'Unlimited photos & variants', 'Staff accounts', 'Advanced reports', 'Priority support'], sort_order: 3 },
+  { id: 'starter', name: 'Starter', price: 999, compare_at_price: 1500, tagline: 'Everything to start selling online', duration_days: 30, max_products: 100, max_images: 1, max_categories: 5, max_variants: 2, feature_flags: FLAGS.starter, features: ['Up to 100 products', 'Up to 5 categories', '1 photo per product', 'Up to 2 variants per product', 'Order dashboard', 'Email order alerts'], sort_order: 1 },
+  { id: 'business', name: 'Business', price: 1399, tagline: 'Coupons and sales reports', duration_days: 30, max_products: 500, max_images: 5, max_categories: 20, max_variants: 5, feature_flags: FLAGS.business, features: ['Up to 500 products', 'Up to 20 categories', 'Up to 5 photos per product', 'Up to 5 variants per product', 'Coupons and discounts', 'Sales reports'], sort_order: 2 },
+  { id: 'pro', name: 'Pro', price: 2000, tagline: 'Staff accounts and deep insights', duration_days: 30, max_products: null, max_images: null, max_categories: null, max_variants: null, feature_flags: FLAGS.pro, features: ['Unlimited products', 'Unlimited categories', 'Unlimited photos & variants', 'Staff accounts', 'Advanced reports', 'Priority support'], sort_order: 3 },
 ];
 
 // Insert the pricing plans if they are missing. Insert-only (ON CONFLICT DO NOTHING):
@@ -23,11 +30,11 @@ export const plans = [
 export async function seedPlans(q) {
   for (const p of plans) {
     await q(
-      `INSERT INTO plans (id,name,price,duration_days,max_products,max_images,max_categories,max_variants,features,sort_order)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      `INSERT INTO plans (id,name,price,duration_days,max_products,max_images,max_categories,max_variants,features,sort_order,compare_at_price,feature_flags,tagline)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
        ON CONFLICT (id) DO NOTHING`,
       [p.id, p.name, p.price, p.duration_days, p.max_products, p.max_images, p.max_categories, p.max_variants,
-       JSON.stringify(p.features), p.sort_order]
+       JSON.stringify(p.features), p.sort_order, p.compare_at_price ?? null, JSON.stringify(p.feature_flags || {}), p.tagline || null]
     );
   }
 }

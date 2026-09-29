@@ -32,8 +32,8 @@
   /* ---------- Status badges (word + shape, never colour alone) ---------- */
   var BADGES = {
     order: { PENDING: ['warning', 'Pending'], CONFIRMED: ['info', 'Confirmed'], PROCESSING: ['info', 'Processing'], READY_TO_SHIP: ['info', 'Ready to ship'], SHIPPED: ['info', 'Shipped'], DELIVERED: ['success', 'Delivered'], CANCELLED: ['danger', 'Cancelled'] },
-    sub: { PENDING_PAYMENT: ['neutral', 'Pending payment'], PENDING_APPROVAL: ['warning', 'Pending approval'], ACTIVE: ['success', 'Active'], EXPIRING: ['warning', 'Expiring'], GRACE_PERIOD: ['warning', 'Grace period'], SUSPENDED: ['danger', 'Suspended'], CANCELLED: ['danger', 'Cancelled'] },
-    pay: { PENDING: ['warning', 'Pending review'], APPROVED: ['success', 'Approved'], REJECTED: ['danger', 'Rejected'] }
+    sub: { TRIAL: ['info', 'Free trial'], TRIAL_EXPIRED: ['danger', 'Trial ended'], PENDING_PAYMENT: ['neutral', 'Pending payment'], PENDING_APPROVAL: ['warning', 'Pending approval'], ACTIVE: ['success', 'Active'], EXPIRING: ['warning', 'Expiring'], GRACE_PERIOD: ['warning', 'Grace period'], SUSPENDED: ['danger', 'Suspended'], CANCELLED: ['danger', 'Cancelled'] },
+    pay: { PENDING: ['warning', 'Pending review'], APPROVED: ['success', 'Paid'], REJECTED: ['danger', 'Rejected'], FAILED: ['danger', 'Failed'], CANCELLED: ['neutral', 'Cancelled'], PROCESSING: ['info', 'Processing'] }
   };
   K.ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED'];
   K.orderLabel = function (s) { return BADGES.order[s][1]; };
@@ -301,7 +301,7 @@
     function can(sec) { if (role !== 'BUSINESS_STAFF') return true; return (perms || []).indexOf(sec) >= 0; }
     var ownerOnly = role !== 'BUSINESS_STAFF';
     var items = kind === 'admin'
-      ? [['index', 'Overview', 'home'], ['businesses', 'Businesses', 'shop', pendingApprovals], ['payments', 'Payments', 'receipt', pendingPay]]
+      ? [['index', 'Overview', 'home'], ['businesses', 'Businesses', 'shop', pendingApprovals], ['payments', 'Payments', 'receipt', pendingPay], ['settings', 'Settings', 'gear']]
       : [
           ['index', 'Overview', 'home'],
           can('orders') && ['orders', 'Orders', 'bag', pendingOrders],
@@ -351,12 +351,13 @@
       '<div class="row"><button class="kd-btn kd-btn--ghost" type="button" id="theme-toggle"></button></div>';
 
     /* Bottom tab bar on phones: the main destinations sit under the thumb */
-    var SHORT = { index: 'Home', orders: 'Orders', products: 'Products', reports: 'Reports', coupons: 'Coupons', staff: 'Staff', subscription: 'Plan', settings: 'Store', businesses: 'Businesses', payments: 'Payments' };
+    var SHORT = { settings: kind === 'admin' ? 'Settings' : 'Store', index: 'Home', orders: 'Orders', products: 'Products', reports: 'Reports', coupons: 'Coupons', staff: 'Staff', subscription: 'Plan', businesses: 'Businesses', payments: 'Payments' };
     var oldTab = K.$('.tabbar'); if (oldTab) oldTab.remove();
     var tabbar = document.createElement('nav'); tabbar.className = 'tabbar'; tabbar.setAttribute('aria-label', 'Primary');
     tabbar.innerHTML = items.slice(0, 5).map(function (i) { return '<a href="' + i[0] + '"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + (SHORT[i[0]] || i[1]) + '</span>' + (i[3] ? '<b class="tcount" aria-label="' + i[3] + ' waiting">' + i[3] + '</b>' : '') + '</a>'; }).join('');
     document.body.appendChild(tabbar);
     loadBadges();
+    if (kind !== 'admin' && api) K.loadAccess(active);
     /* Tables become cards on phones: copy each column heading onto its cell */
     function labelTables() {
       K.$$('.app .kd-table').forEach(function (t) {
@@ -386,6 +387,35 @@
     paint();
   };
 
+  /* ---------- Plan / trial access state (owner dashboard) ----------
+     Fetches /api/dashboard/access once per page. Shows the trial countdown banner,
+     and sends a locked shop (trial ended / plan lapsed) to the payment wall on the
+     subscription page. Pages can wait on K.access (a promise) for plan flags. */
+  K.access = null;
+  K.loadAccess = function (active) {
+    var sess = KadeApi.currentUser ? KadeApi.currentUser() : null;
+    K.access = KadeApi.access().then(function (a) {
+      var main = K.$('#main'); if (!main) return a;
+      var old = K.$('#access-banner'); if (old) old.remove();
+      var box = document.createElement('div'); box.id = 'access-banner';
+      var isOwner = !sess || sess.role !== 'BUSINESS_STAFF';
+      if (a.locked) {
+        if (isOwner && active !== 'subscription') { location.replace('subscription?wall=1'); return a; }
+        box.innerHTML = isOwner ? '' : '<div class="kd-banner kd-banner--danger" role="alert"><div><p class="kd-banner__title">The store is paused</p><p>The store owner needs to choose a plan to reopen the store and this dashboard.</p></div></div>';
+      } else if (a.trial && a.status === 'TRIAL') {
+        var d = a.trial.daysLeft, urgent = d <= 4;
+        box.innerHTML = '<div class="trial-banner' + (urgent ? ' trial-banner--urgent' : '') + '" role="status">' +
+          '<div class="trial-banner__count" aria-hidden="true"><strong>' + d + '</strong><span>day' + (d === 1 ? '' : 's') + '</span></div>' +
+          '<div class="trial-banner__text"><p class="trial-banner__title">' + (d <= 0 ? 'Your free trial ends today' : 'Free trial: ' + d + ' day' + (d === 1 ? '' : 's') + ' left') + '</p>' +
+          '<p>You are on Starter features. Ends ' + K.fmtDate(String(a.trial.endsAt).slice(0, 10)) + '. Pick a plan now and keep your remaining free days.</p></div>' +
+          (isOwner && active !== 'subscription' ? '<a class="kd-btn kd-btn--accent kd-btn--sm" href="subscription">Choose a plan</a>' : '') + '</div>';
+      }
+      if (box.innerHTML) main.insertBefore(box, main.firstChild);
+      return a;
+    }).catch(function () { return null; });
+    return K.access;
+  };
+
   /* Auth guard for protected pages. In mock mode (file://) it allows through so the
      offline prototype still works. Returns false after redirecting. */
   K.guard = function (kind, section) {
@@ -412,7 +442,8 @@
   K.bars = function (el, data, o) {
     o = o || {};
     var W = 640, H = 240, ml = 44, mr = 8, mt = 24, mb = 28, pw = W - ml - mr, ph = H - mt - mb;
-    var max = Math.max.apply(null, data.map(function (d) { return d.value; }));
+    // Floor at 1 so a brand-new shop with no sales yet (all zeros) still draws an axis.
+    var max = Math.max.apply(null, data.map(function (d) { return d.value; }).concat([1]));
     var sc = nice(max), band = pw / data.length, bw = Math.min(24, band * 0.5);
     var y = function (v) { return mt + ph - (v / sc.top) * ph; };
     var maxI = data.reduce(function (m, d, i) { return d.value > data[m].value ? i : m; }, 0), lastI = data.length - 1;

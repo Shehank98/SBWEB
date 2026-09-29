@@ -130,6 +130,17 @@ export function plan(row) {
     price: row.price,
     durationDays: row.duration_days,
     maxProducts: row.max_products,
+    maxImages: row.max_images,
+    maxCategories: row.max_categories,
+    maxVariants: row.max_variants,
+    compareAtPrice: row.compare_at_price ?? null,
+    tagline: row.tagline || '',
+    flags: row.feature_flags || {},
     features: row.features || [],
   };
+}
+
+// Admin view of a plan: everything editable, including inactive plans.
+export function planAdmin(row) {
+  return { ...plan(row), status: row.status, sortOrder: row.sort_order, updatedAt: row.updated_at || null };
 }

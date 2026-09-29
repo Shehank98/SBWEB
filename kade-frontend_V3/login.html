@@ -42,7 +42,8 @@
       btn.disabled = true; btn.innerHTML = '<span class="kd-spinner"></span> Signing in…';
       try {
         var user = await KadeApi.login(em.value.trim(), pw.value);
-        location.href = user.role === 'SUPER_ADMIN' ? 'admin/index' : 'dashboard/index';
+        var locked = user.businessStatus === 'TRIAL_EXPIRED' || user.businessStatus === 'SUSPENDED';
+        location.href = user.role === 'SUPER_ADMIN' ? 'admin/index' : (locked && user.role === 'BUSINESS_OWNER' ? 'dashboard/subscription?wall=1' : 'dashboard/index');
       } catch (ex) {
         err.hidden = false; err.textContent = ex.message || 'Could not sign in.';
         btn.disabled = false; btn.textContent = 'Log in';

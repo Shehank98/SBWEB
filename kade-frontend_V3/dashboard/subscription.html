@@ -19,23 +19,40 @@
       <main class="main" id="main" tabindex="-1">
 
         <div class="page-head"><div><h1>Subscription</h1><p>Your plan, renewal date and payments.</p></div></div>
+        <div id="wall"></div>
         <div id="notice"></div>
-        <div class="grid-2">
-          <section class="kd-card panel" aria-labelledby="s1"><h2 id="s1">Current plan</h2><div id="current"></div></section>
-          <section class="kd-card panel" aria-labelledby="s2"><h2 id="s2">If your plan ends</h2>
-            <ul class="timeline"><li><time>Plan ends</time><span>You get a reminder. Your store stays open for 5 more days (grace period).</span></li><li><time>After grace</time><span>Your store is paused. Customers see that it is temporarily unavailable.</span></li><li><time>When you renew</time><span>Your store opens again, with all products, photos and orders exactly as you left them.</span></li></ul>
-          </section>
-        </div>
-        <section class="kd-card panel" aria-labelledby="s3"><h2 id="s3">Renew or change plan</h2>
-          <form id="renew" class="stack-lg" novalidate>
-            <fieldset style="border:0;padding:0;margin:0"><legend class="kd-label" style="margin-bottom:8px">Plan</legend><div class="choice" id="choices"></div></fieldset>
-            <div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Pay by bank transfer</p><p style="margin-top:4px">Send <strong id="amt"></strong> to one of these accounts, then upload your slip.</p>
-              <p id="bankAccts" style="margin-top:8px;line-height:1.7"><strong>Commercial Bank</strong>: PS Kavishka, account 8006307123, Arpico Super Hyde Park branch.<br><strong>Sampath Bank</strong>: PS Kavishka, account 121057700812, Karagampitiya branch.</p></div></div>
-            <div class="kd-field" style="max-width:460px"><label class="kd-label" for="slip">Payment slip</label><input class="kd-input" id="slip" type="file" accept="image/*,application/pdf"></div>
-            <div><button class="kd-btn kd-btn--primary" type="submit">Send payment slip</button></div>
-          </form>
+
+        <section class="kd-card panel" aria-labelledby="s1" style="margin-bottom:var(--space-4)">
+          <h2 id="s1">Current plan</h2>
+          <div id="current" class="facts"></div>
+          <div id="meter" style="margin-top:var(--space-3)"></div>
         </section>
-        <section class="kd-card" aria-labelledby="s4"><h2 class="heading" id="s4" style="padding:16px 16px 0">Payment history</h2><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Date</th><th scope="col">Plan</th><th scope="col">Method</th><th scope="col">Status</th><th scope="col" class="kd-num">Amount</th></tr></thead><tbody id="hist"></tbody></table></div></section>
+
+        <section class="kd-card panel" aria-labelledby="s2" style="margin-bottom:var(--space-4)">
+          <h2 id="s2">Choose your plan</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">Prices in LKR per month. Paying during your free trial keeps your remaining free days.</p>
+          <fieldset style="border:0;padding:0;margin:0"><legend class="visually-hidden">Plan</legend><div class="plan-cards" id="choices"></div></fieldset>
+        </section>
+
+        <section class="kd-card panel" aria-labelledby="s3" style="margin-bottom:var(--space-4)">
+          <h2 id="s3">Pay for <span id="payPlan">your plan</span>: <span id="amt"></span></h2>
+          <div class="pay-options">
+            <div id="cardSlot" hidden></div>
+            <form id="renew" class="pay-option" novalidate>
+              <h3>Bank transfer</h3>
+              <p class="muted">Send the amount to one of these accounts, then upload your slip. We activate your plan after checking it, usually within a day.</p>
+              <div id="bankAccts" class="stack"></div>
+              <div class="kd-field"><label class="kd-label" for="slip">Payment slip</label><input class="kd-input" id="slip" type="file" accept="image/*,application/pdf"></div>
+              <div><button class="kd-btn kd-btn--secondary kd-btn--block" type="submit">Send payment slip</button></div>
+            </form>
+          </div>
+        </section>
+
+        <section class="kd-card" aria-labelledby="s4" style="margin-bottom:var(--space-4)"><h2 class="heading" id="s4" style="padding:16px 16px 0">Payment history</h2><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Date</th><th scope="col">Plan</th><th scope="col">Method</th><th scope="col">Status</th><th scope="col" class="kd-num">Amount</th></tr></thead><tbody id="hist"></tbody></table></div></section>
+
+        <section class="kd-card panel" aria-labelledby="s5"><h2 id="s5">If your plan ends</h2>
+          <ul class="timeline"><li><time>Plan ends</time><span>You get reminders before it ends. A paid plan stays open for 5 more days (grace period).</span></li><li><time>After that</time><span>Your store is paused. Customers see that it is temporarily unavailable.</span></li><li><time>When you pay</time><span>Your store opens again, with all products, photos and orders exactly as you left them.</span></li></ul>
+        </section>
       </main>
     </div>
   </div>
@@ -48,64 +65,104 @@
     (function () {
       var K = Kade, D = KadeData;
       if (!K.guard('owner', 'subscription')) return;
-      // Never expose the real payment accounts on the public demo.
-      try { if (sessionStorage.getItem('kade-demo') === '1') { var ba = document.getElementById('bankAccts'); if (ba) ba.textContent = 'Your Sidadiya payment account details appear here once you sign in.'; } } catch (e) {}
       K.shell('dashboard', 'subscription');
       var API = !!(window.KadeApi && KadeApi.enabled);
+      var DEMO = false; try { DEMO = sessionStorage.getItem('kade-demo') === '1'; } catch (e) {}
       var slipZone = K.dropzone(K.$('#slip'), { title: 'Drag & drop your payment slip', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your payment slip' });
+      var LOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
 
-      var plans = [], current = { planName: '-', price: 0, durationDays: 30, status: null, expiry: null };
+      var plans = [], sub = null;
+
+      function planById(id) { return plans.filter(function (p) { return p.id === id; })[0]; }
+      function selected() { var el = K.$('input[name=plan]:checked'); return el ? planById(el.value) : plans[0]; }
+      function fact(label, value) { return '<div class="fact"><span>' + K.esc(label) + '</span><strong>' + value + '</strong></div>'; }
+
+      function renderWall() {
+        var st = sub && sub.status;
+        if (st !== 'TRIAL_EXPIRED' && st !== 'SUSPENDED') { K.$('#wall').innerHTML = ''; return; }
+        K.$('#wall').innerHTML = '<div class="paywall" role="alert"><div class="paywall__lock">' + LOCK + '</div>' +
+          '<h2>' + (st === 'TRIAL_EXPIRED' ? 'Your free trial has ended' : 'Your store is paused') + '</h2>' +
+          '<p>Your store is closed to buyers until you choose a plan. Everything you set up (products, photos, orders and settings) is saved and comes back the moment you pay.</p></div>';
+      }
 
       function renderCurrent() {
-        var days = current.expiry ? K.daysUntil(current.expiry) : null;
-        var total = current.durationDays || 30, used = days == null ? 0 : Math.min(total, Math.max(0, total - days));
-        var tone = days != null && days <= 3 ? 'danger' : (days != null && days <= 7 ? 'warning' : '');
-        K.$('#current').innerHTML = '<div class="row row--between"><div><p class="display-md">' + K.esc(current.planName) + '</p><p class="muted">' + K.rs(current.price) + ' every ' + total + ' days</p></div>' + K.badge('sub', current.status || (days != null && days <= 7 ? 'EXPIRING' : 'ACTIVE')) + '</div>' +
-          (current.expiry ? '<div><div class="kd-meter' + (tone ? ' kd-meter--' + tone : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + used + '" aria-label="Days used this period"><span style="width:' + (used / total * 100) + '%"></span></div><div class="row row--between" style="margin-top:8px"><strong>' + days + ' days left</strong><span class="muted">Ends ' + K.fmtDate(current.expiry) + '</span></div></div>' : '<p class="muted" style="margin-top:8px">Your plan starts once your first payment is approved.</p>');
+        var s = sub || {}, p = s.plan || {}, t = s.trial;
+        var html = fact('Plan', K.esc(s.onTrial ? 'Free trial (Starter)' : (p.name || 'None'))) + fact('Status', K.badge('sub', s.status || 'ACTIVE'));
+        if (s.onTrial && t) {
+          html += fact('Trial days left', String(t.daysLeft)) + fact('Trial ends', K.fmtDate(String(t.endsAt).slice(0, 10)));
+        } else {
+          var days = s.expiryDate ? K.daysUntil(s.expiryDate) : null;
+          html += fact('Days left', days == null ? '-' : String(Math.max(0, days))) + fact('Renews on', s.renewalDate ? K.fmtDate(s.renewalDate) : '-');
+        }
+        K.$('#current').innerHTML = html;
+        var trialLen = t && t.startedAt ? Math.max(1, Math.round((new Date(t.endsAt) - new Date(t.startedAt)) / 86400000)) : 14;
+        var total = s.onTrial && t ? trialLen : (p.durationDays || 30);
+        var left = s.onTrial && t ? t.daysLeft : (s.expiryDate ? Math.max(0, K.daysUntil(s.expiryDate)) : null);
+        if (left == null) { K.$('#meter').innerHTML = ''; return; }
+        var used = Math.min(total, Math.max(0, total - left)), tone = left <= 3 ? 'danger' : (left <= 7 ? 'warning' : '');
+        K.$('#meter').innerHTML = '<div class="kd-meter' + (tone ? ' kd-meter--' + tone : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + used + '" aria-label="Days used this period"><span style="width:' + (used / total * 100) + '%"></span></div>';
       }
-      function plan() { var el = K.$('input[name=plan]:checked'); return el ? plans.filter(function (p) { return p.id === el.value; })[0] : plans[0]; }
-      function amt() { var el = K.$('#amt'), p = plan(); if (el && p) el.textContent = K.rs(p.price); }
+
       function renderChoices() {
-        K.$('#choices').innerHTML = plans.map(function (p) { return '<label><input type="radio" name="plan" value="' + p.id + '"' + (p.name === current.planName ? ' checked' : '') + '><span><strong>' + p.name + '</strong> <span class="price">' + K.rs(p.price) + ' / ' + p.durationDays + ' days</span> ' + (p.name === current.planName ? '<span class="kd-badge kd-badge--neutral">Current</span>' : '') + '<br><span class="muted">' + K.esc((p.features || []).join(', ')) + '</span></span></label>'; }).join('');
+        var cur = sub && !sub.onTrial && sub.plan ? sub.plan.id : null;
+        var pre = cur || (sub && sub.preferredPlanId) || 'business';
+        K.$('#choices').innerHTML = plans.map(function (p) {
+          var save = p.compareAtPrice ? Math.round((1 - p.price / p.compareAtPrice) * 100) : 0;
+          return '<label class="plan-card"><input type="radio" name="plan" value="' + K.esc(p.id) + '"' + (p.id === pre ? ' checked' : '') + '>' +
+            '<div class="plan-card__head"><div><p class="plan-card__name">' + K.esc(p.name) + (p.id === cur ? ' <span class="kd-badge kd-badge--neutral">Current</span>' : '') + '</p><p class="plan-card__tag">' + K.esc(p.tagline || '') + '</p></div><span class="plan-card__radio" aria-hidden="true"></span></div>' +
+            '<p class="plan-card__price"><strong>' + K.rs(p.price) + '</strong>' + (p.compareAtPrice ? '<s>' + K.rs(p.compareAtPrice) + '</s> <span class="save-pill">Save ' + save + '%</span>' : '') + '<span>/ month</span></p>' +
+            '<ul>' + (p.features || []).map(function (f) { return '<li>' + K.esc(f) + '</li>'; }).join('') + '</ul></label>';
+        }).join('');
         if (!K.$('input[name=plan]:checked') && K.$('input[name=plan]')) K.$('input[name=plan]').checked = true;
         K.$$('input[name=plan]').forEach(function (r) { r.addEventListener('change', amt); });
         amt();
       }
-      function renderHist(list) {
-        K.$('#hist').innerHTML = (list || []).map(function (p) { return '<tr><td>' + K.fmtDate(p.submitted) + '</td><td>' + K.esc(p.plan || current.planName) + '</td><td>' + K.esc(p.method) + '</td><td>' + K.badge('pay', p.status) + '</td><td class="kd-num">' + K.rs(p.amount) + '</td></tr>'; }).join('') || '<tr><td colspan="5" class="muted" style="padding:12px">No payments yet.</td></tr>';
+      function amt() { var p = selected(); if (!p) return; K.$('#amt').textContent = K.rs(p.price); K.$('#payPlan').textContent = p.name; }
+
+      function renderBanks(list) {
+        if (DEMO) { K.$('#bankAccts').innerHTML = '<p class="muted">Your Sidadiya payment account details appear here once you sign in.</p>'; return; }
+        K.$('#bankAccts').innerHTML = (list || []).map(function (a) {
+          return '<div class="bankgrid"><div class="bankrow"><span class="bankrow__k">Bank</span><span class="bankrow__v">' + K.esc(a.bank) + '</span></div>' +
+            '<div class="bankrow"><span class="bankrow__k">Account</span><span class="bankrow__v">' + K.esc(a.accountNo) + '</span></div>' +
+            '<div class="bankrow"><span class="bankrow__k">Name</span><span class="bankrow__v">' + K.esc(a.holder) + '</span></div>' +
+            (a.branch ? '<div class="bankrow"><span class="bankrow__k">Branch</span><span class="bankrow__v">' + K.esc(a.branch) + '</span></div>' : '') + '</div>';
+        }).join('<hr style="border:0;border-top:1px solid var(--line);margin:8px 0">') || '<p class="muted">Contact us for bank details.</p>';
       }
-      function notice() { K.$('#notice').innerHTML = '<div class="kd-banner kd-banner--success" role="status"><div><p class="kd-banner__title">Payment slip received</p><p style="margin-top:4px">We will check it and extend your store. You will get an email when it is done.</p></div></div>'; window.scrollTo({ top: 0, behavior: 'smooth' }); }
-      function mockHist() { return D.payments.filter(function (p) { return p.business === 'ABC Fashion'; }).sort(function (a, b) { return a.submitted < b.submitted ? 1 : -1; }); }
+      function renderHist(list) {
+        K.$('#hist').innerHTML = (list || []).map(function (p) { return '<tr><td>' + K.fmtDate(p.submitted) + '</td><td>' + K.esc(p.plan || '-') + '</td><td>' + K.esc(p.method) + (p.ref ? '<br><span class="muted" style="font-size:13px">' + K.esc(p.ref) + '</span>' : '') + '</td><td>' + K.badge('pay', p.status) + (p.reason ? '<br><span class="muted" style="font-size:13px">' + K.esc(p.reason) + '</span>' : '') + '</td><td class="kd-num">' + K.rs(p.amount) + '</td></tr>'; }).join('') || '<tr><td colspan="5" class="muted" style="padding:12px">No payments yet.</td></tr>';
+      }
+      function notice(title, body, tone) { K.$('#notice').innerHTML = '<div class="kd-banner kd-banner--' + (tone || 'success') + '" role="status" style="margin-bottom:var(--space-4)"><div><p class="kd-banner__title">' + K.esc(title) + '</p><p style="margin-top:4px">' + K.esc(body) + '</p></div></div>'; window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
       K.$('#renew').addEventListener('submit', function (e) {
         e.preventDefault();
         var s = K.$('#slip'), fl = s.closest('.kd-field'), o = fl.querySelector('.kd-error'); if (o) o.remove();
         if (!slipZone.file()) { fl.classList.add('kd-field--error'); var m = document.createElement('span'); m.className = 'kd-error'; m.textContent = 'Upload your payment slip first.'; fl.appendChild(m); return; }
         fl.classList.remove('kd-field--error');
-        if (API) {
-          var restore = K.btnLoading(K.$('#renew button[type=submit]'), 'Sending…');
-          KadeApi.renew({ planId: plan().id, method: 'Bank transfer' }, slipZone.file()).then(function () { slipZone.clear(); notice(); return refresh(); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not send the slip.'); });
-        } else {
-          D.payments.unshift({ id: 'pay' + Date.now(), business: 'ABC Fashion', owner: 'Kasun Perera', plan: plan().name, amount: plan().price, method: 'Bank transfer', ref: '', submitted: D.today, status: 'PENDING' });
-          renderHist(mockHist()); slipZone.clear(); notice();
-        }
+        if (!API) { slipZone.clear(); notice('Payment slip received', 'We will check it and activate your plan.'); return; }
+        var restore = K.btnLoading(K.$('#renew button[type=submit]'), 'Sending…');
+        KadeApi.renew({ planId: selected().id, method: 'Bank transfer' }, slipZone.file())
+          .then(function () { restore(); slipZone.clear(); notice('Payment slip received', 'We will check it and activate your plan. You will get an email when it is done.'); return refresh(); })
+          .catch(function (ex) { restore(); K.toast(ex.message || 'Could not send the slip.'); });
       });
 
       function refresh() {
-        return KadeApi.subscription().then(function (sub) {
-          current = { planName: sub.plan ? sub.plan.name : '-', price: sub.plan ? sub.plan.price : 0, durationDays: sub.plan ? sub.plan.durationDays : 30, status: sub.status, expiry: sub.expiryDate };
-          renderCurrent(); renderChoices(); renderHist(sub.payments);
+        return KadeApi.subscription().then(function (s) {
+          sub = s;
+          renderWall(); renderCurrent(); renderChoices(); renderBanks(s.bankAccounts); renderHist(s.payments);
+          return s;
         });
       }
+      window.KadeSubscription = { selected: selected, refresh: refresh, notice: notice, get sub() { return sub; } };
 
       if (API) {
         K.loading(K.$('#current'), 'Loading…');
-        KadeApi.plans().then(function (r) { plans = r.plans; return refresh(); }).catch(function () { K.$('#current').innerHTML = '<p class="muted">Could not load your subscription.</p>'; });
+        KadeApi.plans().then(function (r) { plans = r.plans; return refresh(); })
+          .catch(function () { K.$('#current').innerHTML = '<p class="muted">Could not load your subscription.</p>'; });
       } else {
         var me = D.businesses[0];
         plans = D.plans;
-        current = { planName: me.plan, price: (D.plans.filter(function (p) { return p.name === me.plan; })[0] || {}).price, durationDays: 30, status: null, expiry: me.expiry };
-        renderCurrent(); renderChoices(); renderHist(mockHist());
+        sub = { status: 'ACTIVE', onTrial: false, plan: { id: 'business', name: me.plan, durationDays: 30 }, expiryDate: me.expiry, renewalDate: me.expiry, payments: [] };
+        renderCurrent(); renderChoices(); renderBanks([]); renderHist(D.payments.filter(function (p) { return p.business === 'ABC Fashion'; }));
       }
     })();
   </script>

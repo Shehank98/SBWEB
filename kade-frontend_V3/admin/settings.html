@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings | Sidadiya admin</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+        <div class="page-head"><div><h1>Settings</h1><p>Plans, trial, payments and the text shown across Sidadiya.</p></div></div>
+        <nav class="settings-nav" aria-label="Settings sections" id="snav">
+          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#bank">Bank accounts</a>
+        </nav>
+
+        <section class="kd-card panel" id="plans" aria-labelledby="h-plans" style="margin-bottom:var(--space-4)">
+          <h2 id="h-plans">Plans and features</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">Prices are LKR per month. A struck-through price is optional and must be higher than the price. Feature switches decide what each plan unlocks, immediately, for every shop on that plan. Leave a limit empty for unlimited.</p>
+          <div id="planList"></div>
+        </section>
+
+        <section class="kd-card panel" id="trial" aria-labelledby="h-trial" style="margin-bottom:var(--space-4)">
+          <h2 id="h-trial">Free trial</h2>
+          <form id="trialForm" class="stack" novalidate>
+            <div class="kd-field" style="max-width:220px"><label class="kd-label" for="trialDays">Trial length (days)</label><input class="kd-input" id="trialDays" type="number" min="1" max="90" inputmode="numeric"><span class="kd-help">New shops only. Reminders go out 4 days and 1 day before the end.</span></div>
+            <div><button class="kd-btn kd-btn--primary" type="submit">Save trial length</button></div>
+          </form>
+        </section>
+
+        <section class="kd-card panel" id="bank" aria-labelledby="h-bank" style="margin-bottom:var(--space-4)">
+          <h2 id="h-bank">Bank accounts for manual payments</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">Shown to sellers who pay their subscription by bank transfer.</p>
+          <form id="bankForm" class="stack" novalidate><div id="bankRows" class="stack"></div>
+            <div class="row"><button class="kd-btn kd-btn--ghost" type="button" id="addBank">Add account</button><button class="kd-btn kd-btn--primary" type="submit">Save bank accounts</button></div>
+          </form>
+        </section>
+        <div id="moreSections"></div>
+      </main>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade;
+      if (!K.guard('admin')) return;
+      K.shell('admin', 'settings');
+      var defs = [];
+
+      function num(v) { return v == null ? '' : String(v); }
+      function field(id, label, value, attrs, help) {
+        return '<div class="kd-field"><label class="kd-label" for="' + id + '">' + label + '</label><input class="kd-input" id="' + id + '" value="' + K.esc(value) + '" ' + (attrs || '') + '>' + (help ? '<span class="kd-help">' + help + '</span>' : '') + '</div>';
+      }
+      function planHtml(p) {
+        var id = 'p-' + p.id;
+        return '<form class="plan-editor" data-plan="' + K.esc(p.id) + '" novalidate>' +
+          '<div class="row row--between"><h3 class="heading">' + K.esc(p.name) + ' <span class="muted" style="font-size:14px">(' + K.esc(p.id) + ')</span></h3>' +
+          '<label class="kd-check"><input type="checkbox" name="visible"' + (p.status !== 'HIDDEN' ? ' checked' : '') + '><span class="kd-check__text">Shown to sellers</span></label></div>' +
+          '<div class="form-grid form-grid--2">' +
+            field(id + '-name', 'Name', p.name, 'name="name" maxlength="40"') +
+            field(id + '-tag', 'Tagline', p.tagline || '', 'name="tagline" maxlength="80"') +
+            field(id + '-price', 'Price (LKR / month)', num(p.price), 'name="price" type="number" min="1" inputmode="numeric" required') +
+            field(id + '-cmp', 'Struck-through price', num(p.compareAtPrice), 'name="compareAtPrice" type="number" min="1" inputmode="numeric"', 'Optional, e.g. 1500') +
+            field(id + '-dur', 'Billing period (days)', num(p.durationDays), 'name="durationDays" type="number" min="1" max="366" inputmode="numeric"') +
+            field(id + '-mp', 'Max products', num(p.maxProducts), 'name="maxProducts" type="number" min="0" inputmode="numeric" placeholder="Unlimited"') +
+            field(id + '-mi', 'Photos per product', num(p.maxImages), 'name="maxImages" type="number" min="0" inputmode="numeric" placeholder="Unlimited"') +
+            field(id + '-mc', 'Max categories', num(p.maxCategories), 'name="maxCategories" type="number" min="0" inputmode="numeric" placeholder="Unlimited"') +
+            field(id + '-mv', 'Variants per product', num(p.maxVariants), 'name="maxVariants" type="number" min="0" inputmode="numeric" placeholder="Unlimited"') +
+          '</div>' +
+          '<fieldset style="border:0;padding:0;margin:0"><legend class="kd-label" style="margin-bottom:8px">Features unlocked</legend><div class="flag-grid">' +
+            defs.map(function (d) { return '<label><input type="checkbox" name="flag" value="' + K.esc(d.key) + '"' + (p.flags && p.flags[d.key] ? ' checked' : '') + '><span><strong>' + K.esc(d.label) + '</strong><small>' + K.esc(d.description || '') + '</small></span></label>'; }).join('') +
+          '</div></fieldset>' +
+          '<div class="kd-field"><label class="kd-label" for="' + id + '-feat">Bullet points on pricing cards (one per line)</label><textarea class="kd-input" id="' + id + '-feat" name="features" rows="5">' + K.esc((p.features || []).join('\n')) + '</textarea></div>' +
+          '<div><button class="kd-btn kd-btn--primary" type="submit">Save ' + K.esc(p.name) + '</button></div></form>';
+      }
+      function intVal(f, n) { var v = f.elements[n].value.trim(); return v === '' ? null : Number(v); }
+      function wirePlans() {
+        K.$$('.plan-editor').forEach(function (f) {
+          f.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var flags = {}; K.$$('input[name=flag]', f).forEach(function (c) { flags[c.value] = c.checked; });
+            var body = {
+              name: f.elements.name.value, tagline: f.elements.tagline.value, price: intVal(f, 'price'), compareAtPrice: intVal(f, 'compareAtPrice'),
+              durationDays: intVal(f, 'durationDays'), maxProducts: intVal(f, 'maxProducts'), maxImages: intVal(f, 'maxImages'),
+              maxCategories: intVal(f, 'maxCategories'), maxVariants: intVal(f, 'maxVariants'), flags: flags,
+              features: f.elements.features.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean),
+              status: f.elements.visible.checked ? 'ACTIVE' : 'HIDDEN'
+            };
+            var restore = K.btnLoading(K.$('button[type=submit]', f), 'Saving…');
+            KadeApi.adminUpdatePlan(f.getAttribute('data-plan'), body).then(function () { restore(); K.toast('Plan saved.'); }).catch(function (ex) { restore(); K.toast(ex.message); });
+          });
+        });
+      }
+
+      function bankRow(a, i) {
+        a = a || {};
+        return '<div class="form-grid form-grid--2 bank-row" style="padding-bottom:var(--space-3);border-bottom:1px solid var(--line)">' +
+          field('b' + i + '-bank', 'Bank', a.bank || '', 'data-k="bank"') + field('b' + i + '-acc', 'Account number', a.accountNo || '', 'data-k="accountNo" inputmode="numeric"') +
+          field('b' + i + '-holder', 'Account name', a.holder || '', 'data-k="holder"') + field('b' + i + '-branch', 'Branch', a.branch || '', 'data-k="branch"') + '</div>';
+      }
+      K.$('#addBank').addEventListener('click', function () { K.$('#bankRows').insertAdjacentHTML('beforeend', bankRow({}, Date.now())); });
+      K.$('#bankForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var list = K.$$('.bank-row').map(function (r) { var o = {}; K.$$('input', r).forEach(function (i) { o[i.getAttribute('data-k')] = i.value; }); return o; });
+        KadeApi.adminSaveSettings({ platform_bank_accounts: list }).then(function () { K.toast('Bank accounts saved.'); }).catch(function (ex) { K.toast(ex.message); });
+      });
+      K.$('#trialForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        KadeApi.adminSaveSettings({ trial_days: Number(K.$('#trialDays').value) }).then(function () { K.toast('Trial length saved.'); }).catch(function (ex) { K.toast(ex.message); });
+      });
+
+      K.loading(K.$('#planList'), 'Loading plans…');
+      Promise.all([KadeApi.adminPlans(), KadeApi.adminSettings()]).then(function (r) {
+        defs = r[0].featureDefs;
+        K.$('#planList').innerHTML = r[0].plans.map(planHtml).join('');
+        wirePlans();
+        var s = r[1].settings;
+        K.$('#trialDays').value = s.trial_days || 14;
+        K.$('#bankRows').innerHTML = (s.platform_bank_accounts || []).map(bankRow).join('') || bankRow({}, 0);
+        window.KadeAdminSettings = s; // later sections read their values from here
+        document.dispatchEvent(new CustomEvent('admin-settings-loaded', { detail: s }));
+      }).catch(function (ex) { K.$('#planList').innerHTML = '<p class="muted">' + K.esc(ex.message) + '</p>'; });
+    })();
+  </script>
+</body>
+</html>

@@ -5,7 +5,8 @@ import { wrap, badRequest, notFound, conflict } from '../utils/http.js';
 import { slugify } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
-import { activateSubscription, extendSubscription } from '../services/subscription.js';
+import { activateSubscription, extendSubscription, applyPaidPlan } from '../services/subscription.js';
+import { getSetting, setSetting } from '../services/settings.js';
 
 export const adminRouter = Router();
 
@@ -240,12 +241,14 @@ adminRouter.post(
   wrap(async (req, res) => {
     const pay = (await query('SELECT * FROM payments WHERE id = $1', [req.params.id])).rows[0];
     if (!pay) throw notFound('Payment not found.');
+    if (pay.status === 'APPROVED') return res.json({ ok: true, status: 'APPROVED' }); // idempotent
     await withTransaction(async (client) => {
       await client.query(
         `UPDATE payments SET status='APPROVED', reviewed_at=now(), reviewed_by=$2 WHERE id=$1`,
         [pay.id, req.user.sub]
       );
-      const dates = await activateSubscription(client, pay.business_id, pay.plan_id);
+      // Renewals and trial conversions keep any remaining paid/trial days.
+      const dates = await applyPaidPlan(client, pay.business_id, pay.plan_id);
       const biz = (await client.query('SELECT * FROM businesses WHERE id=$1', [pay.business_id])).rows[0];
       const store = (await client.query('SELECT * FROM stores WHERE business_id=$1', [pay.business_id])).rows[0];
       await queueNotification({ businessId: biz.id, recipient: biz.email, ...templates.approved(biz, store) }, client);
@@ -267,5 +270,94 @@ adminRouter.post(
       [pay.id, reason, req.user.sub]
     );
     res.json({ ok: true, status: 'REJECTED' });
+  })
+);
+
+// ---- Plans (Admin Settings): prices, limits, feature bullets and feature flags ----
+adminRouter.get(
+  '/plans',
+  wrap(async (_req, res) => {
+    const plans = (await query('SELECT * FROM plans ORDER BY sort_order, price')).rows.map(S.planAdmin);
+    const featureDefs = (await query('SELECT key, label, description FROM plan_feature_defs ORDER BY sort_order, key')).rows;
+    res.json({ plans, featureDefs });
+  })
+);
+
+function intOrNull(v, field, { min = 0, max = 10000000 } = {}) {
+  if (v === null || v === '' || v === undefined) return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < min || n > max) throw badRequest(`${field} must be a whole number between ${min} and ${max}.`);
+  return n;
+}
+
+adminRouter.put(
+  '/plans/:id',
+  wrap(async (req, res) => {
+    const cur = (await query('SELECT * FROM plans WHERE id = $1', [req.params.id])).rows[0];
+    if (!cur) throw notFound('Plan not found.');
+    const b = req.body || {};
+    const name = b.name != null ? String(b.name).trim().slice(0, 40) : cur.name;
+    if (!name) throw badRequest('Plan name is required.');
+    const price = b.price !== undefined ? intOrNull(b.price, 'Price', { min: 1 }) : cur.price;
+    if (price == null) throw badRequest('Price is required.');
+    const compareAt = b.compareAtPrice !== undefined ? intOrNull(b.compareAtPrice, 'Compare-at price', { min: 1 }) : cur.compare_at_price;
+    if (compareAt != null && compareAt <= price) throw badRequest('The struck-through price must be higher than the price.');
+    const duration = b.durationDays !== undefined ? intOrNull(b.durationDays, 'Duration', { min: 1, max: 366 }) : cur.duration_days;
+    const lim = (k, col) => (b[k] !== undefined ? intOrNull(b[k], k, { min: 0 }) : cur[col]);
+    const features = Array.isArray(b.features)
+      ? b.features.map((f) => String(f).trim().slice(0, 80)).filter(Boolean).slice(0, 20)
+      : cur.features;
+    // Only known feature keys are stored, as booleans.
+    const defs = (await query('SELECT key FROM plan_feature_defs')).rows.map((r) => r.key);
+    const flags = { ...(cur.feature_flags || {}) };
+    if (b.flags && typeof b.flags === 'object') for (const k of defs) if (k in b.flags) flags[k] = !!b.flags[k];
+    const status = b.status === 'HIDDEN' ? 'HIDDEN' : (b.status === 'ACTIVE' ? 'ACTIVE' : cur.status);
+    const tagline = b.tagline != null ? String(b.tagline).trim().slice(0, 80) : cur.tagline;
+    const { rows } = await query(
+      `UPDATE plans SET name=$2, price=$3, compare_at_price=$4, duration_days=$5, max_products=$6, max_images=$7,
+              max_categories=$8, max_variants=$9, features=$10, feature_flags=$11, status=$12, tagline=$13, updated_at=now()
+        WHERE id=$1 RETURNING *`,
+      [cur.id, name, price, compareAt, duration || cur.duration_days, lim('maxProducts', 'max_products'), lim('maxImages', 'max_images'),
+       lim('maxCategories', 'max_categories'), lim('maxVariants', 'max_variants'), JSON.stringify(features), JSON.stringify(flags), status, tagline]
+    );
+    res.json({ plan: S.planAdmin(rows[0]) });
+  })
+);
+
+// ---- Platform settings (Admin Settings). Each key has a validator/normaliser. ----
+const cleanStr = (v, n = 200) => String(v == null ? '' : v).trim().slice(0, n);
+export const SETTINGS_SCHEMA = {
+  trial_days: (v) => {
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 1 || n > 90) throw badRequest('Trial length must be 1 to 90 days.');
+    return n;
+  },
+  platform_bank_accounts: (v) => {
+    if (!Array.isArray(v)) throw badRequest('Bank accounts must be a list.');
+    return v.slice(0, 5).map((a) => ({ bank: cleanStr(a.bank, 60), holder: cleanStr(a.holder, 80), accountNo: cleanStr(a.accountNo, 40), branch: cleanStr(a.branch, 60) }))
+      .filter((a) => a.bank && a.accountNo);
+  },
+};
+
+adminRouter.get(
+  '/settings',
+  wrap(async (_req, res) => {
+    const out = {};
+    for (const k of Object.keys(SETTINGS_SCHEMA)) out[k] = await getSetting(k, null);
+    res.json({ settings: out });
+  })
+);
+
+adminRouter.put(
+  '/settings',
+  wrap(async (req, res) => {
+    const body = req.body || {};
+    const saved = {};
+    for (const [k, v] of Object.entries(body)) {
+      if (!SETTINGS_SCHEMA[k]) throw badRequest(`Unknown setting: ${k}`);
+      saved[k] = SETTINGS_SCHEMA[k](v);
+    }
+    for (const [k, v] of Object.entries(saved)) await setSetting(k, v, req.user.sub);
+    res.json({ ok: true, settings: saved });
   })
 );

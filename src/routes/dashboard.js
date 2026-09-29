@@ -6,14 +6,35 @@ import { wrap, badRequest, notFound, conflict, forbidden } from '../utils/http.j
 import { saveUpload, SLIP_TYPES } from '../services/uploads.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
-import { currentPlan, cap } from '../services/plan.js';
+import { currentPlan, cap, businessAccess, assertFeature, paywall, trialInfo } from '../services/plan.js';
+import { getSetting } from '../services/settings.js';
 import * as S from '../services/serialize.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 export const dashboardRouter = Router();
 
 dashboardRouter.use(authenticate, requireBusiness);
+// Payment wall: once a trial expires (or a paid plan lapses into SUSPENDED) only the
+// endpoints needed to understand the problem and pay stay open. Nothing is deleted.
+export const PAYWALL_ALLOW = [
+  ['GET', /^\/access$/],
+  ['GET', /^\/badges$/],
+  ['*', /^\/subscription(\/|$)/],
+  ['GET', /^\/store$/],
+  ['DELETE', /^\/account$/],
+];
+dashboardRouter.use(paywall(PAYWALL_ALLOW));
 const bid = (req) => req.user.business_id;
+
+// ---- Access state: plan, feature flags, trial countdown, payment-wall lock ----
+dashboardRouter.get(
+  '/access',
+  wrap(async (req, res) => {
+    const a = await businessAccess(bid(req));
+    if (!a) throw notFound('Business not found.');
+    res.json(a);
+  })
+);
 
 const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
 
@@ -73,17 +94,9 @@ dashboardRouter.get(
   requirePermission('reports'),
   wrap(async (req, res) => {
     const b = bid(req);
-    const plan = (
-      await query(
-        `SELECT pl.id, pl.name FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
-          WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
-        [b]
-      )
-    ).rows[0];
-    const planId = plan ? plan.id : null;
-    if (planId === 'starter' || !planId) {
-      throw badRequest('Reports are available on the Business and Pro plans.');
-    }
+    const plan = await currentPlan(b);
+    await assertFeature(b, 'reports', 'Reports are available on the Business and Pro plans.');
+    const advanced = !!(plan.feature_flags && plan.feature_flags.advanced_reports);
 
     // Optional date range (YYYY-MM-DD). Applies to every order-based metric below;
     // stock counts are always "now". `to` is treated as an inclusive day.
@@ -204,8 +217,8 @@ dashboardRouter.get(
       categories,
       payments,
     };
-    // Advanced customer insights are Pro-only.
-    if (planId === 'pro') {
+    // Advanced customer insights are gated by the plan's advanced_reports flag (Pro by default).
+    if (advanced) {
       report.cities = (
         await query(
           `SELECT COALESCE(NULLIF(city,''),'Unknown') city, COUNT(*) n
@@ -329,18 +342,31 @@ dashboardRouter.get(
         [b]
       )
     ).rows[0];
-    const biz = (await query('SELECT status FROM businesses WHERE id=$1', [b])).rows[0];
+    const biz = (await query('SELECT status, trial_started_at, trial_ends_at, preferred_plan_id FROM businesses WHERE id=$1', [b])).rows[0];
     const payments = (
-      await query(`SELECT * FROM payments WHERE business_id=$1 ORDER BY submitted_at DESC`, [b])
+      await query(
+        `SELECT p.*, pl.name plan_name FROM payments p LEFT JOIN plans pl ON pl.id = p.plan_id
+          WHERE p.business_id=$1 ORDER BY p.submitted_at DESC`,
+        [b]
+      )
     ).rows.map((p) => ({
-      id: p.id, amount: p.amount, method: p.method, ref: p.reference || '',
+      id: p.id, amount: p.amount, method: p.method, ref: p.reference || '', plan: p.plan_name || '',
       status: p.status, submitted: p.submitted_at.toISOString().slice(0, 10), reason: p.reason || undefined,
+      paidOn: p.reviewed_at ? p.reviewed_at.toISOString().slice(0, 10) : null,
     }));
+    const trial = biz ? trialInfo(biz) : null;
+    const onTrial = !!(sub && sub.status === 'TRIAL');
     res.json({
       status: biz ? biz.status : null,
       plan: sub ? { id: sub.plan_id, name: sub.plan_name, price: sub.price, durationDays: sub.duration_days, maxProducts: sub.max_products, features: sub.features } : null,
+      onTrial,
+      trial,
       startDate: sub && sub.start_date ? sub.start_date.toISOString().slice(0, 10) : null,
       expiryDate: sub && sub.expiry_date ? sub.expiry_date.toISOString().slice(0, 10) : null,
+      // Next renewal: the paid period's end. During a trial the first payment is due when the trial ends.
+      renewalDate: sub && sub.expiry_date ? sub.expiry_date.toISOString().slice(0, 10) : null,
+      preferredPlanId: biz ? biz.preferred_plan_id : null,
+      bankAccounts: await getSetting('platform_bank_accounts', []),
       payments,
     });
   })
@@ -356,7 +382,7 @@ dashboardRouter.post(
     const sub = (await query('SELECT * FROM subscriptions WHERE business_id=$1 ORDER BY created_at DESC LIMIT 1', [b])).rows[0];
     const planId = (req.body && req.body.planId) || (sub ? sub.plan_id : null);
     if (!planId) throw badRequest('Choose a plan to renew.');
-    const plan = (await query('SELECT * FROM plans WHERE id=$1', [planId])).rows[0];
+    const plan = (await query("SELECT * FROM plans WHERE id=$1 AND status='ACTIVE'", [planId])).rows[0];
     if (!plan) throw badRequest('Unknown plan.');
     let slipUrl = null;
     if (req.file) slipUrl = await saveUpload(req.file, 'slips', { allow: SLIP_TYPES });
@@ -573,15 +599,8 @@ dashboardRouter.delete(
 );
 
 // ---- Coupons (Business/Pro plans) ----
-async function requireCouponsPlan(businessId) {
-  const plan = (
-    await query(
-      `SELECT pl.id FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
-        WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
-      [businessId]
-    )
-  ).rows[0];
-  if (!plan || plan.id === 'starter') throw badRequest('Coupons are available on the Business and Pro plans.');
+function requireCouponsPlan(businessId) {
+  return assertFeature(businessId, 'coupons', 'Coupons are available on the Business and Pro plans.');
 }
 
 function parseCoupon(body) {
@@ -661,15 +680,8 @@ dashboardRouter.delete(
 
 // ---- Staff accounts (Pro plan, owner only) ----
 const STAFF_SECTIONS = ['orders', 'products', 'reports', 'coupons'];
-async function requireProPlan(businessId) {
-  const plan = (
-    await query(
-      `SELECT pl.id FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
-        WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
-      [businessId]
-    )
-  ).rows[0];
-  if (!plan || plan.id !== 'pro') throw badRequest('Staff accounts are a Pro feature.');
+function requireProPlan(businessId) {
+  return assertFeature(businessId, 'staff', 'Staff accounts are a Pro feature.');
 }
 function cleanPerms(input) {
   const arr = Array.isArray(input) ? input : [];

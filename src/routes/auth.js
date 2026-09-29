@@ -6,19 +6,23 @@ import { slugify } from '../utils/slug.js';
 import { wrap, badRequest, unauthorized, conflict } from '../utils/http.js';
 import { saveUpload, SLIP_TYPES } from '../services/uploads.js';
 import { queueNotification, templates } from '../services/notifications.js';
+import { startTrial } from '../services/subscription.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 export const authRouter = Router();
 
 // POST /api/auth/register  (multipart: fields + optional payment slip file)
-// Runs the whole registration flow atomically: user + business + store + subscription
-// + pending payment, and queues the "we received your application" email.
+// Runs the whole registration flow atomically: user + business + store, then starts
+// the free trial (Starter features, no approval needed) and queues the welcome email.
+// The plan picked at signup is remembered as the preferred plan for after the trial.
+// If the seller still sends a bank slip, a PENDING payment is recorded for the admin
+// to approve (which converts the trial into that paid plan without losing trial days).
 authRouter.post(
   '/register',
   upload.single('slip'),
   wrap(async (req, res) => {
     const b = req.body;
-    const required = ['bizName', 'ownerName', 'ownerEmail', 'password', 'slug', 'planId'];
+    const required = ['bizName', 'ownerName', 'ownerEmail', 'password', 'slug'];
     for (const f of required) {
       if (!b[f] || !String(b[f]).trim()) throw badRequest(`Missing field: ${f}`);
     }
@@ -35,7 +39,7 @@ authRouter.post(
     );
     if (dupe.rowCount) throw conflict('That email or store link is already taken.');
 
-    const plan = (await query('SELECT * FROM plans WHERE id = $1', [b.planId])).rows[0];
+    const plan = (await query("SELECT * FROM plans WHERE id = $1 AND status = 'ACTIVE'", [b.planId || 'starter'])).rows[0];
     if (!plan) throw badRequest('Unknown plan.');
 
     // A storage hiccup must never block a signup. If the slip upload fails we still
@@ -53,10 +57,10 @@ authRouter.post(
     const result = await withTransaction(async (client) => {
       const biz = (
         await client.query(
-          `INSERT INTO businesses (name, type, description, phone, whatsapp, email, address, city, district, facebook, instagram, status)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'PENDING_APPROVAL') RETURNING *`,
+          `INSERT INTO businesses (name, type, description, phone, whatsapp, email, address, city, district, facebook, instagram, status, preferred_plan_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'TRIAL',$12) RETURNING *`,
           [b.bizName, b.bizType || null, b.description || null, b.bizPhone || null, b.bizWhatsapp || null,
-           b.ownerEmail, b.address || null, b.city || null, b.district || null, b.facebook || null, b.instagram || null]
+           b.ownerEmail, b.address || null, b.city || null, b.district || null, b.facebook || null, b.instagram || null, plan.id]
         )
       ).rows[0];
 
@@ -77,31 +81,42 @@ authRouter.post(
         )
       ).rows[0];
 
-      const sub = (
-        await client.query(
-          `INSERT INTO subscriptions (business_id, plan_id, status) VALUES ($1,$2,'PENDING_PAYMENT') RETURNING *`,
-          [biz.id, plan.id]
-        )
-      ).rows[0];
+      const trial = await startTrial(client, biz.id);
 
-      await client.query(
-        `INSERT INTO payments (business_id, subscription_id, plan_id, amount, method, reference, slip_url, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,'PENDING')`,
-        [biz.id, sub.id, plan.id, plan.price, b.method || 'Bank transfer', b.ref || null, slipUrl]
-      );
+      // Optional: the seller already paid by bank transfer. Record it for review.
+      if (slipUrl || (b.ref && String(b.ref).trim())) {
+        await client.query(
+          `INSERT INTO payments (business_id, plan_id, amount, method, reference, slip_url, status)
+           VALUES ($1,$2,$3,$4,$5,$6,'PENDING')`,
+          [biz.id, plan.id, plan.price, b.method || 'Bank transfer', b.ref || null, slipUrl]
+        );
+      }
 
       await queueNotification(
-        { businessId: biz.id, recipient: b.ownerEmail, ...templates.registered(biz) },
+        {
+          businessId: biz.id,
+          recipient: b.ownerEmail,
+          dedupeKey: `TRIAL_STARTED:${biz.id}`,
+          ...templates.trialStarted(biz, store, { days: trial.days, endsOn: trial.ends.toISOString().slice(0, 10) }),
+        },
         client
       );
 
-      return { biz, user, store };
+      return { biz, user, store, trial };
     });
 
+    // Sign the new owner straight in: the trial starts now, no approval step.
+    const u = result.user;
     res.status(201).json({
-      business: { id: result.biz.id, name: result.biz.name, status: result.biz.status },
+      token: signToken(u),
+      user: {
+        id: u.id, name: u.name, email: u.email, role: u.role, business_id: u.business_id,
+        slug: result.store.slug, storeName: result.store.name, planId: 'starter', businessStatus: 'TRIAL', permissions: null,
+      },
+      business: { id: result.biz.id, name: result.biz.name, status: 'TRIAL' },
       store: { slug: result.store.slug },
-      message: 'Application received. We will email you once your store is approved.',
+      trial: { days: result.trial.days, endsAt: result.trial.ends.toISOString() },
+      message: `Your store is live. Your ${result.trial.days}-day free trial has started.`,
     });
   })
 );

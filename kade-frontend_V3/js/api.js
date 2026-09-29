@@ -43,6 +43,12 @@
     var res = await fetch(BASE + path, opts);
     var data = null;
     try { data = await res.json(); } catch (e) { /* no body */ }
+    // Payment wall: a locked shop (trial ended / plan lapsed) gets 402 from the
+    // dashboard API. Send owners to the subscription page to pay.
+    if (res.status === 402 && /\/dashboard\//.test(location.pathname) && !/\/subscription/.test(location.pathname)) {
+      var u402 = currentUser();
+      if (u402 && u402.role === 'BUSINESS_OWNER') { location.replace('subscription?wall=1'); }
+    }
     if (!res.ok) {
       var msg = (data && data.error) || ('Request failed (' + res.status + ')');
       var err = new Error(msg); err.status = res.status; err.details = data && data.details;
@@ -126,6 +132,7 @@
       return req('POST', '/api/dashboard/subscription/renew', fd, true);
     },
     dashboardBadges() { return req('GET', '/api/dashboard/badges'); },
+    access() { return req('GET', '/api/dashboard/access'); },
     adminBadges() { return req('GET', '/api/admin/badges'); },
     myStore() { return req('GET', '/api/dashboard/store'); },
     updateStore(store) { return req('PUT', '/api/dashboard/store', store); },
@@ -154,6 +161,10 @@
     adminPayments(status) { return req('GET', '/api/admin/payments' + (status ? '?status=' + status : '')); },
     adminApprovePayment(id) { return req('POST', '/api/admin/payments/' + id + '/approve'); },
     adminRejectPayment(id, reason) { return req('POST', '/api/admin/payments/' + id + '/reject', { reason: reason }); },
+    adminPlans() { return req('GET', '/api/admin/plans'); },
+    adminUpdatePlan(id, p) { return req('PUT', '/api/admin/plans/' + encodeURIComponent(id), p); },
+    adminSettings() { return req('GET', '/api/admin/settings'); },
+    adminSaveSettings(s) { return req('PUT', '/api/admin/settings', s); },
   };
 
   window.KadeApi = KadeApi;

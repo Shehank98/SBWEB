@@ -147,6 +147,39 @@ export const templates = {
     message: `${business.name}'s subscription expires in ${days} day${days === 1 ? '' : 's'}. Renew now to keep your store online.`,
     data: { heading: 'Renewal reminder', business: business.name, days, expiry: business.expiry || '', renewUrl: dashUrl('subscription') },
   }),
+  // ---- Free trial ----
+  trialStarted: (business, store, trial) => ({
+    type: 'TRIAL_STARTED',
+    subject: `Your ${trial.days}-day free trial has started 🎉`,
+    message: `Welcome to Sidadiya! ${business.name} is live at ${storeUrl(store.slug)}. Your free trial (Starter features) runs until ${trial.endsOn}. Log in at ${loginUrl()} to add products.`,
+    data: {
+      heading: 'Your store is live',
+      business: business.name,
+      storeName: store.name || business.name,
+      slug: store.slug,
+      storeUrl: storeUrl(store.slug),
+      loginUrl: loginUrl(),
+      dashboardUrl: dashUrl(''),
+      email: business.email,
+      trialDays: trial.days,
+      trialEndsOn: trial.endsOn,
+      planUrl: dashUrl('subscription'),
+    },
+  }),
+  trialReminder: (business, daysLeft) => ({
+    type: 'TRIAL_REMINDER',
+    subject: daysLeft <= 1
+      ? 'Your free trial ends tomorrow'
+      : `Your free trial ends in ${daysLeft} days`,
+    message: `${business.name}'s free trial ends on ${business.endsOn}. Choose a plan so your store stays open. Your products, orders and settings are kept.`,
+    data: { heading: 'Your free trial is ending', business: business.name, daysLeft, trialEndsOn: business.endsOn, planUrl: dashUrl('subscription') },
+  }),
+  trialExpired: (business) => ({
+    type: 'TRIAL_EXPIRED',
+    subject: 'Your free trial has ended',
+    message: `${business.name}'s free trial has ended, so the store is closed to buyers for now. Everything you set up is saved. Choose a plan to reopen instantly.`,
+    data: { heading: 'Your free trial has ended', business: business.name, trialEndsOn: business.endsOn, planUrl: dashUrl('subscription') },
+  }),
   suspended: (business) => ({
     type: 'SUSPENDED',
     subject: 'Your store has been paused',

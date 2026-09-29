@@ -5,11 +5,13 @@ import { orderCode } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { evalCoupon } from '../services/coupons.js';
+import { LIVE_STATUSES } from '../services/plan.js';
 
 export const storeRouter = Router();
 
-// Statuses in which the storefront is visible to customers.
-const LIVE = new Set(['ACTIVE', 'EXPIRING', 'GRACE_PERIOD']);
+// Statuses in which the storefront is visible to customers (includes TRIAL; a
+// TRIAL_EXPIRED shop is locked for buyers until the seller pays).
+const LIVE = LIVE_STATUSES;
 
 async function loadStore(slug) {
   const row = (

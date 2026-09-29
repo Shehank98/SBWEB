@@ -51,7 +51,8 @@
         K.$('#hello').textContent = (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + ', ' + ctx.firstName;
         K.$('#lede').textContent = 'Here is how ' + ctx.storeName + ' is doing today.';
         var days = ctx.expiry ? K.daysUntil(ctx.expiry) : 999;
-        if (days <= 14) {
+        // During the free trial the shell shows the trial countdown instead.
+        if (days <= 14 && !ctx.onTrial) {
           K.$('#sub-banner').innerHTML = '<div class="kd-banner kd-banner--' + (days <= 3 ? 'danger' : 'warning') + '"><div><p class="kd-banner__title">Your ' + K.esc(ctx.plan) + ' plan ends in ' + days + ' days</p><p style="margin-top:4px">Renew before ' + K.fmtDate(ctx.expiry) + ' so your store stays open for customers.</p></div><a class="kd-btn kd-btn--primary" href="subscription">Renew now</a></div>';
         }
         var todays = orders.filter(function (o) { return o.date === ctx.today && o.status !== 'CANCELLED'; });
@@ -82,7 +83,7 @@
             firstName: (sess && sess.name ? sess.name.split(' ')[0] : 'there'),
             storeName: (sess && sess.storeName) || 'your store',
             orders: ord, products: prod,
-            plan: sub.plan && sub.plan.name, maxProducts: sub.plan ? sub.plan.maxProducts : null, expiry: sub.expiryDate,
+            plan: sub.plan && sub.plan.name, maxProducts: sub.plan ? sub.plan.maxProducts : null, expiry: sub.expiryDate, onTrial: !!sub.onTrial,
             sales7: ov.sales7, today: (ov.sales7 && ov.sales7.length) ? ov.sales7[ov.sales7.length - 1].date : D.today,
             todaySales: ov.todaySales, todayOrders: ov.todayOrders
           });

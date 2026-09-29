@@ -14,7 +14,8 @@
     "db:migrate": "node src/db/migrate.js",
     "db:seed": "node src/db/seed.js",
     "db:purge-demo": "node src/db/purge-demo.js",
-    "job:subscriptions": "node src/jobs/subscriptions.js"
+    "job:subscriptions": "node src/jobs/subscriptions.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
   },
   "dependencies": {
     "@google-cloud/storage": "^8.2.0",

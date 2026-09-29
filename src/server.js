@@ -8,6 +8,7 @@ import { notFoundHandler, errorHandler } from './middleware/error.js';
 import { query } from './db/pool.js';
 import { bootstrapDb } from './db/bootstrap.js';
 import { hashPassword } from './utils/auth.js';
+import { startScheduler } from './jobs/scheduler.js';
 
 // Create or update the SUPER_ADMIN account from environment variables, so admin
 // credentials live in the deployment's variables (never hard-coded or exposed).
@@ -139,6 +140,8 @@ const server = app.listen(config.port, async () => {
   // without running any manual db commands.
   try {
     await bootstrapDb();
+    // Daily lifecycle + weekly summary. Needs the migrated schema, so start after bootstrap.
+    startScheduler();
   } catch (e) {
     console.error('[db] bootstrap failed:', e.message);
   }
