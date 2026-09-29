@@ -2,11 +2,13 @@ import { Router } from 'express';
 import multer from 'multer';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate, requireBusiness, requireOwner, requirePermission } from '../middleware/auth.js';
-import { wrap, badRequest, notFound, conflict, forbidden } from '../utils/http.js';
+import { wrap, badRequest, notFound, conflict, forbidden, HttpError } from '../utils/http.js';
 import { saveUpload, savePrivate, SLIP_TYPES } from '../services/uploads.js';
 import { config } from '../config.js';
 import { startSubscriptionCheckout } from '../services/cardPayments.js';
 import { platformCreds } from '../services/onepay.js';
+import { listGateways, saveGateway, cardAvailability, gatewayUrls } from '../services/gateways.js';
+import { onepayGuide } from '../services/onepayGuide.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { currentPlan, cap, businessAccess, assertFeature, paywall, trialInfo } from '../services/plan.js';
@@ -40,7 +42,7 @@ dashboardRouter.get(
   })
 );
 
-const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 
 // ---- Badge counts for the sidebar/tab navigation (cheap, called on every page) ----
 dashboardRouter.get(
@@ -283,7 +285,11 @@ dashboardRouter.get(
   requirePermission('orders'),
   wrap(async (req, res) => {
     const b = bid(req);
-    const { rows } = await query(`SELECT * FROM orders WHERE business_id=$1 ORDER BY created_at DESC`, [b]);
+    const { rows } = await query(
+      `SELECT o.*, s.slug AS business_slug FROM orders o LEFT JOIN stores s ON s.business_id = o.business_id
+        WHERE o.business_id=$1 ORDER BY o.created_at DESC`,
+      [b]
+    );
     const ids = rows.map((r) => r.id);
     let itemsByOrder = {};
     if (ids.length) {
@@ -304,11 +310,18 @@ dashboardRouter.put(
     if (!ORDER_FLOW.includes(status)) throw badRequest('Unknown order status.');
     const order = (await query('SELECT * FROM orders WHERE business_id=$1 AND code=$2', [b, req.params.code])).rows[0];
     if (!order) throw notFound('Order not found.');
+    // "Refunded": the refund itself is made in the seller's OnePay dashboard (or by
+    // bank transfer); here the seller records it with a note.
+    const note = req.body && req.body.note ? String(req.body.note).trim().slice(0, 500) : null;
+    if (status === 'REFUNDED' && !note) throw badRequest('Add a note about the refund (amount, how and when it was refunded).');
     await withTransaction(async (client) => {
       await client.query('UPDATE orders SET status=$3 WHERE business_id=$1 AND code=$2', [b, req.params.code, status]);
+      if (status === 'REFUNDED') {
+        await client.query(`UPDATE orders SET refund_note=$2, refunded_at=now(), payment_status=CASE WHEN payment_status='PAID' THEN 'REFUNDED' ELSE payment_status END WHERE id=$1`, [order.id, note]);
+      }
       await client.query(
-        'INSERT INTO order_status_history (order_id, status, changed_by) VALUES ($1,$2,$3)',
-        [order.id, status, req.user.sub]
+        'INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)',
+        [order.id, status, req.user.sub, note]
       );
       // Email the customer only at the two milestones that matter to them:
       // when the shop confirms the order and when it ships. Other status changes
@@ -584,6 +597,31 @@ dashboardRouter.post(
     const url = await saveUpload(req.file, `logos/${store.slug}`);
     await query('UPDATE stores SET logo_url=$2 WHERE business_id=$1', [b, url]);
     res.json({ logo: url });
+  })
+);
+
+// ---- Payment gateways (seller's own OnePay / PayHere accounts) ----
+dashboardRouter.get(
+  '/gateways',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    res.json({ gateways: await listGateways(b), card: await cardAvailability(b), urls: gatewayUrls(), guide: await onepayGuide() });
+  })
+);
+
+dashboardRouter.put(
+  '/gateways/:provider',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    try {
+      await saveGateway(b, req.params.provider, req.body || {});
+    } catch (e) {
+      if (e.status) throw new HttpError(e.status, e.message);
+      throw e;
+    }
+    res.json({ gateways: await listGateways(b), card: await cardAvailability(b) });
   })
 );
 

@@ -140,6 +140,15 @@ export async function settle(tx, hint = {}) {
   });
 }
 
+// Mark a checkout FAILED without asking OnePay (e.g. the checkout link could not
+// even be created) and run the kind's failure hook.
+export async function settleFailure(txId, message) {
+  await withTransaction(async (client) => {
+    const cur = (await client.query(`UPDATE gateway_transactions SET status='FAILED', status_message=$2, updated_at=now() WHERE id=$1 AND status='PENDING' RETURNING *`, [txId, message])).rows[0];
+    if (cur && handlers[cur.kind]) await handlers[cur.kind].onFailed(client, cur, 'FAILED');
+  });
+}
+
 // Daily clean-up: checkouts abandoned for 24 hours become CANCELLED (after one last
 // status check, so a late success is still honoured).
 export async function cancelStaleCheckouts() {

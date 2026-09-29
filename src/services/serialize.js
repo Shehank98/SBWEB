@@ -89,6 +89,7 @@ export function buyerOrder(row, items, history, reviewedSet) {
     delivery: row.delivery_fee,
     total: row.total,
     payment: row.payment_method,
+    paymentStatus: row.payment_status || null,
     method: row.delivery_method,
     address: row.address || '',
     city: row.city || '',
@@ -115,7 +116,11 @@ export function order(row, items) {
     total: row.total,
     status: row.status,
     payment: row.payment_method,
+    paymentStatus: row.payment_status || null,
+    paidOn: row.paid_on || null,
+    refundNote: row.refund_note || null,
     note: row.note || '',
+    statusUrl: row.public_token && row.business_slug ? `/store/order?s=${encodeURIComponent(row.business_slug)}&o=${encodeURIComponent(row.code)}&k=${row.public_token}` : undefined,
   };
 }
 

@@ -19,7 +19,7 @@
       <main class="main" id="main" tabindex="-1">
         <div class="page-head"><div><h1>Settings</h1><p>Plans, trial, payments and the text shown across Sidadiya.</p></div></div>
         <nav class="settings-nav" aria-label="Settings sections" id="snav">
-          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a>
+          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a>
         </nav>
 
         <section class="kd-card panel" id="plans" aria-labelledby="h-plans" style="margin-bottom:var(--space-4)">
@@ -61,6 +61,27 @@
           <h2 id="h-legal">Sidadiya legal pages</h2>
           <p class="muted" style="margin-bottom:var(--space-3)">The platform's own Refund, Return, Privacy and Terms pages. Clear a box to go back to the default template. Use "## " for headings and "- " for bullets. Have these reviewed by a lawyer before launch.</p>
           <form id="legalForm" class="stack" novalidate><div id="legalEditors" class="stack"></div><div><button class="kd-btn kd-btn--primary" type="submit">Save legal pages</button></div></form>
+        </section>
+        <section class="kd-card panel" id="guide" aria-labelledby="h-guide" style="margin-bottom:var(--space-4)">
+          <h2 id="h-guide">“How to get OnePay” guide</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">Shown to every seller in Store settings &gt; Payment gateways. Lists take one item per line. Check fees and documents with OnePay from time to time.</p>
+          <form id="guideForm" class="stack" novalidate>
+            <div class="kd-field"><label class="kd-label" for="gIntro">Introduction</label><textarea class="kd-input" id="gIntro" rows="2" data-g="intro"></textarea></div>
+            <div class="kd-field"><label class="kd-label" for="gSteps">Steps to register as an individual</label><textarea class="kd-input" id="gSteps" rows="6" data-g="steps" data-list></textarea></div>
+            <div class="kd-field"><label class="kd-label" for="gDocs">Documents needed</label><textarea class="kd-input" id="gDocs" rows="8" data-g="documents" data-list></textarea></div>
+            <div class="kd-field"><label class="kd-label" for="gComp">Compliance note</label><textarea class="kd-input" id="gComp" rows="3" data-g="complianceNote"></textarea></div>
+            <div class="kd-field"><label class="kd-label" for="gCosts">Costs</label><textarea class="kd-input" id="gCosts" rows="4" data-g="costs" data-list></textarea></div>
+            <div class="kd-field"><label class="kd-label" for="gUns">Business types OnePay does not accept</label><textarea class="kd-input" id="gUns" rows="4" data-g="unsupported" data-list></textarea></div>
+            <div class="kd-field"><label class="kd-label" for="gRef">Refunds</label><textarea class="kd-input" id="gRef" rows="2" data-g="refunds"></textarea></div>
+            <div class="form-grid form-grid--2">
+              <div class="kd-field"><label class="kd-label" for="gcEmail">OnePay email</label><input class="kd-input" id="gcEmail" data-gc="email"></div>
+              <div class="kd-field"><label class="kd-label" for="gcEmail2">Second email</label><input class="kd-input" id="gcEmail2" data-gc="email2"></div>
+              <div class="kd-field"><label class="kd-label" for="gcPhone">OnePay phone</label><input class="kd-input" id="gcPhone" data-gc="phone" placeholder="Not in the provided docs: add it"></div>
+              <div class="kd-field"><label class="kd-label" for="gcWeb">Website / contact page</label><input class="kd-input" id="gcWeb" data-gc="website"></div>
+              <div class="kd-field span-2"><label class="kd-label" for="gcDocs">Policy samples link</label><input class="kd-input" id="gcDocs" data-gc="docs"></div>
+            </div>
+            <div><button class="kd-btn kd-btn--primary" type="submit">Save guide</button></div>
+          </form>
         </section>
         <div id="moreSections"></div>
       </main>
@@ -145,6 +166,12 @@
         K.$$('#legalEditors textarea').forEach(function (t) { if (t.value.trim() && t.value !== t.dataset.template) o[t.getAttribute('data-k')] = t.value; });
         KadeApi.adminSaveSettings({ platform_policies: o }).then(function () { K.toast('Legal pages saved.'); }).catch(function (ex) { K.toast(ex.message); });
       });
+      K.$('#guideForm').addEventListener('submit', function (e) {
+        e.preventDefault(); var g = { contacts: {} };
+        K.$$('#guideForm [data-g]').forEach(function (t) { var k = t.getAttribute('data-g'); g[k] = t.hasAttribute('data-list') ? t.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean) : t.value.trim(); });
+        K.$$('#guideForm [data-gc]').forEach(function (i) { g.contacts[i.getAttribute('data-gc')] = i.value.trim(); });
+        KadeApi.adminSaveSettings({ onepay_guide: g }).then(function () { K.toast('Guide saved.'); }).catch(function (ex) { K.toast(ex.message); });
+      });
       K.$('#trialForm').addEventListener('submit', function (e) {
         e.preventDefault();
         KadeApi.adminSaveSettings({ trial_days: Number(K.$('#trialDays').value) }).then(function () { K.toast('Trial length saved.'); }).catch(function (ex) { K.toast(ex.message); });
@@ -168,6 +195,9 @@
           if (custom[k[0]]) ta.value = custom[k[0]];
           else KadeApi.sitePolicy(k[0]).then(function (r) { ta.value = r.content; ta.dataset.template = r.content; }).catch(function () {});
         });
+        var G = s.onepay_guide || {};
+        K.$$('#guideForm [data-g]').forEach(function (t) { var v = G[t.getAttribute('data-g')]; t.value = Array.isArray(v) ? v.join('\n') : (v || ''); });
+        K.$$('#guideForm [data-gc]').forEach(function (i) { i.value = (G.contacts || {})[i.getAttribute('data-gc')] || ''; });
         document.dispatchEvent(new CustomEvent('admin-settings-loaded', { detail: s }));
       }).catch(function (ex) { K.$('#planList').innerHTML = '<p class="muted">' + K.esc(ex.message) + '</p>'; });
     })();

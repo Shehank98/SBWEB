@@ -168,7 +168,8 @@
             '<section class="panel" aria-labelledby="pm-h"><h2 id="pm-h">Payment method</h2><div class="choices" role="radiogroup" aria-labelledby="pm-h">' + opts.join('') + '</div>' +
             (st.pay === 'cod' ? '<div class="info">' + ic('cash') + '<p>Please keep <b>' + rs(m.total) + '</b> ready. Riders carry limited change.</p></div>' : '') +
             (st.pay === 'bank' ? bankBox(m.total) : '') +
-            (st.pay === 'card' ? '<div class="info">' + ic('lock') + '<p>You will pay <b>' + rs(m.total) + '</b> on OnePay\'s secure page, then come straight back here.</p></div>' : '') +
+            (st.pay === 'card' ? '<div class="info">' + ic('lock') + '<p>You will pay <b>' + rs(m.total) + '</b> on OnePay\'s secure page, then come straight back here.</p></div>' +
+              (st.f.em && !st.errs.em ? '' : '<div class="fgrid" style="margin-top:12px">' + fld('em', 'Email for your receipt', inp('em', 'type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"'), { hint: 'OnePay and the shop send your payment receipt here.' }) + '</div>') : '') +
             '</section>';
         };
 
@@ -286,6 +287,7 @@
             if (st.method !== 'pickup') { if (!String(f.ct || '').trim()) e.ct = 'Please enter your town or city.'; if (!f.ds) e.ds = 'Please choose your district.'; }
           }
           if (step === 'payment' && PAY_OPTS.indexOf(st.pay) < 0) e.pay = 'Choose a payment method.';
+          if (step === 'payment' && st.pay === 'card' && !/^\S+@\S+\.\S+$/.test(f.em || '')) e.em = 'Enter your email to pay by card.';
           if (step === 'review' && termsHtml() && !f.agree) e.terms = 'Please agree to the Terms & Conditions to place your order.';
           st.errs = e;
           if (Object.keys(e).length) {

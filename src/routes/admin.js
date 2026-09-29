@@ -8,6 +8,7 @@ import { queueNotification, templates } from '../services/notifications.js';
 import { activateSubscription, extendSubscription, applyPaidPlan, extendTrial } from '../services/subscription.js';
 import { compliance } from '../services/policies.js';
 import { signedPrivateUrl } from '../services/uploads.js';
+import { onepayGuide } from '../services/onepayGuide.js';
 import { getSetting, setSetting } from '../services/settings.js';
 
 export const adminRouter = Router();
@@ -544,6 +545,17 @@ export const SETTINGS_SCHEMA = {
     if (out.address && /\bp\s*\.?\s*o\s*\.?\s*box\b/i.test(out.address)) throw badRequest('Use a physical address, not a P.O. Box.');
     return out;
   },
+  // "How to get OnePay" guide shown to sellers (lists: one item per entry).
+  onepay_guide: (v) => {
+    if (!v || typeof v !== 'object') throw badRequest('Guide must be an object.');
+    const list = (a, n = 20) => (Array.isArray(a) ? a : String(a || '').split('\n')).map((x) => cleanStr(x, 400)).filter(Boolean).slice(0, n);
+    const c = v.contacts || {};
+    return {
+      intro: cleanStr(v.intro, 600), steps: list(v.steps), documents: list(v.documents), costs: list(v.costs), unsupported: list(v.unsupported),
+      complianceNote: cleanStr(v.complianceNote, 800), refunds: cleanStr(v.refunds, 600),
+      contacts: { email: cleanStr(c.email, 120), email2: cleanStr(c.email2, 120), phone: cleanStr(c.phone, 40), website: cleanStr(c.website, 200), docs: cleanStr(c.docs, 200) },
+    };
+  },
   // Custom text per platform legal page; an empty string falls back to the template.
   platform_policies: (v) => {
     if (!v || typeof v !== 'object') throw badRequest('Policies must be an object.');
@@ -568,6 +580,7 @@ adminRouter.get(
   wrap(async (_req, res) => {
     const out = {};
     for (const k of Object.keys(SETTINGS_SCHEMA)) out[k] = await getSetting(k, null);
+    out.onepay_guide = await onepayGuide(); // defaults filled in until the admin edits it
     res.json({ settings: out });
   })
 );

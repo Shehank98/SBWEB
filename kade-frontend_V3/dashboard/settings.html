@@ -90,7 +90,7 @@
                 <div class="kd-field"><label class="kd-label" for="bankAcc">Account number</label><input class="kd-input" id="bankAcc" inputmode="numeric" placeholder="e.g. 0000000000"></div>
               </div>
             </div>
-            <label class="kd-switch"><span class="kd-check__text"><strong>Card payment</strong><span class="muted">Not available yet.</span></span><input type="checkbox" role="switch" id="online" disabled></label>
+            <p class="kd-help" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="online" hidden disabled>💳 <span><strong>Card payments</strong> are set up in <a class="kd-link" href="#gateways">Payment gateways</a> below.</span></p>
           </section>
           <section class="kd-card panel" aria-labelledby="a5"><h2 id="a5">Delivery</h2>
             <div class="form-grid form-grid--2">
@@ -101,6 +101,17 @@
           </section>
           <div class="row"><button class="kd-btn kd-btn--primary" type="submit">Save changes</button></div>
         </form>
+
+        <!-- Payment gateways: the seller's own OnePay (and PayHere) merchant account.
+             Outside the main form: each gateway saves on its own. -->
+        <section class="kd-card panel" id="gateways" aria-labelledby="gw-h" style="margin-top:24px">
+          <div class="row row--between"><h2 id="gw-h">Payment gateways</h2><span id="cardState"></span></div>
+          <p class="muted">Take card payments with your own merchant account. Money goes straight to your bank. Your keys are encrypted and never shown again after saving.</p>
+          <div id="cardReasons"></div>
+          <div id="gwList" class="stack" style="margin-top:12px"></div>
+          <div class="gw-urls" id="gwUrls"></div>
+        </section>
+        <section class="kd-card panel guide" id="onepayGuide" aria-labelledby="og-h" style="margin-top:16px"></section>
 
         <section class="kd-card panel danger-zone" aria-labelledby="dz" style="margin-top:24px">
           <h2 id="dz">Delete my shop</h2>
@@ -223,6 +234,65 @@
         KadeApi.uploadStoreLogo(file).then(function (r) { S.logo = r.logo; paintLogo(); K.toast('Logo updated'); })
           .catch(function (ex) { K.toast(ex.message || 'Could not upload the logo.'); });
       });
+      // ---- Payment gateways + "How to get OnePay" guide ----
+      function copyRow(label, value) {
+        return '<div class="bankrow"><span class="bankrow__k">' + K.esc(label) + '</span><span class="bankrow__v" style="white-space:normal;overflow-wrap:anywhere;font-size:13px">' + K.esc(value) + '</span><button type="button" class="kd-btn kd-btn--secondary kd-btn--sm bankrow__copy" data-copy="' + K.esc(value) + '">Copy</button></div>';
+      }
+      function gwCard(g) {
+        var id = 'gw-' + g.provider;
+        return '<form class="gw-card" data-gw="' + g.provider + '" novalidate><div class="row row--between"><h3 class="heading">' + K.esc(g.label) + '</h3>' +
+          (g.checkoutSupported ? (g.enabled && g.configured ? '<span class="kd-badge kd-badge--success">On</span>' : '<span class="kd-badge kd-badge--neutral">Off</span>') : '<span class="kd-badge kd-badge--info">Checkout coming soon</span>') + '</div>' +
+          (g.checkoutSupported ? '' : '<p class="muted" style="font-size:14px">You can save your ' + K.esc(g.label) + ' details now. Card checkout with ' + K.esc(g.label) + ' is not switched on yet; use OnePay for card payments today.</p>') +
+          '<div class="form-grid form-grid--2">' + g.fields.map(function (f) {
+            return '<div class="kd-field"><label class="kd-label" for="' + id + '-' + f.key + '">' + K.esc(f.label) + '</label><input class="kd-input" id="' + id + '-' + f.key + '" data-k="' + f.key + '" type="' + (f.secret ? 'password' : 'text') + '" autocomplete="off" spellcheck="false" placeholder="' + (f.hint ? 'Saved: ' + K.esc(f.hint) : '') + '">' + (f.hint ? '<span class="kd-help">Leave blank to keep the saved value.</span>' : '') + '</div>';
+          }).join('') +
+          '<div class="kd-field"><label class="kd-label" for="' + id + '-mode">Mode</label><select class="kd-select" id="' + id + '-mode" data-mode><option value="sandbox"' + (g.mode === 'sandbox' ? ' selected' : '') + '>Sandbox (testing)</option><option value="live"' + (g.mode === 'live' ? ' selected' : '') + '>Live</option></select></div></div>' +
+          '<label class="kd-switch"><span class="kd-check__text"><strong>Use ' + K.esc(g.label) + ' at checkout</strong></span><input type="checkbox" role="switch" data-enabled' + (g.enabled ? ' checked' : '') + '></label>' +
+          '<div><button class="kd-btn kd-btn--primary" type="submit">Save ' + K.esc(g.label) + '</button></div></form>';
+      }
+      function list(items, ordered) { var t = ordered ? 'ol' : 'ul'; return '<' + t + ' class="guide__list">' + (items || []).map(function (i) { return '<li>' + K.esc(i) + '</li>'; }).join('') + '</' + t + '>'; }
+      function paintGuide(G) {
+        var c = G.contacts || {};
+        $('onepayGuide').innerHTML = '<details' + (location.hash === '#onepayGuide' ? ' open' : '') + '><summary><h2 id="og-h">How to get OnePay</h2><span class="muted">Register as an individual, step by step</span></summary>' +
+          '<div class="guide__body"><p>' + K.esc(G.intro) + '</p>' +
+          '<div class="kd-banner kd-banner--warning"><div><p class="kd-banner__title">Do this first</p><p>' + K.esc(G.complianceNote) + '</p><a class="kd-link" href="policies">Open Policies &amp; compliance →</a></div></div>' +
+          '<h3>Steps</h3>' + list(G.steps, true) +
+          '<h3>Documents for an individual</h3>' + list(G.documents) +
+          '<h3>Costs to know</h3>' + list(G.costs) +
+          '<h3>Businesses OnePay does not accept</h3><p class="muted">' + K.esc((G.unsupported || []).join(', ')) + '.</p>' +
+          (G.refunds ? '<h3>Refunds</h3><p>' + K.esc(G.refunds) + '</p>' : '') +
+          '<h3>Contact OnePay</h3><ul class="guide__list">' +
+            (c.email ? '<li>Email: <a class="kd-link" href="mailto:' + K.esc(c.email) + '">' + K.esc(c.email) + '</a>' + (c.email2 ? ' or <a class="kd-link" href="mailto:' + K.esc(c.email2) + '">' + K.esc(c.email2) + '</a>' : '') + '</li>' : '') +
+            '<li>Phone: ' + (c.phone ? '<a class="kd-link" href="tel:' + K.esc(c.phone.replace(/\s/g, '')) + '">' + K.esc(c.phone) + '</a>' : '<span class="placeholder-note">' + K.esc(G.phonePlaceholder || 'Not provided yet.') + '</span>') + '</li>' +
+            (c.website ? '<li>Website: <a class="kd-link" href="' + K.esc(c.website) + '" target="_blank" rel="noopener">' + K.esc(c.website.replace(/^https?:\/\//, '')) + '</a></li>' : '') +
+            (c.docs ? '<li>Sample policies: <a class="kd-link" href="' + K.esc(c.docs) + '" target="_blank" rel="noopener">' + K.esc(c.docs.replace(/^https?:\/\//, '')) + '</a></li>' : '') +
+          '</ul></div></details>';
+      }
+      function paintGateways(r) {
+        var c = r.card;
+        $('cardState').innerHTML = c.available ? '<span class="kd-badge kd-badge--success">Card payments on</span>' : '<span class="kd-badge kd-badge--neutral">Card payments off</span>';
+        $('cardReasons').innerHTML = c.available ? '<p class="muted">Buyers now see “Card payment” at checkout' + (c.mode === 'sandbox' ? ' (sandbox: test cards only)' : '') + '.</p>'
+          : '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">To show card payments at checkout</p><ul class="guide__list">' + c.reasons.map(function (x) { return '<li>' + K.esc(x) + '</li>'; }).join('') + '</ul></div></div>';
+        $('gwList').innerHTML = r.gateways.map(gwCard).join('');
+        if (r.urls) $('gwUrls').innerHTML = '<h3 class="heading" style="font-size:16px;margin-top:8px">Paste these into your OnePay app</h3><div class="bankgrid">' + copyRow('Callback URL', r.urls.callbackUrl) + copyRow('Redirect URL', r.urls.redirectUrl) + '</div><p class="kd-help">In the OnePay merchant dashboard, set the callback (webhook) URL of your app to the Callback URL above.</p>';
+        if (r.guide) paintGuide(r.guide);
+      }
+      if (API && KadeApi.gateways) KadeApi.gateways().then(paintGateways).catch(function () {});
+      $('gwList').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var f = e.target, creds = {};
+        K.$$('[data-k]', f).forEach(function (i) { if (i.value.trim()) creds[i.getAttribute('data-k')] = i.value.trim(); });
+        var restore = K.btnLoading(K.$('button[type=submit]', f), 'Saving…');
+        KadeApi.saveGateway(f.getAttribute('data-gw'), { enabled: K.$('[data-enabled]', f).checked, mode: K.$('[data-mode]', f).value, credentials: creds })
+          .then(function (r) { restore(); K.toast('Saved'); paintGateways(Object.assign({}, r, { urls: null })); })
+          .catch(function (ex) { restore(); K.toast(ex.message); });
+      });
+      $('gateways').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-copy]'); if (!b) return;
+        var v = b.getAttribute('data-copy');
+        if (navigator.clipboard) navigator.clipboard.writeText(v).then(function () { K.toast('Copied'); }); else K.toast(v);
+      });
+
       // Business verification: status + private document upload.
       var idZone = K.dropzone($('idDoc'), { title: 'Add your ID copy', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your ID copy' });
       var addrZone = K.dropzone($('addrDoc'), { title: 'Add your address proof', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your address proof' });

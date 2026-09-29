@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db/pool.js';
-import { wrap, badRequest, notFound } from '../utils/http.js';
+import { wrap, badRequest, notFound, HttpError } from '../utils/http.js';
 import { orderCode } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { evalCoupon } from '../services/coupons.js';
 import { LIVE_STATUSES } from '../services/plan.js';
 import { POLICY_KINDS, TITLES, loadPolicies } from '../services/policies.js';
+import { cardAvailability, shopOnePayCreds } from '../services/gateways.js';
+import { createCheckout, toE164, splitName } from '../services/onepay.js';
+import { returnUrl, settleFailure } from '../services/cardPayments.js';
+import { randomBytes } from 'crypto';
 
 export const storeRouter = Router();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -55,6 +59,8 @@ storeRouter.get(
       )
     ).rows.map(S.product);
     Object.assign(store, await storeRatings(st.biz_id));
+    // Card payments show at checkout only when the shop's gateway is on AND compliant.
+    store.payments.card = (await cardAvailability(st.biz_id)).available;
     store.returnDays = st.return_days;
     res.json({ store, products, available: true });
   })
@@ -227,6 +233,19 @@ storeRouter.post(
 
     const fee = st.delivery_free_above && subtotal >= st.delivery_free_above ? 0 : st.delivery_fee;
 
+    // Card payment (the shop's own OnePay account): only when the shop has it switched
+    // on and compliant. The order is created PENDING-payment, then the buyer is sent
+    // to OnePay; the webhook / return page verify and mark it PAID.
+    const card = body.paymentMethod === 'card';
+    let cardCreds = null;
+    if (card) {
+      const av = await cardAvailability(st.biz_id);
+      if (!av.available) throw badRequest('Card payments are not available at this store right now. Please choose another payment method.');
+      cardCreds = await shopOnePayCreds(st.biz_id);
+      if (!toE164(phone)) throw badRequest('Enter a Sri Lankan mobile number to pay by card.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(body.email || ''))) throw badRequest('Enter your email address to pay by card. OnePay sends your receipt there.');
+    }
+
     const order = await withTransaction(async (client) => {
       // Apply a coupon if one was sent and is valid (re-checked server-side).
       let discount = 0;
@@ -248,7 +267,7 @@ storeRouter.post(
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, now()) RETURNING *`,
               [st.biz_id, orderCode(), customer, phone, body.whatsapp || null, body.address || null,
                body.city || null, body.district || null, body.delivery || 'Delivery',
-               body.payment || 'Cash on delivery', subtotal, fee, total, body.note || null, couponCode, discount, body.email || null]
+               card ? 'Card payment' : (body.payment || 'Cash on delivery'), subtotal, fee, total, body.note || null, couponCode, discount, body.email || null]
             )
           ).rows[0];
         } catch (e) {
@@ -278,6 +297,13 @@ storeRouter.post(
         }
       }
       await client.query('INSERT INTO order_status_history (order_id, status) VALUES ($1, $2)', [created.id, 'PENDING']);
+      if (card) {
+        await client.query(`UPDATE orders SET payment_status='PENDING' WHERE id=$1`, [created.id]);
+        created.gatewayTx = (await client.query(
+          `INSERT INTO gateway_transactions (kind, business_id, order_id, reference, amount, mode) VALUES ('ORDER',$1,$2,$3,$4,$5) RETURNING *`,
+          [st.biz_id, created.id, `${created.code}-${randomBytes(3).toString('hex').toUpperCase()}`, created.total, cardCreds.mode]
+        )).rows[0];
+      }
 
       // Notify the store owner of the new order. The customer is not emailed at
       // placement: they receive a branded email only when the shop confirms the
@@ -289,9 +315,32 @@ storeRouter.post(
       return created;
     });
 
+    let payment = null;
+    if (card) {
+      const tx = order.gatewayTx;
+      try {
+        const name = splitName(customer);
+        const out = await createCheckout(cardCreds, {
+          amount: order.total,
+          reference: tx.reference,
+          customer: { firstName: name.first, lastName: name.last, phone, email: body.email },
+          redirectUrl: returnUrl(tx.reference),
+          additionalData: { k: 'order', shop_id: st.biz_id, order_id: order.id, tx: tx.id },
+        });
+        await query('UPDATE gateway_transactions SET ipg_transaction_id=$2, raw_create=$3, updated_at=now() WHERE id=$1', [tx.id, out.ipgTransactionId, JSON.stringify(out.raw)]);
+        payment = { provider: 'onepay', redirectUrl: out.redirectUrl };
+      } catch (e) {
+        console.error('[onepay] shop checkout failed:', st.slug, e.message);
+        // Could not reach OnePay: cancel this order and return its stock.
+        await settleFailure(tx.id, 'Could not start the card payment');
+        throw new HttpError(502, 'We could not open the card payment page. Nothing was charged. Please try again or choose another payment method.');
+      }
+    }
+
     res.status(201).json({
       order: S.order(order, lines),
       code: order.code,
+      payment,
       // Private link to the buyer's order status page (tracking, reviews).
       token: order.public_token,
       statusUrl: `/store/order?s=${encodeURIComponent(st.slug)}&o=${encodeURIComponent(order.code)}&k=${order.public_token}`,

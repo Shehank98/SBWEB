@@ -31,7 +31,8 @@
 
   /* ---------- Status badges (word + shape, never colour alone) ---------- */
   var BADGES = {
-    order: { PENDING: ['warning', 'Pending'], CONFIRMED: ['info', 'Confirmed'], PROCESSING: ['info', 'Processing'], READY_TO_SHIP: ['info', 'Ready to ship'], SHIPPED: ['info', 'Shipped'], DELIVERED: ['success', 'Delivered'], CANCELLED: ['danger', 'Cancelled'] },
+    order: { PENDING: ['warning', 'Pending'], CONFIRMED: ['info', 'Confirmed'], PROCESSING: ['info', 'Processing'], READY_TO_SHIP: ['info', 'Ready to ship'], SHIPPED: ['info', 'Shipped'], DELIVERED: ['success', 'Delivered'], CANCELLED: ['danger', 'Cancelled'], REFUNDED: ['neutral', 'Refunded'] },
+    paystat: { PENDING: ['warning', 'Awaiting card payment'], PAID: ['success', 'Paid by card'], FAILED: ['danger', 'Card payment failed'], CANCELLED: ['neutral', 'Card payment cancelled'], REFUNDED: ['neutral', 'Refunded'] },
     sub: { TRIAL: ['info', 'Free trial'], TRIAL_EXPIRED: ['danger', 'Trial ended'], PENDING_PAYMENT: ['neutral', 'Pending payment'], PENDING_APPROVAL: ['warning', 'Pending approval'], ACTIVE: ['success', 'Active'], EXPIRING: ['warning', 'Expiring'], GRACE_PERIOD: ['warning', 'Grace period'], SUSPENDED: ['danger', 'Suspended'], CANCELLED: ['danger', 'Cancelled'] },
     pay: { PENDING: ['warning', 'Pending review'], APPROVED: ['success', 'Paid'], REJECTED: ['danger', 'Rejected'], FAILED: ['danger', 'Failed'], CANCELLED: ['neutral', 'Cancelled'], PROCESSING: ['info', 'Processing'] }
   };

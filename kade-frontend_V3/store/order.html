@@ -49,7 +49,11 @@
               (o.tracking.number ? '<span>Tracking number</span><b>' + K.esc(o.tracking.number) + '</b><button type="button" class="btn btn-soft btn-sm" data-copy="' + K.esc(o.tracking.number) + '">' + ic('copy', 'ic-sm') + 'Copy tracking number</button>' : '') +
               (o.tracking.url ? '<a class="btn btn-primary btn-sm" href="' + K.esc(o.tracking.url) + '" target="_blank" rel="noopener">Track with ' + K.esc(o.tracking.courier || 'the courier') + '</a>' : '') + '</div>'
             : '';
-          main.innerHTML = '<div class="thanks">' +
+          var back = q.get('payment'), banner = '';
+          if (o.paymentStatus === 'PAID') banner = '';
+          else if (back === 'failed' || o.paymentStatus === 'FAILED') banner = '<div class="info" style="background:#FEE4E2;color:var(--sf-danger)">' + ic('info') + '<p>Your card payment did not go through, so this order was cancelled. Nothing was charged. You can order again and choose another payment method.</p></div>';
+          else if (back === 'pending' || o.paymentStatus === 'PENDING') banner = '<div class="info">' + ic('clock') + '<p>We are waiting for OnePay to confirm your card payment. This page updates when it does.</p></div>';
+          main.innerHTML = '<div class="thanks">' + banner +
             '<p class="eyebrow">Order ' + K.esc(o.code) + ' · ' + K.fmtDate(o.date) + '</p>' +
             '<h1>' + (cancelled ? 'This order was ' + LABEL[st].toLowerCase() : (st === 'DELIVERED' ? 'Delivered. Enjoy! 🎉' : LABEL[st] || st)) + '</h1>' +
             (o.paymentStatus === 'PAID' ? '<p><span class="badge b-ok">' + ic('check', 'ic-sm') + 'Paid by card</span></p>' : '') +

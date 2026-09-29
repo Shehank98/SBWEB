@@ -155,6 +155,26 @@ export const templates = {
     data: { heading: 'Payment received', business: business.name, plan: r.plan, amount: r.amount, reference: r.reference, transactionId: r.transactionId, paidOn: r.paidOn, validUntil: r.validUntil, method: 'Card (OnePay)', planUrl: dashUrl('subscription') },
   }),
 
+  // Card-paid shop orders.
+  orderPaidOwner: (shop, order, tx) => ({
+    type: 'ORDER_PAID',
+    subject: `Card payment received: ${order.code} (Rs. ${Number(order.total).toLocaleString('en-US')})`,
+    message: `${order.customer_name} paid Rs. ${order.total} by card for order ${order.code}. OnePay transaction ${tx.ipg_transaction_id}. The money is paid out to your bank by OnePay.`,
+    data: { heading: 'Card payment received', business: shop.name, orderCode: order.code, customer: order.customer_name, total: order.total, transactionId: tx.ipg_transaction_id, ordersUrl: dashUrl('orders') },
+  }),
+  orderPaidBuyer: (shop, order, items, tx) => ({
+    type: 'ORDER_PAYMENT_RECEIPT',
+    subject: `Payment received for your ${shop.name} order ${order.code}`,
+    message: `Thank you. We received your card payment of Rs. ${order.total} for order ${order.code} at ${shop.name}. OnePay reference ${tx.ipg_transaction_id}.`,
+    data: {
+      ...orderEmailData(shop, order, items),
+      heading: 'Payment received',
+      intro: `Thank you for paying by card. ${shop.name} will confirm your order soon.`,
+      transactionId: tx.ipg_transaction_id,
+      statusUrl: shop.slug ? `${BASE}/store/order?s=${encodeURIComponent(shop.slug)}&o=${encodeURIComponent(order.code)}&k=${order.public_token}` : '',
+    },
+  }),
+
   // ---- Seller verification ----
   verificationSubmitted: (business) => ({
     type: 'VERIFICATION_SUBMITTED',
