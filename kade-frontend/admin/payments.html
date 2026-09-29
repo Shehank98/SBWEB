@@ -24,24 +24,33 @@
       </main>
     </div>
   </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
   <script src="../js/app.js"></script>
   <script>
     (function () {
       var K = Kade, D = KadeData;
+      if (!K.guard('admin')) return;
       K.shell('admin', 'payments');
+      var API = !!(window.KadeApi && KadeApi.enabled);
 
       function addDays(iso, n) { var d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); }
       function activate(b) { var base = b.expiry && b.expiry > D.today ? b.expiry : D.today; b.expiry = addDays(base, 30); b.status = 'ACTIVE'; }
 
-      var P = D.payments, tab = 'PENDING', LABEL = { PENDING: 'Pending', APPROVED: 'Approved', REJECTED: 'Rejected' };
+      var P = [], tab = 'PENDING', LABEL = { PENDING: 'Pending', APPROVED: 'Approved', REJECTED: 'Rejected' };
       function tabs() { K.$('#tabs').innerHTML = Object.keys(LABEL).map(function (s) { return '<button class="kd-tab" role="tab" type="button" data-s="' + s + '" aria-selected="' + (s === tab) + '">' + LABEL[s] + '<span class="count">' + P.filter(function (p) { return p.status === s; }).length + '</span></button>'; }).join(''); }
+      function slip(p) {
+        if (!p.slip) return '<div class="slip" role="img" aria-label="No slip uploaded for ' + K.esc(p.business) + '">No slip uploaded</div>';
+        if (/\.pdf($|\?)/i.test(p.slip)) return '<a class="kd-btn kd-btn--secondary kd-btn--sm" href="' + K.esc(p.slip) + '" target="_blank" rel="noopener">Open payment slip (PDF)</a>';
+        return '<a href="' + K.esc(p.slip) + '" target="_blank" rel="noopener" aria-label="Open full payment slip from ' + K.esc(p.business) + '"><img src="' + K.esc(p.slip) + '" alt="Payment slip from ' + K.esc(p.business) + '" style="max-width:100%;border-radius:8px;border:1px solid var(--border);display:block"></a>';
+      }
       function render() {
         var list = P.filter(function (p) { return p.status === tab; }); K.$('#none').hidden = list.length > 0;
         K.$('#grid').innerHTML = list.map(function (p) {
           return '<article class="kd-card panel"><div class="row row--between"><h2 class="heading">' + K.esc(p.business) + '</h2>' + K.badge('pay', p.status) + '</div>' +
             '<dl class="dl"><dt>Owner</dt><dd>' + K.esc(p.owner) + '</dd><dt>Plan</dt><dd>' + K.esc(p.plan) + '</dd><dt>Amount</dt><dd class="price-sm">' + K.rs(p.amount) + '</dd><dt>Reference</dt><dd>' + K.esc(p.ref || 'None') + '</dd><dt>Submitted</dt><dd>' + K.fmtDate(p.submitted) + '</dd>' + (p.reason ? '<dt>Reason</dt><dd>' + K.esc(p.reason) + '</dd>' : '') + '</dl>' +
-            '<div class="slip" role="img" aria-label="Payment slip image for ' + K.esc(p.business) + '">Payment slip image<br>(uploaded by the owner)</div>' +
+            slip(p) +
             (p.status === 'PENDING' ? '<div class="row"><button class="kd-btn kd-btn--primary" data-a="ok" data-id="' + p.id + '" aria-label="Approve payment from ' + K.esc(p.business) + '">Approve</button><button class="kd-btn kd-btn--ghost" style="color:var(--danger)" data-a="no" data-id="' + p.id + '" aria-label="Reject payment from ' + K.esc(p.business) + '">Reject</button></div>' : '') + '</article>';
         }).join('');
       }
@@ -49,12 +58,22 @@
       K.$('#grid').addEventListener('click', function (e) {
         var b = e.target.closest('button'); if (!b) return; var p = P.filter(function (x) { return x.id === b.getAttribute('data-id'); })[0];
         if (b.getAttribute('data-a') === 'ok') {
-          p.status = 'APPROVED'; var biz = D.businesses.filter(function (x) { return x.name === p.business; })[0]; if (biz) activate(biz);
-          tabs(); render(); K.toast(p.business + ' is active until ' + (biz ? K.fmtDate(biz.expiry) : '') + '. Email queued.');
-        } else K.confirm({ title: 'Reject this payment?', body: p.business + ' will be asked to send a new slip.', confirmLabel: 'Reject payment', danger: true, reason: 'Reason for the owner' }).then(function (r) { if (r) { p.status = 'REJECTED'; p.reason = r.reason; tabs(); render(); K.toast('Payment rejected. Email queued.'); } });
+          if (API) { b.disabled = true; KadeApi.adminApprovePayment(p.id).then(function () { K.toast(p.business + ' is now active. The "store is ready" email is queued.'); return reload(); }).catch(function (ex) { b.disabled = false; K.toast(ex.message || 'Could not approve.'); }); }
+          else { p.status = 'APPROVED'; var biz = D.businesses.filter(function (x) { return x.name === p.business; })[0]; if (biz) activate(biz); tabs(); render(); K.toast(p.business + ' is active until ' + (biz ? K.fmtDate(biz.expiry) : '') + '. Email queued.'); }
+        } else {
+          K.confirm({ title: 'Reject this payment?', body: p.business + ' will be asked to send a new slip.', confirmLabel: 'Reject payment', danger: true, reason: 'Reason for the owner' }).then(function (r) {
+            if (!r) return;
+            if (API) { KadeApi.adminRejectPayment(p.id, r.reason).then(function () { K.toast('Payment rejected. Email queued.'); return reload(); }).catch(function (ex) { K.toast(ex.message || 'Could not reject.'); }); }
+            else { p.status = 'REJECTED'; p.reason = r.reason; tabs(); render(); K.toast('Payment rejected. Email queued.'); }
+          });
+        }
       });
-      tabs(); render();
 
+      function reload() { return KadeApi.adminPayments().then(function (r) { P = r.payments; tabs(); render(); }); }
+      if (API) {
+        K.$('#grid').innerHTML = '<p style="padding:16px">' + K.spinner() + ' Loading payments…</p>';
+        reload().catch(function () { K.$('#grid').innerHTML = '<p class="muted" style="padding:16px">Could not load payments.</p>'; });
+      } else { P = D.payments; tabs(); render(); }
     })();
   </script>
 </body>

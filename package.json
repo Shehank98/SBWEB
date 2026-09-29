@@ -1,0 +1,29 @@
+{
+  "name": "sidadiya-backend",
+  "version": "1.0.0",
+  "description": "Multi-tenant commerce platform backend for the Kade storefront SaaS.",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "db:setup": "node src/db/setup.js",
+    "db:seed": "node src/db/seed.js",
+    "db:purge-demo": "node src/db/purge-demo.js",
+    "job:subscriptions": "node src/jobs/subscriptions.js"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^8.2.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "firebase-admin": "^14.4.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.4.0",
+    "pg": "^8.12.0"
+  }
+}

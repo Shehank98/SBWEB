@@ -12,14 +12,17 @@
   <div id="store-header"></div>
   <main id="main" class="container"></main>
   <div id="store-footer"></div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
   <script src="../js/app.js"></script>
   <script src="../js/store.js"></script>
   <script>
     (function () {
-      var K = Kade, D = KadeData, s = K.storeInit(); if (!s) return;
+      var K = Kade, D = KadeData;
+      K.loadStore(function (s, products) {
       var id = new URLSearchParams(location.search).get('p');
-      var p = D.products.filter(function (x) { return x.id === id && x.store === s.slug; })[0];
+      var p = products.filter(function (x) { return x.id === id; })[0];
       var main = K.$('#main');
       if (!p) { main.innerHTML = '<div class="empty"><h1 class="heading">We could not find that product</h1><a class="kd-btn kd-btn--primary" href="' + K.sUrl('index.html') + '">See all products</a></div>'; return; }
       document.title = p.name + ' | ' + s.name;
@@ -65,9 +68,10 @@
         var done = function () { K.toast('Link copied'); };
         if (navigator.clipboard) navigator.clipboard.writeText(pageUrl).then(done, function () { K.toast('Copy the link from the address bar'); }); else K.toast('Copy the link from the address bar');
       });
-      var rel = D.products.filter(function (x) { return x.store === s.slug && x.id !== p.id; }).slice(0, 4);
+      var rel = products.filter(function (x) { return x.id !== p.id; }).slice(0, 4);
       K.$('#related').innerHTML = rel.map(function (r) { return '<article class="kd-card kd-product"><a class="product-link" href="' + K.sUrl('product.html', '&p=' + r.id) + '"><div class="kd-product__media">' + K.ph(r) + '</div><div class="kd-product__body"><h3 class="kd-product__name">' + K.esc(r.name) + '</h3>' + K.priceHtml(r) + '</div></a></article>'; }).join('');
       sync();
+      });
     })();
   </script>
 </body>

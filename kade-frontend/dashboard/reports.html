@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reports | Kade dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+        <div class="page-head"><div><h1>Reports</h1><p id="sub">Sales and product performance for your store.</p></div></div>
+        <div id="body"></div>
+      </main>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      if (!K.guard('owner', 'reports')) return;
+      K.shell('dashboard', 'reports');
+      var API = !!(window.KadeApi && KadeApi.enabled);
+      var body = K.$('#body');
+
+      function upsell() {
+        K.$('#sub').textContent = 'Upgrade to unlock sales reports.';
+        body.innerHTML = '<section class="kd-card panel" style="text-align:center;max-width:560px;margin:24px auto">' +
+          '<h2 class="heading">Reports are a Business feature</h2>' +
+          '<p class="muted" style="margin-top:8px">Your Starter plan covers products and orders. Upgrade to <strong>Business</strong> for sales reports, or <strong>Pro</strong> for advanced customer and location insights.</p>' +
+          '<div class="row" style="justify-content:center;margin-top:16px"><a class="kd-btn kd-btn--primary" href="subscription.html">See plans</a></div></section>';
+      }
+
+      // R = { plan, revenue, orders, avgOrder, itemsSold, lowStock, sales7, byStatus:[{label,value}], topProducts:[{name,category,image,units,revenue}], cities:[{city,orders}]|null }
+      function render(R) {
+        var isPro = R.plan === 'Pro';
+        var tiles = [
+          ['Revenue', K.rs(R.revenue), R.paidOrders + ' paid orders'],
+          ['Orders', R.orders, 'All time'],
+          ['Average order', K.rs(R.avgOrder), 'Per paid order'],
+          ['Items sold', R.itemsSold, 'Units across orders'],
+          ['Low or out of stock', R.lowStock, R.lowStock ? 'Restock soon' : 'All stocked']
+        ];
+        body.innerHTML =
+          '<div class="tiles">' + tiles.map(function (t) { return '<div class="kd-card stat"><span class="stat__label">' + t[0] + '</span><span class="stat__value">' + t[1] + '</span><span class="stat__delta">' + t[2] + '</span></div>'; }).join('') + '</div>' +
+          '<div class="grid-2">' +
+          '<section class="kd-card panel" aria-labelledby="r1"><h2 id="r1">Sales, last 7 days</h2><div id="chart1"></div></section>' +
+          '<section class="kd-card panel" aria-labelledby="r2"><h2 id="r2">Orders by status</h2><div id="chart2"></div></section>' +
+          '</div>' +
+          '<section class="kd-card" aria-labelledby="r3"><h2 class="heading" id="r3" style="padding:16px 16px 0">Top products</h2><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Product</th><th scope="col">Category</th><th scope="col" class="kd-num">Units sold</th><th scope="col" class="kd-num">Revenue</th></tr></thead><tbody id="toprows"></tbody></table></div>' +
+          (R.topProducts.length ? '' : '<div class="empty"><p class="muted">No sales yet. Reports fill in as orders come through.</p></div>') + '</section>' +
+          '<section class="kd-card panel" aria-labelledby="r4" id="advanced" style="margin-top:24px"></section>';
+
+        var sales7 = R.sales7.map(function (d) { var dt = new Date(d.date + 'T00:00:00'); return { label: dt.toLocaleDateString('en-GB', { weekday: 'short' }), title: dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }), value: d.value }; });
+        K.bars(K.$('#chart1'), sales7, { label: 'Sales per day for the last 7 days, in rupees', xLabel: 'Day', yLabel: 'Sales' });
+        if (R.byStatus.length) K.bars(K.$('#chart2'), R.byStatus, { label: 'Orders by status', xLabel: 'Status', yLabel: 'Orders', format: function (v) { return v + (v === 1 ? ' order' : ' orders'); } });
+        else K.$('#chart2').innerHTML = '<p class="muted">No orders yet.</p>';
+
+        K.$('#toprows').innerHTML = R.topProducts.map(function (r) {
+          return '<tr><td><div class="cell-flex"><div class="thumb">' + K.ph({ name: r.name, image: r.image, tone: r.tone }, true) + '</div><strong>' + K.esc(r.name) + '</strong></div></td><td>' + K.esc(r.category || '—') + '</td><td class="kd-num">' + r.units + '</td><td class="kd-num">' + K.rs(r.revenue) + '</td></tr>';
+        }).join('');
+
+        var adv = K.$('#advanced');
+        if (isPro && R.cities) {
+          adv.innerHTML = '<h2 id="r4">Advanced insights <span class="kd-badge kd-badge--success">Pro</span></h2><p class="muted">Where your orders come from.</p>' +
+            '<div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Town or city</th><th scope="col" class="kd-num">Orders</th></tr></thead><tbody>' +
+            R.cities.map(function (r) { return '<tr><td>' + K.esc(r.city) + '</td><td class="kd-num">' + r.orders + '</td></tr>'; }).join('') + '</tbody></table></div>';
+        } else {
+          adv.classList.add('locked');
+          adv.innerHTML = '<div class="locked__body"><h2 id="r4">Advanced insights</h2>' +
+            '<p class="muted" style="margin-top:8px">Customer and location insights — where your orders come from, repeat customers and more — are part of the <strong>Pro</strong> plan.</p>' +
+            '<div class="row" style="margin-top:12px"><a class="kd-btn kd-btn--secondary" href="subscription.html">Upgrade to Pro</a></div></div>';
+        }
+      }
+
+      if (API) {
+        K.loading(body, 'Loading reports…');
+        Promise.all([KadeApi.reports(), KadeApi.myProducts().catch(function () { return { products: [] }; })]).then(function (res) {
+          var rep = res.report || res[0].report, prods = res[1].products || [];
+          function findProd(name) { var base = name.split(' (')[0]; return prods.filter(function (p) { return p.name === base; })[0]; }
+          render({
+            plan: rep.plan, revenue: rep.revenue, orders: rep.orders, paidOrders: rep.paidOrders, avgOrder: rep.avgOrder, itemsSold: rep.itemsSold, lowStock: rep.lowStock,
+            sales7: rep.sales7 || [],
+            byStatus: (rep.byStatus || []).map(function (s) { return { label: K.orderLabel(s.status), value: s.count }; }),
+            topProducts: (rep.topProducts || []).map(function (t) { var p = findProd(t.name); return { name: t.name, units: t.units, revenue: t.revenue, category: p && p.category, image: p && p.image, tone: p && p.tone }; }),
+            cities: rep.cities || null
+          });
+        }).catch(function (ex) {
+          if (ex && ex.status === 400) upsell();
+          else body.innerHTML = '<p class="muted">Could not load reports. Please refresh.</p>';
+        });
+        return;
+      }
+
+      // ---- Mock mode (offline preview; ?as=starter|business|pro to preview a tier) ----
+      var me = D.businesses[0];
+      var override = (new URLSearchParams(location.search).get('as') || '').toLowerCase();
+      var planName = override ? override.charAt(0).toUpperCase() + override.slice(1) : me.plan;
+      if (planName === 'Starter') { upsell(); return; }
+      var orders = K.orders(), products = D.products.filter(function (p) { return p.store === 'abc-fashion'; });
+      var counted = orders.filter(function (o) { return o.status !== 'CANCELLED'; });
+      var revenue = counted.reduce(function (n, o) { return n + o.total; }, 0);
+      var itemsSold = counted.reduce(function (n, o) { return n + o.items.reduce(function (m, i) { return m + i.qty; }, 0); }, 0);
+      var STATUS = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+      var top = products.map(function (p) { var units = 0, rev = 0; counted.forEach(function (o) { o.items.forEach(function (i) { if (i.name === p.name || i.name.indexOf(p.name + ' (') === 0) { units += i.qty; rev += i.qty * i.price; } }); }); return { name: p.name, category: p.category, image: p.image, tone: p.tone, units: units, revenue: rev }; }).filter(function (r) { return r.units > 0; }).sort(function (a, b) { return b.units - a.units; });
+      var cities = null;
+      if (planName === 'Pro') { var c = {}; counted.forEach(function (o) { var k = o.city || 'Unknown'; c[k] = (c[k] || 0) + 1; }); cities = Object.keys(c).map(function (k) { return { city: k, orders: c[k] }; }).sort(function (a, b) { return b.orders - a.orders; }); }
+      render({
+        plan: planName, revenue: revenue, orders: orders.length, paidOrders: counted.length, avgOrder: counted.length ? Math.round(revenue / counted.length) : 0, itemsSold: itemsSold, lowStock: products.filter(function (p) { return p.stock <= p.lowAt; }).length,
+        sales7: D.sales7,
+        byStatus: STATUS.map(function (s) { return { label: K.orderLabel(s), value: orders.filter(function (o) { return o.status === s; }).length }; }).filter(function (d) { return d.value > 0; }),
+        topProducts: top, cities: cities
+      });
+    })();
+  </script>
+</body>
+</html>

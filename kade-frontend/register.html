@@ -63,6 +63,8 @@
     </div>
   </main>
 
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
   <script>
@@ -70,6 +72,7 @@
       var K = Kade, D = KadeData;
       var DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
       K.$('#district').innerHTML = '<option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('');
+      if (K.dropzone) K.dropzone(K.$('#slip'), { title: 'Drag & drop your payment slip', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your payment slip' });
       var taken = Object.keys(D.stores).concat(D.businesses.map(function (b) { return b.slug; }));
       var step = 1, form = K.$('#form'), sections = K.$$('[data-step]'), stepper = K.$$('#stepper li');
 
@@ -126,15 +129,42 @@
         window.scrollTo({ top: 0 }); var h = K.$('[data-step="' + n + '"] h2'); if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
       }
       K.$('#back').addEventListener('click', function () { show(step - 1); });
-      form.addEventListener('submit', function (e) {
-        e.preventDefault();
-        if (!validate(K.$('[data-step="' + step + '"]'))) return;
-        if (step < 3) return show(step + 1);
-        var p = plan();
+      function showSuccess(p) {
         K.$('#card').innerHTML = '<div class="stack-lg" role="status"><h1>Application received</h1><p>Thank you, ' + K.esc(K.$('#ownerName').value.split(' ')[0]) + '. We are checking your payment slip for <strong>' + K.esc(K.$('#bizName').value) + '</strong>.</p>' +
           '<div class="kd-card panel"><dl class="dl"><dt>Status</dt><dd>' + K.badge('sub', 'PENDING_APPROVAL') + '</dd><dt>Plan</dt><dd>' + K.esc(p.name) + ' (' + K.rs(p.price) + ' / ' + p.durationDays + ' days)</dd><dt>Your store link</dt><dd class="slug-preview">' + K.host + '/store/<strong>' + K.esc(slugEl.value) + '</strong></dd></dl></div>' +
           '<p class="muted">We will email <strong>' + K.esc(K.$('#ownerEmail').value) + '</strong> as soon as your store is ready. You can then log in and add products.</p><div class="row"><a class="kd-btn kd-btn--primary" href="login.html">Go to log in</a><a class="kd-btn kd-btn--ghost" href="index.html">Back to home</a></div></div>';
         window.scrollTo({ top: 0 }); K.$('#card h1').setAttribute('tabindex', '-1'); K.$('#card h1').focus();
+      }
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        if (!validate(K.$('[data-step="' + step + '"]'))) return;
+        if (step < 3) return show(step + 1);
+        var p = plan();
+
+        // No API configured: keep the offline prototype confirmation.
+        if (!window.KadeApi || !KadeApi.enabled) return showSuccess(p);
+
+        var btn = K.$('#next'); var restore = K.btnLoading(btn, 'Submitting…');
+        try {
+          await KadeApi.register({
+            bizName: K.$('#bizName').value.trim(),
+            bizType: K.$('#bizType').value,
+            district: K.$('#district').value,
+            city: K.$('#city').value.trim(),
+            bizPhone: K.$('#bizPhone').value.trim(),
+            bizWhatsapp: K.$('#bizWa').value.trim(),
+            ownerName: K.$('#ownerName').value.trim(),
+            ownerEmail: K.$('#ownerEmail').value.trim(),
+            password: K.$('#password').value,
+            slug: slugEl.value,
+            planId: p.id,
+            ref: K.$('#ref').value.trim()
+          }, { slip: K.$('#slip').files[0] });
+          showSuccess(p);
+        } catch (ex) {
+          restore();
+          K.toast(ex.message || 'Could not submit your application. Please try again.');
+        }
       });
     })();
   </script>
