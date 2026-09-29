@@ -52,6 +52,14 @@
               </div>
             </div>
           </section>
+          <section class="kd-card panel" aria-labelledby="acover"><h2 id="acover">Cover photo</h2>
+            <p class="muted">The wide banner at the top of your store. A bright photo of your products or shop works best (about 1600 × 600).</p>
+            <div id="coverPrev" class="cover-prev"></div>
+            <div class="row" style="gap:8px;margin-top:12px">
+              <label class="kd-btn kd-btn--secondary kd-btn--sm" style="cursor:pointer">Upload cover<input type="file" id="cover" accept="image/png,image/jpeg,image/webp" hidden></label>
+              <button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" id="coverRm" hidden style="color:var(--danger)">Remove</button>
+            </div>
+          </section>
           <section class="kd-card panel" aria-labelledby="atpl"><h2 id="atpl">Store template</h2>
             <p class="muted">Choose how your storefront is laid out. You can change it any time.</p>
             <div class="preset-grid" id="templates" role="radiogroup" aria-labelledby="atpl"></div>
@@ -179,7 +187,7 @@
         bankBox();
         $('presets').innerHTML = PRESETS.map(function (p) { return '<label class="preset"><input type="radio" name="preset" value="' + p[0] + '"' + (p[0] === preset ? ' checked' : '') + '><span class="preset__swatch" style="--sw-brand:' + p[2] + ';--sw-accent:' + p[3] + ';--sw-soft:' + p[4] + '"><i></i><i></i><i></i></span><strong>' + p[1] + '</strong></label>'; }).join('');
         $('templates').innerHTML = TEMPLATES.map(function (t) { return '<label class="preset preset--tpl"><input type="radio" name="template" value="' + t[0] + '"' + (t[0] === template ? ' checked' : '') + '><span class="tpl__thumb tpl__thumb--' + t[0] + '" aria-hidden="true"><b></b><i></i><i></i></span><strong>' + t[1] + '</strong><span class="muted" style="font-size:13px">' + t[2] + '</span></label>'; }).join('');
-        paintLogo();
+        paintLogo(); paintCover();
         paintPreview();
         loadCategories();
       }
@@ -205,6 +213,25 @@
         K.toast('Uploading logo…');
         KadeApi.uploadStoreLogo(file).then(function (r) { S.logo = r.logo; paintLogo(); K.toast('Logo updated'); })
           .catch(function (ex) { K.toast(ex.message || 'Could not upload the logo.'); });
+      });
+      // Cover photo upload / remove (same pattern as the logo).
+      function paintCover() {
+        var el = $('coverPrev');
+        if (S && S.cover) { el.innerHTML = '<img src="' + K.esc(S.cover) + '" alt="Store cover photo">'; $('coverRm').hidden = false; }
+        else { el.innerHTML = '<span>No cover photo yet. Your brand colours are shown instead.</span>'; $('coverRm').hidden = true; }
+      }
+      $('cover').addEventListener('change', function () {
+        var file = this.files && this.files[0]; this.value = '';
+        if (!file) return;
+        if (!API) { K.toast('Uploading a cover is disabled in the demo.'); return; }
+        K.toast('Uploading cover…');
+        KadeApi.uploadStoreCover(file).then(function (r) { S.cover = r.cover; paintCover(); K.toast('Cover updated'); })
+          .catch(function (ex) { K.toast(ex.message || 'Could not upload the cover.'); });
+      });
+      $('coverRm').addEventListener('click', function () {
+        if (!API) { S.cover = null; paintCover(); return; }
+        KadeApi.removeStoreCover().then(function () { S.cover = null; paintCover(); K.toast('Cover removed'); })
+          .catch(function (ex) { K.toast(ex.message || 'Could not remove the cover.'); });
       });
       $('logoRm').addEventListener('click', function () {
         if (!API) { S.logo = null; paintLogo(); return; }

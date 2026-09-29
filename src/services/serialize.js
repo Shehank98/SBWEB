@@ -21,6 +21,7 @@ export function storePublic(store, categories) {
     address: store.address || '',
     city: store.city || '',
     logo: store.logo_url || null,
+    cover: store.cover_url || null,
     categories: categories || [],
     delivery: {
       fee: store.delivery_fee,

@@ -570,6 +570,30 @@ dashboardRouter.post(
   })
 );
 
+// ---- Store cover photo (owner): the wide banner at the top of the storefront. ----
+dashboardRouter.post(
+  '/store/cover',
+  requireOwner,
+  upload.single('cover'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    if (!req.file) throw badRequest('Choose an image to upload.');
+    const store = (await query('SELECT slug FROM stores WHERE business_id=$1', [b])).rows[0];
+    if (!store) throw notFound('Store not found.');
+    const url = await saveUpload(req.file, `covers/${store.slug}`);
+    await query('UPDATE stores SET cover_url=$2 WHERE business_id=$1', [b, url]);
+    res.json({ cover: url });
+  })
+);
+dashboardRouter.delete(
+  '/store/cover',
+  requireOwner,
+  wrap(async (req, res) => {
+    await query('UPDATE stores SET cover_url=NULL WHERE business_id=$1', [bid(req)]);
+    res.json({ ok: true });
+  })
+);
+
 // ---- Remove the store logo (owner). ----
 dashboardRouter.delete(
   '/store/logo',

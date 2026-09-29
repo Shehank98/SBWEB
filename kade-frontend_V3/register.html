@@ -5,6 +5,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Open your shop | Sidadiya</title>
+  <meta name="description" content="Open your online shop on Sidadiya in three steps. 14 days free, no card needed.">
   <script src="js/theme.js"></script>
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/kade.css">
@@ -13,55 +14,97 @@
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header"><div class="container"><a class="wordmark" href="index" aria-label="Sidadiya home">Sidadiya</a><nav class="site-nav" aria-label="Main"><a href="login">Log in</a></nav></div></header>
 
-  <main id="main" class="auth">
-    <div class="kd-card auth__card auth__card--wide" id="card">
-      <h1>Open your shop</h1>
-      <p class="muted" style="margin-top:8px">Three short steps. You can finish in about five minutes.</p>
-      <ol class="stepper" id="stepper" aria-label="Progress">
-        <li aria-current="step">1. Your business</li><li>2. You and your store link</li><li>3. Plan and payment</li>
-      </ol>
+  <main id="main" class="onb">
+    <div class="onb__layout" id="layout">
+      <div class="kd-card onb__card" id="card">
+        <p class="onb__eyebrow">14 days free · No card needed</p>
+        <h1>Open your shop</h1>
+        <ol class="onb-steps" id="stepper" aria-label="Progress">
+          <li aria-current="step"><span class="onb-steps__n">1</span><span class="onb-steps__l">Details &amp; look</span></li>
+          <li><span class="onb-steps__n">2</span><span class="onb-steps__l">Logo &amp; cover</span></li>
+          <li><span class="onb-steps__n">3</span><span class="onb-steps__l">Preview</span></li>
+        </ol>
 
-      <form id="form" novalidate>
-        <!-- Step 1 -->
-        <section data-step="1" class="form-grid form-grid--2" aria-labelledby="s1">
-          <h2 class="heading span-2" id="s1">Your business</h2>
-          <div class="kd-field span-2"><label class="kd-label" for="bizName">Business name</label><input class="kd-input" id="bizName" name="bizName" data-rule="required" autocomplete="organization"></div>
-          <div class="kd-field"><label class="kd-label" for="bizType">Business type</label>
-            <select class="kd-select" id="bizType" data-rule="required"><option value="">Choose one</option><option>Fashion and clothing</option><option>Food and bakery</option><option>Electronics and mobile</option><option>Beauty and health</option><option>Home and garden</option><option>Books and stationery</option><option>Other</option></select></div>
-          <div class="kd-field"><label class="kd-label" for="district">District</label>
-            <select class="kd-select" id="district" data-rule="required"></select></div>
-          <div class="kd-field"><label class="kd-label" for="city">Town or city</label><input class="kd-input" id="city" data-rule="required" autocomplete="address-level2"></div>
-          <div class="kd-field"><label class="kd-label" for="bizPhone">Business phone</label><input class="kd-input" id="bizPhone" type="tel" inputmode="tel" placeholder="077 123 4567" data-rule="phone" autocomplete="tel"><span class="kd-help">Customers will see this on your store.</span></div>
-          <div class="kd-field span-2"><label class="kd-label" for="bizWa">WhatsApp number</label><input class="kd-input" id="bizWa" type="tel" inputmode="tel" placeholder="077 123 4567" data-rule="phone"><span class="kd-help">Customers use this to message you about orders.</span></div>
-        </section>
+        <form id="form" novalidate>
+          <!-- Step 1: basic details (every existing signup field) + layout theme -->
+          <section data-step="1" class="stack-lg" aria-labelledby="s1">
+            <h2 class="heading" id="s1">Your business</h2>
+            <div class="form-grid form-grid--2">
+              <div class="kd-field span-2"><label class="kd-label" for="bizName">Business name</label><input class="kd-input" id="bizName" data-rule="required" autocomplete="organization" maxlength="60"></div>
+              <div class="kd-field"><label class="kd-label" for="bizType">Business type</label>
+                <select class="kd-select" id="bizType" data-rule="required"><option value="">Choose one</option><option>Fashion and clothing</option><option>Food and bakery</option><option>Electronics and mobile</option><option>Beauty and health</option><option>Home and garden</option><option>Books and stationery</option><option>Handicrafts and gifts</option><option>Jewellery and gems</option><option>Other</option></select></div>
+              <div class="kd-field"><label class="kd-label" for="district">District</label><select class="kd-select" id="district" data-rule="required"></select></div>
+              <div class="kd-field"><label class="kd-label" for="city">Town or city</label><input class="kd-input" id="city" data-rule="required" autocomplete="address-level2"></div>
+              <div class="kd-field"><label class="kd-label" for="bizPhone">Business phone</label><input class="kd-input" id="bizPhone" type="tel" inputmode="tel" placeholder="077 123 4567" data-rule="phone" autocomplete="tel"><span class="kd-help">Customers see this on your store.</span></div>
+              <div class="kd-field span-2"><label class="kd-label" for="bizWa">WhatsApp number</label><input class="kd-input" id="bizWa" type="tel" inputmode="tel" placeholder="077 123 4567" data-rule="phone"><span class="kd-help">Customers message you about orders here.</span></div>
+            </div>
+            <div class="kd-banner kd-banner--warning" id="restricted" hidden role="note"><div><p class="kd-banner__title">Card payments may not be available</p><p style="margin-top:4px">You can still sell with cash on delivery and bank transfer. OnePay (our card partner) does not accept <span id="restrictedWhat">this business type</span>, so card payments would not be approved.</p></div></div>
+            <details class="onb-note"><summary>Businesses that cannot take card payments</summary><p>OnePay does not support drop-shipping, print-on-demand, multi-vendor marketplaces, gems and jewellery, gambling, dating or donation platforms. These shops can still sell on Sidadiya with cash on delivery and bank transfer.</p></details>
 
-        <!-- Step 2 -->
-        <section data-step="2" class="form-grid form-grid--2" aria-labelledby="s2" hidden>
-          <h2 class="heading span-2" id="s2">You and your store link</h2>
-          <div class="kd-field span-2"><label class="kd-label" for="ownerName">Your full name</label><input class="kd-input" id="ownerName" data-rule="required" autocomplete="name"></div>
-          <div class="kd-field"><label class="kd-label" for="ownerEmail">Email</label><input class="kd-input" id="ownerEmail" type="email" data-rule="email" autocomplete="email"><span class="kd-help">We send your approval and order alerts here.</span></div>
-          <div class="kd-field"><label class="kd-label" for="password">Password</label><input class="kd-input" id="password" type="password" data-rule="password" autocomplete="new-password"><span class="kd-help">At least 8 characters.</span></div>
-          <div class="kd-field span-2"><label class="kd-label" for="slug">Store link name</label><input class="kd-input" id="slug" data-rule="slug" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="slugHelp"><span class="kd-help slug-preview" id="slugHelp">Your link: <span id="slugOut"></span></span></div>
-        </section>
+            <h2 class="heading" id="s1b">You and your store link</h2>
+            <div class="form-grid form-grid--2">
+              <div class="kd-field span-2"><label class="kd-label" for="ownerName">Your full name</label><input class="kd-input" id="ownerName" data-rule="required" autocomplete="name"></div>
+              <div class="kd-field"><label class="kd-label" for="ownerEmail">Email</label><input class="kd-input" id="ownerEmail" type="email" data-rule="email" autocomplete="email"><span class="kd-help">For order alerts and your weekly summary.</span></div>
+              <div class="kd-field"><label class="kd-label" for="password">Password</label><input class="kd-input" id="password" type="password" data-rule="password" autocomplete="new-password"><span class="kd-help">At least 8 characters.</span></div>
+              <div class="kd-field span-2"><label class="kd-label" for="slug">Store link name</label><input class="kd-input" id="slug" data-rule="slug" autocapitalize="none" autocomplete="off" spellcheck="false" aria-describedby="slugHelp"><span class="kd-help slug-preview" id="slugHelp">Your link: <span id="slugOut"></span> <span id="slugState" aria-live="polite"></span></span></div>
+            </div>
 
-        <!-- Step 3 -->
-        <section data-step="3" class="stack" aria-labelledby="s3" hidden>
-          <h2 class="heading" id="s3">Plan and payment</h2>
-          <fieldset class="choice" style="border:0;padding:0;margin:0"><legend class="kd-label" style="margin-bottom:8px">Choose a plan</legend><div id="planChoices" class="choice"></div></fieldset>
-          <div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Pay by bank transfer</p><p style="margin-top:4px">Send <strong id="payAmt"></strong> to one of these accounts, then upload the slip below.</p>
-            <p style="margin-top:8px;line-height:1.7"><strong>Commercial Bank</strong>: PS Kavishka, account 8006307123, Arpico Super Hyde Park branch.<br><strong>Sampath Bank</strong>: PS Kavishka, account 121057700812, Karagampitiya branch.</p></div></div>
-          <div class="kd-field"><label class="kd-label" for="slip">Payment slip</label><input class="kd-input" id="slip" type="file" accept="image/*,application/pdf" data-rule="file" style="padding-top:10px"><span class="kd-help">A photo or PDF of your bank transfer receipt.</span></div>
-          <div class="kd-field"><label class="kd-label" for="ref">Bank reference (optional)</label><input class="kd-input" id="ref"></div>
-          <label class="kd-check"><input type="checkbox" id="terms" data-rule="checked"><span class="kd-check__text"><span>I agree to the terms and understand my store is activated after payment is checked.</span></span></label>
-          <p class="kd-error" id="termsErr" hidden></p>
-        </section>
+            <h2 class="heading" id="s1c">Choose your look</h2>
+            <fieldset class="onb-fs"><legend class="kd-label">Colours</legend><div class="swatches" id="presets" role="radiogroup" aria-label="Store colours"></div></fieldset>
+            <fieldset class="onb-fs"><legend class="kd-label">Layout</legend><div class="tpl-cards" id="templates"></div></fieldset>
 
-        <div class="row row--between" style="margin-top:24px">
-          <button type="button" class="kd-btn kd-btn--ghost" id="back" hidden>Back</button>
-          <span style="flex:1"></span>
-          <button type="submit" class="kd-btn kd-btn--primary" id="next">Continue</button>
+            <h2 class="heading" id="s1d">Plan after your free trial</h2>
+            <p class="muted" style="margin-top:-8px">Your first 14 days are free with Starter features. You can change this any time before the trial ends.</p>
+            <fieldset class="onb-fs"><legend class="visually-hidden">Plan</legend><div id="planChoices" class="plan-cards"></div></fieldset>
+          </section>
+
+          <!-- Step 2: logo and cover -->
+          <section data-step="2" class="stack-lg" aria-labelledby="s2" hidden>
+            <h2 class="heading" id="s2">Logo and cover photo</h2>
+            <p class="muted" style="margin-top:-8px">Both are optional. You can add or change them later in Store settings.</p>
+            <div class="kd-field"><label class="kd-label" for="logo">Logo <span class="muted">(square works best)</span></label><input class="kd-input" id="logo" type="file" accept="image/png,image/jpeg,image/webp"></div>
+            <div class="kd-field"><label class="kd-label" for="cover">Cover photo <span class="muted">(wide, like 1600 × 600)</span></label><input class="kd-input" id="cover" type="file" accept="image/png,image/jpeg,image/webp"></div>
+            <p class="kd-help">Tip: a photo of your products, your workshop or your shop front makes buyers trust you faster.</p>
+          </section>
+
+          <!-- Step 3: live preview, quick edits, finish -->
+          <section data-step="3" class="stack-lg" aria-labelledby="s3" hidden>
+            <h2 class="heading" id="s3">Your store preview</h2>
+            <p class="muted" style="margin-top:-8px">This is how buyers see your store on their phone. Edit below and watch it change.</p>
+            <div class="onb-mobile-preview" id="mobilePreviewSlot"></div>
+            <div class="form-grid">
+              <div class="kd-field"><label class="kd-label" for="storeName">Store name</label><input class="kd-input" id="storeName" maxlength="60"></div>
+              <div class="kd-field"><label class="kd-label" for="tagline">Short tagline <span class="muted">(optional)</span></label><input class="kd-input" id="tagline" maxlength="120" placeholder="e.g. Handwoven sarees made in Kandy"></div>
+            </div>
+            <fieldset class="onb-fs"><legend class="kd-label">Colours</legend><div class="swatches" id="presets2" role="radiogroup" aria-label="Store colours"></div></fieldset>
+            <details class="onb-note"><summary>Already paid by bank transfer? (optional)</summary>
+              <div class="stack" style="margin-top:12px">
+                <p class="muted">You do not need to pay now. If you already transferred money for a plan, add the slip and we will switch you to that plan after checking it. Your free days are kept.</p>
+                <div class="kd-field"><label class="kd-label" for="slip">Payment slip</label><input class="kd-input" id="slip" type="file" accept="image/*,application/pdf"></div>
+                <div class="kd-field"><label class="kd-label" for="ref">Bank reference</label><input class="kd-input" id="ref"></div>
+              </div>
+            </details>
+            <label class="kd-check"><input type="checkbox" id="terms" data-rule="checked"><span class="kd-check__text"><span>I agree to the <a class="kd-link" href="legal/terms" target="_blank" rel="noopener">Terms &amp; Conditions</a> and <a class="kd-link" href="legal/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span></span></label>
+            <p class="kd-error" id="termsErr" hidden></p>
+          </section>
+
+          <div class="onb-actions">
+            <button type="button" class="kd-btn kd-btn--ghost" id="back" hidden>Back</button>
+            <button type="button" class="kd-btn kd-btn--ghost" id="skip" hidden>Skip for now</button>
+            <button type="submit" class="kd-btn kd-btn--primary" id="next">Continue</button>
+          </div>
+        </form>
+      </div>
+
+      <aside class="onb__preview" id="previewAside" aria-label="Live store preview">
+        <div id="phoneHome">
+          <div class="phone" id="phone" data-preset="tea" data-template="classic" aria-hidden="true">
+            <div class="phone__notch"></div>
+            <div class="phone__screen" id="screen"></div>
+          </div>
+          <p class="onb__preview-cap">Live preview</p>
         </div>
-      </form>
+      </aside>
     </div>
   </main>
 
@@ -72,27 +115,112 @@
   <script>
     (function () {
       var K = Kade, D = KadeData;
+      var API = !!(window.KadeApi && KadeApi.enabled);
       var DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
-      K.$('#district').innerHTML = '<option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('');
-      if (K.dropzone) K.dropzone(K.$('#slip'), { title: 'Drag & drop your payment slip', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your payment slip' });
-      var taken = Object.keys(D.stores).concat(D.businesses.map(function (b) { return b.slug; }));
-      var step = 1, form = K.$('#form'), sections = K.$$('[data-step]'), stepper = K.$$('#stepper li');
+      var PRESETS = [['tea', 'Tea', '#0f5b4a', '#e8a317'], ['sapphire', 'Sapphire', '#1b4f9c', '#f2b73f'], ['cinnamon', 'Cinnamon', '#8a3b12', '#f0c36a'], ['orchid', 'Orchid', '#7a2e5c', '#f4b6c2'], ['ink', 'Ink', '#1f2624', '#d9a441']];
+      var TEMPLATES = [['classic', 'Classic', 'Cover, then a 2-column grid'], ['showcase', 'Showcase', 'Big cover, large photos'], ['minimal', 'Minimal', 'Compact, no cover']];
+      // Sample products per business type so the preview looks like a real shop.
+      var SAMPLES = {
+        'Fashion and clothing': [['👗', 'Summer dress', 4500, 5600], ['👕', 'Linen shirt', 3800], ['🧣', 'Silk scarf', 1800], ['👜', 'Canvas tote', 2200]],
+        'Food and bakery': [['🎂', 'Chocolate cake 1kg', 4200], ['🧁', 'Cupcakes (6)', 1500], ['🥐', 'Butter cake', 2400, 2800], ['🍪', 'Cookie box', 1200]],
+        'Electronics and mobile': [['🎧', 'Wireless earbuds', 5900, 6800], ['🔌', 'Fast charger', 3500], ['📱', 'Phone case', 1200], ['🔋', 'Power bank', 4800]],
+        'Beauty and health': [['🧴', 'Aloe body lotion', 1650], ['💄', 'Matte lipstick', 1450, 1800], ['🌿', 'Herbal oil', 990], ['🧼', 'Handmade soap', 650]],
+        'Jewellery and gems': [['💍', 'Silver ring', 6500], ['📿', 'Beaded necklace', 3200], ['💎', 'Moonstone pendant', 12500], ['⌚', 'Bracelet', 2900]]
+      };
+      var DEFAULT_SAMPLES = [['🥻', 'Handloom saree', 7200, 8500], ['🧵', 'Lace runner', 2800], ['🛋️', 'Cushion cover', 1650], ['🥥', 'Coconut bowls', 2200]];
+      var RESTRICTED = { 'Jewellery and gems': 'gems and jewellery shops' };
 
-      var wantPlan = new URLSearchParams(location.search).get('plan') || 'business';
-      K.$('#planChoices').innerHTML = D.plans.map(function (p) {
-        return '<label><input type="radio" name="plan" value="' + p.id + '"' + (p.id === wantPlan ? ' checked' : '') + '><span><strong>' + K.esc(p.name) + '</strong> <span class="price">' + K.rs(p.price) + ' / ' + p.durationDays + ' days</span><br><span class="muted">' + K.esc(p.features.slice(0, 2).join(', ')) + '</span></span></label>';
+      var st = { preset: 'tea', template: 'classic', logo: null, cover: null, plans: [], plan: new URLSearchParams(location.search).get('plan') || 'business' };
+      var $ = function (id) { return document.getElementById(id); };
+      $('district').innerHTML = '<option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('');
+
+      /* ---------- Look: colour swatches (two synced groups) and layout cards ---------- */
+      function swatches(name) {
+        return PRESETS.map(function (p) {
+          return '<label class="swatch" title="' + p[1] + '"><input type="radio" name="' + name + '" value="' + p[0] + '"' + (p[0] === st.preset ? ' checked' : '') + '><span class="swatch__dot" style="--a:' + p[2] + ';--b:' + p[3] + '"></span><span class="swatch__l">' + p[1] + '</span></label>';
+        }).join('');
+      }
+      function paintSwatches() { $('presets').innerHTML = swatches('preset'); $('presets2').innerHTML = swatches('preset2'); }
+      paintSwatches();
+      ['presets', 'presets2'].forEach(function (id) { $(id).addEventListener('change', function (e) { st.preset = e.target.value; paintSwatches(); render(); }); });
+      $('templates').innerHTML = TEMPLATES.map(function (t) {
+        return '<label class="tpl-card"><input type="radio" name="template" value="' + t[0] + '"' + (t[0] === st.template ? ' checked' : '') + '><span class="tpl-card__art tpl-card__art--' + t[0] + '" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span><strong>' + t[1] + '</strong><small>' + t[2] + '</small></span></label>';
       }).join('');
-      function plan() { var v = K.$('input[name=plan]:checked').value; return D.plans.filter(function (p) { return p.id === v; })[0]; }
-      function payAmt() { K.$('#payAmt').textContent = K.rs(plan().price); }
-      K.$$('input[name=plan]').forEach(function (r) { r.addEventListener('change', payAmt); }); payAmt();
+      $('templates').addEventListener('change', function (e) { st.template = e.target.value; render(); });
 
+      /* ---------- Plans (preferred plan after the trial) ---------- */
+      function paintPlans() {
+        $('planChoices').innerHTML = st.plans.map(function (p) {
+          return '<label class="plan-card"><input type="radio" name="plan" value="' + K.esc(p.id) + '"' + (p.id === st.plan ? ' checked' : '') + '>' +
+            '<div class="plan-card__head"><div><p class="plan-card__name">' + K.esc(p.name) + '</p><p class="plan-card__tag">' + K.esc(p.tagline || (p.features || []).slice(0, 2).join(', ')) + '</p></div><span class="plan-card__radio" aria-hidden="true"></span></div>' +
+            '<p class="plan-card__price"><strong>' + K.rs(p.price) + '</strong>' + (p.compareAtPrice ? '<s>' + K.rs(p.compareAtPrice) + '</s>' : '') + '<span>/ month after trial</span></p></label>';
+        }).join('');
+        if (!K.$('input[name=plan]:checked') && K.$('input[name=plan]')) { K.$('input[name=plan]').checked = true; st.plan = K.$('input[name=plan]').value; }
+      }
+      $('planChoices').addEventListener('change', function (e) { st.plan = e.target.value; });
+      (API ? KadeApi.plans().then(function (r) { return r.plans; }) : Promise.resolve(D.plans)).then(function (list) { st.plans = list; paintPlans(); }).catch(function () { st.plans = D.plans; paintPlans(); });
+
+      /* ---------- Store link with live availability ---------- */
       function slugify(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
-      var slugEdited = false, slugEl = K.$('#slug');
-      function paintSlug() { K.$('#slugOut').innerHTML = K.host + '/store/<strong>' + K.esc(slugEl.value || 'your-shop') + '</strong>'; }
-      slugEl.addEventListener('input', function () { slugEdited = true; slugEl.value = slugEl.value.toLowerCase(); paintSlug(); });
-      K.$('#bizName').addEventListener('input', function () { if (!slugEdited) { slugEl.value = slugify(this.value); paintSlug(); } });
+      var slugEdited = false, slugEl = $('slug'), slugTaken = false, slugT;
+      function paintSlug() { $('slugOut').innerHTML = K.host + '/store/<strong>' + K.esc(slugEl.value || 'your-shop') + '</strong>'; }
+      function checkSlug() {
+        clearTimeout(slugT); $('slugState').textContent = '';
+        var v = slugEl.value; if (!API || v.length < 3) return;
+        slugT = setTimeout(function () {
+          KadeApi.slugAvailable(v).then(function (r) {
+            if (slugEl.value !== v) return;
+            slugTaken = !r.available;
+            $('slugState').innerHTML = r.available ? '<span class="ok-txt">✓ Available</span>' : '<span class="bad-txt">Taken</span>';
+          }).catch(function () {});
+        }, 350);
+      }
+      slugEl.addEventListener('input', function () { slugEdited = true; slugEl.value = slugEl.value.toLowerCase(); paintSlug(); checkSlug(); render(); });
+      $('bizName').addEventListener('input', function () { if (!slugEdited) { slugEl.value = slugify(this.value); paintSlug(); checkSlug(); } render(); });
       paintSlug();
 
+      /* ---------- Restricted business types (OnePay) ---------- */
+      $('bizType').addEventListener('change', function () {
+        var r = RESTRICTED[this.value]; $('restricted').hidden = !r; if (r) $('restrictedWhat').textContent = r; render();
+      });
+
+      /* ---------- Logo + cover ---------- */
+      var logoZone = K.dropzone($('logo'), { title: 'Add your logo', hint: 'PNG or JPG, up to 8MB', aria: 'Upload your logo' });
+      var coverZone = K.dropzone($('cover'), { title: 'Add a cover photo', hint: 'Wide photo, PNG or JPG, up to 8MB', aria: 'Upload a cover photo' });
+      function fileUrl(zone, key) { var f = zone.file(); if (st[key + 'File'] !== f) { if (st[key]) URL.revokeObjectURL(st[key]); st[key] = f ? URL.createObjectURL(f) : null; st[key + 'File'] = f; } }
+      $('logo').addEventListener('change', function () { fileUrl(logoZone, 'logo'); render(); });
+      $('cover').addEventListener('change', function () { fileUrl(coverZone, 'cover'); render(); });
+      var slipZone = K.dropzone($('slip'), { title: 'Drag & drop your payment slip', hint: 'Photo or PDF, up to 8MB', aria: 'Upload your payment slip' });
+
+      ['storeName', 'tagline', 'city'].forEach(function (id) { $(id).addEventListener('input', render); });
+      $('storeName').addEventListener('input', function () { $('storeName').dataset.edited = '1'; });
+
+      /* ---------- The live phone preview ---------- */
+      function render() {
+        var phone = $('phone');
+        phone.setAttribute('data-preset', st.preset);
+        phone.setAttribute('data-template', st.template);
+        var name = ($('storeName').dataset.edited && $('storeName').value.trim()) || $('bizName').value.trim() || 'Your store';
+        if (!$('storeName').dataset.edited) $('storeName').value = $('bizName').value.trim();
+        var tag = $('tagline').value.trim() || ($('bizType').value ? $('bizType').value : 'Your short tagline goes here');
+        var city = $('city').value.trim() || 'Your town';
+        var items = SAMPLES[$('bizType').value] || DEFAULT_SAMPLES;
+        var avatar = st.logo ? '<img src="' + st.logo + '" alt="">' : K.esc(K.initials(name) || 'S');
+        var cover = st.template === 'minimal' ? '' : '<div class="pv-cover">' + (st.cover ? '<img src="' + st.cover + '" alt="">' : '') + '</div>';
+        $('screen').innerHTML =
+          '<div class="pv-top"><span class="pv-mark">' + avatar + '</span><b>' + K.esc(name) + '</b><span class="pv-cart">🛒</span></div>' + cover +
+          '<div class="pv-card"><span class="pv-avatar">' + avatar + '</span><div class="pv-info"><p class="pv-name">' + K.esc(name) + '</p><p class="pv-tag">' + K.esc(tag) + '</p><p class="pv-meta">📍 ' + K.esc(city) + ' · ⭐ New shop</p></div>' +
+          '<div class="pv-actions"><span class="pv-btn pv-btn--wa">Chat</span><span class="pv-btn">Share</span></div></div>' +
+          '<div class="pv-search">🔍 <span>Search products…</span></div>' +
+          '<div class="pv-chips"><span class="on">All</span><span>New</span><span>Offers</span><span>Popular</span></div>' +
+          '<div class="pv-grid">' + items.map(function (p) {
+            return '<div class="pv-prod"><div class="pv-ph">' + p[0] + (p[3] ? '<em>SALE</em>' : '') + '</div><p class="pv-pn">' + K.esc(p[1]) + '</p><p class="pv-pr">' + K.rs(p[2]) + (p[3] ? ' <s>' + K.rs(p[3]) + '</s>' : '') + '</p><span class="pv-add">Add to cart</span></div>';
+          }).join('') + '</div>' +
+          '<div class="pv-foot">Refund · Returns · Privacy · Terms · Contact<br><b>Powered by Sidadiya</b></div>';
+      }
+      render();
+
+      /* ---------- Validation ---------- */
       var RULES = {
         required: function (v) { return v.trim() ? '' : 'This field is needed.'; },
         phone: function (v) { return /^(\+94|0)\d{9}$/.test(v.replace(/[\s-]/g, '')) ? '' : 'Enter a Sri Lankan number, like 077 123 4567.'; },
@@ -100,7 +228,7 @@
         password: function (v) { return v.length >= 8 ? '' : 'Use at least 8 characters.'; },
         slug: function (v) {
           if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(v) || v.length < 3) return 'Use 3 or more lowercase letters, numbers and hyphens only.';
-          return taken.indexOf(v) >= 0 ? 'That link name is taken. Try adding your town.' : '';
+          return slugTaken ? 'That link name is taken. Try adding your town.' : '';
         }
       };
       function setErr(input, msg) {
@@ -112,60 +240,62 @@
       function validate(sec) {
         var first = null;
         K.$$('[data-rule]', sec).forEach(function (inp) {
-          var r = inp.getAttribute('data-rule'), msg = '';
-          if (r === 'file') msg = inp.files.length ? '' : 'Upload your payment slip.';
-          else if (r === 'checked') { msg = inp.checked ? '' : 'Please tick the box to continue.'; var t = K.$('#termsErr'); t.hidden = !msg; t.textContent = msg; if (msg && !first) first = inp; return; }
-          else msg = RULES[r](inp.value);
-          setErr(inp, msg); if (msg && !first) first = inp;
+          var r = inp.getAttribute('data-rule'), msg;
+          if (r === 'checked') { msg = inp.checked ? '' : 'Please tick the box to continue.'; var t = $('termsErr'); t.hidden = !msg; t.textContent = msg; if (msg && !first) first = inp; return; }
+          msg = RULES[r](inp.value); setErr(inp, msg); if (msg && !first) first = inp;
         });
         if (first) first.focus();
         return !first;
       }
       K.$$('[data-rule]').forEach(function (i) { i.addEventListener('input', function () { if (i.getAttribute('aria-invalid') === 'true') { var r = i.getAttribute('data-rule'); if (RULES[r]) setErr(i, RULES[r](i.value)); } }); });
 
+      /* ---------- Steps ---------- */
+      var step = 1, sections = K.$$('[data-step]'), stepper = K.$$('#stepper li');
       function show(n) {
         step = n;
         sections.forEach(function (s) { s.hidden = +s.getAttribute('data-step') !== n; });
         stepper.forEach(function (li, i) { li.className = i + 1 < n ? 'done' : ''; if (i + 1 === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current'); });
-        K.$('#back').hidden = n === 1; K.$('#next').textContent = n === 3 ? 'Submit application' : 'Continue';
+        $('back').hidden = n === 1; $('skip').hidden = n !== 2;
+        $('next').textContent = n === 3 ? 'Open my store' : 'Continue';
+        // Phones: the preview lives inside step 3. Wider screens: always beside the form.
+        var slot = $('mobilePreviewSlot'), home = $('phoneHome');
+        if (n === 3 && window.matchMedia('(max-width: 959px)').matches) slot.appendChild(home);
+        else $('previewAside').appendChild(home);
+        render();
         window.scrollTo({ top: 0 }); var h = K.$('[data-step="' + n + '"] h2'); if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
       }
-      K.$('#back').addEventListener('click', function () { show(step - 1); });
-      function showSuccess(p) {
-        K.$('#card').innerHTML = '<div class="stack-lg" role="status"><h1>Application received</h1><p>Thank you, ' + K.esc(K.$('#ownerName').value.split(' ')[0]) + '. We are checking your payment slip for <strong>' + K.esc(K.$('#bizName').value) + '</strong>.</p>' +
-          '<div class="kd-card panel"><dl class="dl"><dt>Status</dt><dd>' + K.badge('sub', 'PENDING_APPROVAL') + '</dd><dt>Plan</dt><dd>' + K.esc(p.name) + ' (' + K.rs(p.price) + ' / ' + p.durationDays + ' days)</dd><dt>Your store link</dt><dd class="slug-preview">' + K.host + '/store/<strong>' + K.esc(slugEl.value) + '</strong></dd></dl></div>' +
-          '<p class="muted">We will email <strong>' + K.esc(K.$('#ownerEmail').value) + '</strong> as soon as your store is ready. You can then log in and add products.</p><div class="row"><a class="kd-btn kd-btn--primary" href="login">Go to log in</a><a class="kd-btn kd-btn--ghost" href="index">Back to home</a></div></div>';
+      $('back').addEventListener('click', function () { show(step - 1); });
+      $('skip').addEventListener('click', function () { show(3); });
+
+      function success(r) {
+        var slug = (r && r.store && r.store.slug) || slugEl.value;
+        var ends = r && r.trial ? K.fmtDate(String(r.trial.endsAt).slice(0, 10)) : '';
+        $('card').innerHTML = '<div class="stack-lg" role="status"><div class="onb-done__icon" aria-hidden="true">✓</div><h1>Your store is live 🎉</h1>' +
+          '<p>Your free trial has started' + (ends ? ' and runs until <strong>' + ends + '</strong>' : '') + '. You have Starter features until then.</p>' +
+          '<div class="kd-card panel"><dl class="dl"><dt>Your store link</dt><dd class="slug-preview">' + K.host + '/store/<strong>' + K.esc(slug) + '</strong></dd><dt>Next step</dt><dd>Add your first products, then share your link on WhatsApp.</dd></dl></div>' +
+          '<div class="onb-actions"><a class="kd-btn kd-btn--ghost" href="store/' + encodeURIComponent(slug) + '" target="_blank" rel="noopener">View my store</a><a class="kd-btn kd-btn--primary" href="dashboard/products?new=1">Add my first product</a></div></div>';
         window.scrollTo({ top: 0 }); K.$('#card h1').setAttribute('tabindex', '-1'); K.$('#card h1').focus();
       }
-      form.addEventListener('submit', async function (e) {
+
+      $('form').addEventListener('submit', async function (e) {
         e.preventDefault();
         if (!validate(K.$('[data-step="' + step + '"]'))) return;
         if (step < 3) return show(step + 1);
-        var p = plan();
-
-        // No API configured: keep the offline prototype confirmation.
-        if (!window.KadeApi || !KadeApi.enabled) return showSuccess(p);
-
-        var btn = K.$('#next'); var restore = K.btnLoading(btn, 'Submitting…');
+        if (!API) return success(null);
+        var restore = K.btnLoading($('next'), 'Opening your store…');
         try {
-          await KadeApi.register({
-            bizName: K.$('#bizName').value.trim(),
-            bizType: K.$('#bizType').value,
-            district: K.$('#district').value,
-            city: K.$('#city').value.trim(),
-            bizPhone: K.$('#bizPhone').value.trim(),
-            bizWhatsapp: K.$('#bizWa').value.trim(),
-            ownerName: K.$('#ownerName').value.trim(),
-            ownerEmail: K.$('#ownerEmail').value.trim(),
-            password: K.$('#password').value,
-            slug: slugEl.value,
-            planId: p.id,
-            ref: K.$('#ref').value.trim()
-          }, { slip: K.$('#slip').files[0] });
-          showSuccess(p);
+          var r = await KadeApi.register({
+            bizName: $('bizName').value.trim(), bizType: $('bizType').value, district: $('district').value, city: $('city').value.trim(),
+            bizPhone: $('bizPhone').value.trim(), bizWhatsapp: $('bizWa').value.trim(),
+            ownerName: $('ownerName').value.trim(), ownerEmail: $('ownerEmail').value.trim(), password: $('password').value,
+            slug: slugEl.value, planId: st.plan, ref: $('ref').value.trim(),
+            storeName: $('storeName').value.trim(), tagline: $('tagline').value.trim(), preset: st.preset, template: st.template
+          }, { slip: slipZone.file(), logo: logoZone.file(), cover: coverZone.file() });
+          success(r);
         } catch (ex) {
           restore();
-          K.toast(ex.message || 'Could not submit your application. Please try again.');
+          K.toast(ex.message || 'Could not open your store. Please try again.');
+          if (/email|link/i.test(ex.message || '')) show(1);
         }
       });
     })();

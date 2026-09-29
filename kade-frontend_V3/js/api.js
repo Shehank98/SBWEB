@@ -86,7 +86,10 @@
       var fd = new FormData();
       Object.keys(fields).forEach(function (k) { if (fields[k] != null) fd.append(k, fields[k]); });
       if (fileMap) Object.keys(fileMap).forEach(function (k) { if (fileMap[k]) fd.append(k, fileMap[k]); });
-      return req('POST', '/api/auth/register', fd, true);
+      var d = await req('POST', '/api/auth/register', fd, true);
+      // Signup signs the owner straight in (the free trial starts immediately).
+      if (d && d.token) setSession(d.token, d.user);
+      return d;
     },
 
     // ---- Public ----
@@ -138,6 +141,9 @@
     updateStore(store) { return req('PUT', '/api/dashboard/store', store); },
     uploadStoreLogo(file) { var fd = new FormData(); fd.append('logo', file); return req('POST', '/api/dashboard/store/logo', fd, true); },
     removeStoreLogo() { return req('DELETE', '/api/dashboard/store/logo'); },
+    uploadStoreCover(file) { var fd = new FormData(); fd.append('cover', file); return req('POST', '/api/dashboard/store/cover', fd, true); },
+    removeStoreCover() { return req('DELETE', '/api/dashboard/store/cover'); },
+    slugAvailable(slug) { return req('GET', '/api/auth/slug-available?slug=' + encodeURIComponent(slug)); },
     deleteMyShop(password) { return req('DELETE', '/api/dashboard/account', { password: password }); },
     coupons() { return req('GET', '/api/dashboard/coupons'); },
     createCoupon(c) { return req('POST', '/api/dashboard/coupons', c); },

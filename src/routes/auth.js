@@ -5,6 +5,9 @@ import { hashPassword, verifyPassword, signToken } from '../utils/auth.js';
 import { slugify } from '../utils/slug.js';
 import { wrap, badRequest, unauthorized, conflict } from '../utils/http.js';
 import { saveUpload, SLIP_TYPES } from '../services/uploads.js';
+
+export const PRESETS = ['tea', 'sapphire', 'cinnamon', 'orchid', 'ink'];
+export const TEMPLATES = ['classic', 'showcase', 'minimal'];
 import { queueNotification, templates } from '../services/notifications.js';
 import { startTrial } from '../services/subscription.js';
 
@@ -17,9 +20,20 @@ export const authRouter = Router();
 // The plan picked at signup is remembered as the preferred plan for after the trial.
 // If the seller still sends a bank slip, a PENDING payment is recorded for the admin
 // to approve (which converts the trial into that paid plan without losing trial days).
+// GET /api/auth/slug-available?slug=my-shop — live check for the onboarding form.
+authRouter.get(
+  '/slug-available',
+  wrap(async (req, res) => {
+    const slug = slugify(req.query.slug || '');
+    if (slug.length < 3) return res.json({ slug, available: false, reason: 'Use 3 or more letters or numbers.' });
+    const taken = (await query('SELECT 1 FROM stores WHERE slug = $1', [slug])).rowCount > 0;
+    res.json({ slug, available: !taken, reason: taken ? 'That link name is taken. Try adding your town.' : '' });
+  })
+);
+
 authRouter.post(
   '/register',
-  upload.single('slip'),
+  upload.fields([{ name: 'slip', maxCount: 1 }, { name: 'logo', maxCount: 1 }, { name: 'cover', maxCount: 1 }]),
   wrap(async (req, res) => {
     const b = req.body;
     const required = ['bizName', 'ownerName', 'ownerEmail', 'password', 'slug'];
@@ -45,14 +59,21 @@ authRouter.post(
     // A storage hiccup must never block a signup. If the slip upload fails we still
     // create the business + pending payment (without the slip) and log the error,
     // so the application always reaches the admin and the owner can re-send the slip.
-    let slipUrl = null;
-    if (req.file) {
-      try {
-        slipUrl = await saveUpload(req.file, 'slips', { allow: SLIP_TYPES });
-      } catch (e) {
-        console.error('[register] slip upload failed, continuing without it:', e.message);
+    const file = (k) => (req.files && req.files[k] && req.files[k][0]) || null;
+    // Same rule for the logo and cover photo chosen during onboarding: a failed upload
+    // never blocks the signup; the seller can add them later in Store settings.
+    async function tryUpload(f, folder, opts) {
+      if (!f) return null;
+      try { return await saveUpload(f, folder, opts); } catch (e) {
+        console.error(`[register] ${folder} upload failed, continuing without it:`, e.message);
+        return null;
       }
     }
+    const slipUrl = await tryUpload(file('slip'), 'slips', { allow: SLIP_TYPES });
+    const logoUrl = await tryUpload(file('logo'), `logos/${slug}`);
+    const coverUrl = await tryUpload(file('cover'), `covers/${slug}`);
+    const preset = PRESETS.includes(b.preset) ? b.preset : 'tea';
+    const template = TEMPLATES.includes(b.template) ? b.template : 'classic';
 
     const result = await withTransaction(async (client) => {
       const biz = (
@@ -75,9 +96,10 @@ authRouter.post(
 
       const store = (
         await client.query(
-          `INSERT INTO stores (business_id, slug, name, phone, whatsapp, city)
-           VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-          [biz.id, slug, b.bizName, b.bizPhone || null, b.bizWhatsapp || null, b.city || null]
+          `INSERT INTO stores (business_id, slug, name, phone, whatsapp, city, tagline, preset, template, logo_url, cover_url)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+          [biz.id, slug, (b.storeName && String(b.storeName).trim()) || b.bizName, b.bizPhone || null, b.bizWhatsapp || null, b.city || null,
+           b.tagline ? String(b.tagline).trim().slice(0, 120) : null, preset, template, logoUrl, coverUrl]
         )
       ).rows[0];
 
