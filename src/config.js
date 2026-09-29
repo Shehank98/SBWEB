@@ -17,6 +17,9 @@ export const config = {
     password: process.env.ADMIN_PASSWORD || 'admin12345',
     name: process.env.ADMIN_NAME || 'Platform Admin',
   },
+  // Which static frontend folder the server serves. V3 is the live site; set
+  // FRONTEND_DIR=kade-frontend_V2 to roll back to the previous UI without a deploy of code.
+  frontendDir: process.env.FRONTEND_DIR || 'kade-frontend_V3',
   uploadDriver: process.env.UPLOAD_DRIVER || 'local',
   // Absolute base for links in emails (store links, dashboard, renewal). In
   // production set PUBLIC_BASE_URL to the live domain; the fallback below keeps

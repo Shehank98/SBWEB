@@ -25,7 +25,7 @@ async function ensureAdmin() {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FRONTEND_DIR = path.join(__dirname, '..', 'kade-frontend_V2');
+const FRONTEND_DIR = path.join(__dirname, '..', config.frontendDir);
 
 import { authRouter } from './routes/auth.js';
 import { plansRouter } from './routes/plans.js';

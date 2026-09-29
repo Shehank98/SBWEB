@@ -10,7 +10,7 @@ import { query } from '../db/pool.js';
 import { config } from '../config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORE_DIR = path.join(__dirname, '..', '..', 'kade-frontend_V2', 'store');
+const STORE_DIR = path.join(__dirname, '..', '..', config.frontendDir, 'store');
 const BASE = (config.publicBaseUrl || '').replace(/\/$/, '');
 const DEFAULT_IMG = BASE + '/assets/logo.png';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -16,19 +16,18 @@ export const plans = [
   { id: 'pro', name: 'Pro', price: 5000, duration_days: 30, max_products: null, max_images: null, max_categories: null, max_variants: null, features: ['Unlimited products', 'Unlimited categories', 'Unlimited photos & variants', 'Staff accounts', 'Advanced reports', 'Priority support'], sort_order: 3 },
 ];
 
-// Upsert the pricing plans — essential reference data, always safe to run and
-// required in production (registration and subscriptions reference these rows).
+// Insert the pricing plans if they are missing. Insert-only (ON CONFLICT DO NOTHING):
+// once a plan row exists, the admin owns its price, limits and features through
+// Admin Settings, so a reboot or re-seed must never overwrite those edits.
 // `q` is a query function: either the pool's `query` or a transaction client's.
 export async function seedPlans(q) {
   for (const p of plans) {
     await q(
       `INSERT INTO plans (id,name,price,duration_days,max_products,max_images,max_categories,max_variants,features,sort_order)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, price=EXCLUDED.price,
-         duration_days=EXCLUDED.duration_days, max_products=EXCLUDED.max_products,
-         max_images=EXCLUDED.max_images, max_categories=EXCLUDED.max_categories, max_variants=EXCLUDED.max_variants,
-         features=EXCLUDED.features, sort_order=EXCLUDED.sort_order`,
-      [p.id, p.name, p.price, p.duration_days, p.max_products, p.max_images, p.max_categories, p.max_variants, JSON.stringify(p.features), p.sort_order]
+       ON CONFLICT (id) DO NOTHING`,
+      [p.id, p.name, p.price, p.duration_days, p.max_products, p.max_images, p.max_categories, p.max_variants,
+       JSON.stringify(p.features), p.sort_order]
     );
   }
 }

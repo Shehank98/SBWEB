@@ -96,6 +96,3 @@
 [data-preset="cinnamon"]  { --brand:#8a3b12; --on-brand:#ffffff; --brand-soft:#f4e2d6; --accent:#f0c36a; --on-accent:#17211d; }
 [data-preset="orchid"]    { --brand:#7a2e5c; --on-brand:#ffffff; --brand-soft:#f3dfeb; --accent:#f4b6c2; --on-accent:#17211d; }
 [data-preset="ink"]       { --brand:#1f2624; --on-brand:#ffffff; --brand-soft:#e6e9e7; --accent:#d9a441; --on-accent:#17211d; }
-[data-preset="sage"]      { --brand:#2f5d3a; --on-brand:#ffffff; --brand-soft:#e2ecdf; --accent:#e3c97a; --on-accent:#17211d; }
-[data-preset="coral"]     { --brand:#8a2942; --on-brand:#ffffff; --brand-soft:#f6dfe6; --accent:#f3c9d4; --on-accent:#17211d; }
-[data-preset="ocean"]     { --brand:#0e5f68; --on-brand:#ffffff; --brand-soft:#dcedef; --accent:#f3b969; --on-accent:#17211d; }
