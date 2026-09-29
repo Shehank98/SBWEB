@@ -882,3 +882,21 @@ body.has-cartbar { padding-bottom: 84px; }
 .kcrop__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
 .kcrop__actions .kd-btn { min-height: 44px; }
 @media (max-width: 420px) { .kcrop__actions .kd-btn { flex: 1; } }
+
+/* ---- Desktop sidebar: collapse to an icon rail (toggle in the top bar) ---- */
+.sidebar__foot .kd-link { display: flex; align-items: center; gap: var(--space-3); min-height: 40px; padding: 0 var(--space-3); border-radius: var(--radius-md); }
+.sidebar__foot svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.menu-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+@media (min-width: 900px) {
+  .menu-btn { display: inline-flex; }
+  .app { transition: grid-template-columns 180ms ease; }
+  html.sb-collapsed .app { grid-template-columns: 76px minmax(0, 1fr); }
+  html.sb-collapsed .sidebar { padding: var(--space-4) 12px; align-items: stretch; }
+  html.sb-collapsed .sidebar__brand { align-items: center; padding: var(--space-2) 0 0; }
+  html.sb-collapsed .sidebar__brand .wordmark { height: 22px; }
+  html.sb-collapsed .sidebar__ctx { display: none; }
+  html.sb-collapsed .nav a, html.sb-collapsed .sidebar__foot .kd-link { justify-content: center; padding: 0; position: relative; }
+  html.sb-collapsed .nav__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  html.sb-collapsed .nav .count { position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; padding: 0 4px; font-size: 11px; margin: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .app { transition: none; } }

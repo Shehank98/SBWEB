@@ -146,7 +146,7 @@
   if (!reduce) whenVisible($('#pz-sw'), function () { return loop(function () { open = !open; paintPause(); }, 2600); }, 0.4);
 
   /* ---------- Steps: fill in as they scroll into view ---------- */
-  /* (handled by the reveal observer: .in on .lp-step colours the number) */
+  /* (handled by the reveal observer: .in on .hw-card pops the order toast) */
 
   /* ---------- Plans ---------- */
   var trialDays = 14, livePlans = null;
