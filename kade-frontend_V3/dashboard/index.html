@@ -20,6 +20,7 @@
 
         <div class="page-head"><div><h1 id="hello">Hello</h1><p id="lede">Here is how your store is doing today.</p></div><a class="kd-btn kd-btn--primary" href="products?new=1">Add product</a></div>
         <div id="sub-banner"></div>
+        <div id="compliance-card"></div>
         <div class="tiles" id="tiles"></div>
         <div class="grid-2">
           <section class="kd-card panel" aria-labelledby="c1"><h2 id="c1">Sales, last 7 days</h2><div id="chart"></div></section>
@@ -77,6 +78,14 @@
 
       if (API) {
         K.loading(K.$('#tiles'), 'Loading your dashboard…');
+        // Compliance checklist (policies + contact): shown until all 5 are done.
+        var sess = KadeApi.currentUser && KadeApi.currentUser();
+        if (!sess || sess.role !== 'BUSINESS_STAFF') KadeApi.compliance().then(function (c) {
+          if (c.complete) return;
+          K.$('#compliance-card').innerHTML = '<section class="kd-card panel compliance-card" aria-labelledby="cc-h" style="margin-bottom:var(--space-4)"><div class="row row--between"><h2 id="cc-h">Get ready for card payments</h2><span class="kd-badge kd-badge--warning">' + c.doneCount + ' of 5 done</span></div>' +
+            '<ul class="checklist">' + c.items.map(function (i) { return '<li class="' + (i.done ? 'is-done' : '') + '"><span class="checklist__mark" aria-hidden="true">' + (i.done ? '✓' : '') + '</span><a href="policies#' + (i.key === 'contact' ? 'contact' : 'pol-' + i.key) + '"><strong>' + K.esc(i.label) + '</strong><small>' + K.esc(i.hint) + '</small></a></li>'; }).join('') + '</ul>' +
+            '<a class="kd-btn kd-btn--primary" href="policies">Finish my policies</a></section>';
+        }).catch(function () {});
         Promise.all([KadeApi.overview(), KadeApi.myOrders(), KadeApi.myProducts(), KadeApi.subscription()]).then(function (r) {
           var ov = r[0], ord = r[1].orders, prod = r[2].products, sub = r[3];
           render({

@@ -31,8 +31,19 @@ export function storePublic(store, categories) {
     payments: { cod: store.pay_cod, bank: store.pay_bank, online: store.pay_online },
     bank: store.bank_details || '',
     bankAccount: store.bank_account || {},
+    contact: { email: store.contact_email || '', phone: store.phone || '', address: store.address || '' },
+    // The five compliance pages, linked from every storefront footer and the checkout.
+    policies: POLICY_LINKS,
   };
 }
+
+const POLICY_LINKS = [
+  { key: 'refund', title: 'Refund Policy' },
+  { key: 'return', title: 'Return Policy' },
+  { key: 'privacy', title: 'Privacy Policy' },
+  { key: 'terms', title: 'Terms & Conditions' },
+  { key: 'contact', title: 'Contact Details' },
+];
 
 export function product(row) {
   const out = {

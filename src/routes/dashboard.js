@@ -8,6 +8,7 @@ import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { currentPlan, cap, businessAccess, assertFeature, paywall, trialInfo } from '../services/plan.js';
 import { getSetting } from '../services/settings.js';
+import { POLICY_KINDS, TEMPLATES, loadPolicies, compliance, validateContact } from '../services/policies.js';
 import * as S from '../services/serialize.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -567,6 +568,92 @@ dashboardRouter.post(
     const url = await saveUpload(req.file, `logos/${store.slug}`);
     await query('UPDATE stores SET logo_url=$2 WHERE business_id=$1', [b, url]);
     res.json({ logo: url });
+  })
+);
+
+// ---- Policies & compliance (card network / OnePay requirements) ----
+dashboardRouter.get(
+  '/compliance',
+  wrap(async (req, res) => res.json(await compliance(bid(req))))
+);
+
+dashboardRouter.get(
+  '/policies',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const { policies, store, biz } = await loadPolicies(b);
+    res.json({
+      policies: POLICY_KINDS.map((k) => policies[k]),
+      settings: { returnDays: store.return_days, refundDays: store.refund_days, returnShipping: store.return_shipping },
+      contact: { email: store.contact_email || biz.email || '', phone: store.phone || '', address: store.address || '' },
+      compliance: await compliance(b),
+      slug: store.slug,
+    });
+  })
+);
+
+// Save (and optionally publish) a policy. Text identical to the template stays
+// template-backed, so it keeps following shop name/contact changes.
+dashboardRouter.put(
+  '/policies/:kind',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const kind = req.params.kind;
+    if (!POLICY_KINDS.includes(kind)) throw notFound('Unknown policy.');
+    const body = req.body || {};
+    const { ctx } = await loadPolicies(b);
+    const text = body.content != null ? String(body.content).replace(/\r\n/g, '\n').trim() : null;
+    if (text != null && text.length < 80) throw badRequest('This policy looks too short. Keep the key sections so buyers and OnePay can review it.');
+    if (text != null && text.length > 20000) throw badRequest('This policy is too long (max 20,000 characters).');
+    const isCustom = text != null && text !== TEMPLATES[kind](ctx).trim();
+    await query(
+      `UPDATE store_policies SET content = $3, is_custom = $4, updated_at = now(),
+              confirmed_at = CASE WHEN $5 THEN now() ELSE confirmed_at END
+        WHERE business_id = $1 AND kind = $2`,
+      [b, kind, isCustom ? text : null, isCustom, !!body.publish]
+    );
+    res.json({ ok: true, compliance: await compliance(b) });
+  })
+);
+
+dashboardRouter.post(
+  '/policies/:kind/reset',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    if (!POLICY_KINDS.includes(req.params.kind)) throw notFound('Unknown policy.');
+    await query(`UPDATE store_policies SET content = NULL, is_custom = false, confirmed_at = NULL, updated_at = now() WHERE business_id = $1 AND kind = $2`, [b, req.params.kind]);
+    res.json({ ok: true, compliance: await compliance(b) });
+  })
+);
+
+dashboardRouter.put(
+  '/policy-settings',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const s = req.body || {};
+    const days = (v, name) => { const n = Number(v); if (!Number.isInteger(n) || n < 1 || n > 90) throw badRequest(`${name} must be 1 to 90 days.`); return n; };
+    const ship = ['buyer', 'seller', 'seller_if_faulty'].includes(s.returnShipping) ? s.returnShipping : 'buyer';
+    await query('UPDATE stores SET return_days = $2, refund_days = $3, return_shipping = $4 WHERE business_id = $1',
+      [b, days(s.returnDays ?? 14, 'Return window'), days(s.refundDays ?? 7, 'Refund request window'), ship]);
+    res.json({ ok: true });
+  })
+);
+
+// Contact Details (compliance item 5): business email, physical address (no P.O. Box), phone.
+dashboardRouter.put(
+  '/contact',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const c = { email: String(req.body?.email || '').trim(), phone: String(req.body?.phone || '').trim(), address: String(req.body?.address || '').trim() };
+    const errors = validateContact(c);
+    if (Object.keys(errors).length) throw badRequest(Object.values(errors)[0], { fields: errors });
+    await query('UPDATE stores SET contact_email = $2, phone = $3, address = $4 WHERE business_id = $1', [b, c.email.slice(0, 120), c.phone.slice(0, 30), c.address.slice(0, 300)]);
+    res.json({ ok: true, compliance: await compliance(b) });
   })
 );
 

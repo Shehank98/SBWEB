@@ -10,6 +10,7 @@ export const PRESETS = ['tea', 'sapphire', 'cinnamon', 'orchid', 'ink'];
 export const TEMPLATES = ['classic', 'showcase', 'minimal'];
 import { queueNotification, templates } from '../services/notifications.js';
 import { startTrial } from '../services/subscription.js';
+import { ensurePolicies } from '../services/policies.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 export const authRouter = Router();
@@ -96,14 +97,15 @@ authRouter.post(
 
       const store = (
         await client.query(
-          `INSERT INTO stores (business_id, slug, name, phone, whatsapp, city, tagline, preset, template, logo_url, cover_url)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+          `INSERT INTO stores (business_id, slug, name, phone, whatsapp, city, tagline, preset, template, logo_url, cover_url, contact_email)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
           [biz.id, slug, (b.storeName && String(b.storeName).trim()) || b.bizName, b.bizPhone || null, b.bizWhatsapp || null, b.city || null,
-           b.tagline ? String(b.tagline).trim().slice(0, 120) : null, preset, template, logoUrl, coverUrl]
+           b.tagline ? String(b.tagline).trim().slice(0, 120) : null, preset, template, logoUrl, coverUrl, b.ownerEmail]
         )
       ).rows[0];
 
       const trial = await startTrial(client, biz.id);
+      await ensurePolicies(biz.id, client);
 
       // Optional: the seller already paid by bank transfer. Record it for review.
       if (slipUrl || (b.ref && String(b.ref).trim())) {

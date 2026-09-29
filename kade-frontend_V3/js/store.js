@@ -181,6 +181,9 @@
     SF.updateCart();
   }
 
+  SF.chrome = applyChrome;
+  SF.POLICY_LINKS = [{ key: 'refund', title: 'Refund Policy' }, { key: 'return', title: 'Return Policy' }, { key: 'privacy', title: 'Privacy Policy' }, { key: 'terms', title: 'Terms & Conditions' }, { key: 'contact', title: 'Contact Details' }];
+
   /* Async loader used by every storefront page: cb(store, products). */
   K.loadStore = SF.load = function (cb, opts) {
     opts = opts || {};
@@ -206,6 +209,9 @@
       cb(s, list);
     }
   };
+
+  // Policy text renderer (js/md.js), when the page loads it.
+  SF.md = function (t) { return window.KadeMd ? window.KadeMd(t) : K.esc(t); };
 
   window.SF = SF;
 })();

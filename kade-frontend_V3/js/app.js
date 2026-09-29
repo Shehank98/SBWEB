@@ -284,7 +284,8 @@
     tag: '<path d="M3 11l8-8 10 10-8 8z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
     users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17 20a5.5 5.5 0 0 0-3-4.9"/>',
     upload: '<path d="M12 15V4m0 0L8 8m4-4l4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
-    file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>'
+    file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
+    shield: '<path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z"/><path d="m9 12 2 2 4-4"/>'
   };
   K.icon = function (n) { return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICON[n] + '</svg>'; };
 
@@ -309,6 +310,7 @@
           can('reports') && ['reports', 'Reports', 'chart'],
           can('coupons') && ['coupons', 'Coupons', 'tag'],
           ownerOnly && ['subscription', 'Subscription', 'card'],
+          ownerOnly && ['policies', 'Policies', 'shield'],
           ownerOnly && ['staff', 'Staff', 'users'],
           ownerOnly && ['settings', 'Store settings', 'gear']
         ].filter(Boolean);
@@ -351,7 +353,7 @@
       '<div class="row"><button class="kd-btn kd-btn--ghost" type="button" id="theme-toggle"></button></div>';
 
     /* Bottom tab bar on phones: the main destinations sit under the thumb */
-    var SHORT = { settings: kind === 'admin' ? 'Settings' : 'Store', index: 'Home', orders: 'Orders', products: 'Products', reports: 'Reports', coupons: 'Coupons', staff: 'Staff', subscription: 'Plan', businesses: 'Businesses', payments: 'Payments' };
+    var SHORT = { settings: kind === 'admin' ? 'Settings' : 'Store', index: 'Home', orders: 'Orders', products: 'Products', reports: 'Reports', coupons: 'Coupons', staff: 'Staff', subscription: 'Plan', policies: 'Policies', businesses: 'Businesses', payments: 'Payments' };
     var oldTab = K.$('.tabbar'); if (oldTab) oldTab.remove();
     var tabbar = document.createElement('nav'); tabbar.className = 'tabbar'; tabbar.setAttribute('aria-label', 'Primary');
     tabbar.innerHTML = items.slice(0, 5).map(function (i) { return '<a href="' + i[0] + '"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + (SHORT[i[0]] || i[1]) + '</span>' + (i[3] ? '<b class="tcount" aria-label="' + i[3] + ' waiting">' + i[3] + '</b>' : '') + '</a>'; }).join('');

@@ -19,7 +19,7 @@
       <main class="main" id="main" tabindex="-1">
         <div class="page-head"><div><h1>Settings</h1><p>Plans, trial, payments and the text shown across Sidadiya.</p></div></div>
         <nav class="settings-nav" aria-label="Settings sections" id="snav">
-          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#bank">Bank accounts</a>
+          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a>
         </nav>
 
         <section class="kd-card panel" id="plans" aria-labelledby="h-plans" style="margin-bottom:var(--space-4)">
@@ -42,6 +42,25 @@
           <form id="bankForm" class="stack" novalidate><div id="bankRows" class="stack"></div>
             <div class="row"><button class="kd-btn kd-btn--ghost" type="button" id="addBank">Add account</button><button class="kd-btn kd-btn--primary" type="submit">Save bank accounts</button></div>
           </form>
+        </section>
+        <section class="kd-card panel" id="contact" aria-labelledby="h-contact" style="margin-bottom:var(--space-4)">
+          <h2 id="h-contact">Sidadiya contact details</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">Shown in the main site footer and on /legal/contact. Card networks require an email, a physical address (not a P.O. Box) and a phone number.</p>
+          <form id="contactForm" class="form-grid form-grid--2" novalidate>
+            <div class="kd-field"><label class="kd-label" for="pcName">Business name</label><input class="kd-input" id="pcName" data-k="businessName"></div>
+            <div class="kd-field"><label class="kd-label" for="pcEmail">Email</label><input class="kd-input" id="pcEmail" type="email" data-k="email"></div>
+            <div class="kd-field"><label class="kd-label" for="pcPhone">Phone</label><input class="kd-input" id="pcPhone" type="tel" data-k="phone"></div>
+            <div class="kd-field"><label class="kd-label" for="pcWa">WhatsApp</label><input class="kd-input" id="pcWa" type="tel" data-k="whatsapp"></div>
+            <div class="kd-field span-2"><label class="kd-label" for="pcAddr">Physical address</label><input class="kd-input" id="pcAddr" data-k="address"></div>
+            <div class="kd-field span-2"><label class="kd-label" for="pcHours">Support hours</label><input class="kd-input" id="pcHours" data-k="hours" placeholder="Mon to Sat, 9 am to 6 pm"></div>
+            <div class="span-2"><button class="kd-btn kd-btn--primary" type="submit">Save contact details</button></div>
+          </form>
+        </section>
+
+        <section class="kd-card panel" id="legal" aria-labelledby="h-legal" style="margin-bottom:var(--space-4)">
+          <h2 id="h-legal">Sidadiya legal pages</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">The platform's own Refund, Return, Privacy and Terms pages. Clear a box to go back to the default template. Use "## " for headings and "- " for bullets. Have these reviewed by a lawyer before launch.</p>
+          <form id="legalForm" class="stack" novalidate><div id="legalEditors" class="stack"></div><div><button class="kd-btn kd-btn--primary" type="submit">Save legal pages</button></div></form>
         </section>
         <div id="moreSections"></div>
       </main>
@@ -115,6 +134,17 @@
         var list = K.$$('.bank-row').map(function (r) { var o = {}; K.$$('input', r).forEach(function (i) { o[i.getAttribute('data-k')] = i.value; }); return o; });
         KadeApi.adminSaveSettings({ platform_bank_accounts: list }).then(function () { K.toast('Bank accounts saved.'); }).catch(function (ex) { K.toast(ex.message); });
       });
+      K.$('#contactForm').addEventListener('submit', function (e) {
+        e.preventDefault(); var o = {};
+        K.$$('#contactForm [data-k]').forEach(function (i) { o[i.getAttribute('data-k')] = i.value; });
+        KadeApi.adminSaveSettings({ platform_contact: o }).then(function () { K.toast('Contact details saved.'); }).catch(function (ex) { K.toast(ex.message); });
+      });
+      K.$('#legalForm').addEventListener('submit', function (e) {
+        e.preventDefault(); var o = {};
+        // Unchanged template text is not stored, so it keeps following contact detail changes.
+        K.$$('#legalEditors textarea').forEach(function (t) { if (t.value.trim() && t.value !== t.dataset.template) o[t.getAttribute('data-k')] = t.value; });
+        KadeApi.adminSaveSettings({ platform_policies: o }).then(function () { K.toast('Legal pages saved.'); }).catch(function (ex) { K.toast(ex.message); });
+      });
       K.$('#trialForm').addEventListener('submit', function (e) {
         e.preventDefault();
         KadeApi.adminSaveSettings({ trial_days: Number(K.$('#trialDays').value) }).then(function () { K.toast('Trial length saved.'); }).catch(function (ex) { K.toast(ex.message); });
@@ -129,6 +159,15 @@
         K.$('#trialDays').value = s.trial_days || 14;
         K.$('#bankRows').innerHTML = (s.platform_bank_accounts || []).map(bankRow).join('') || bankRow({}, 0);
         window.KadeAdminSettings = s; // later sections read their values from here
+        var pc = s.platform_contact || {};
+        K.$$('#contactForm [data-k]').forEach(function (i) { i.value = pc[i.getAttribute('data-k')] || ''; });
+        var custom = s.platform_policies || {}, KINDS = [['refund', 'Refund Policy'], ['return', 'Return Policy'], ['privacy', 'Privacy Policy'], ['terms', 'Terms & Conditions']];
+        K.$('#legalEditors').innerHTML = KINDS.map(function (k) { return '<div class="kd-field"><label class="kd-label" for="lg-' + k[0] + '">' + k[1] + ' <a class="kd-link" href="/legal/' + k[0] + '" target="_blank" rel="noopener" style="font-weight:400">view</a></label><textarea class="kd-input pol__text" id="lg-' + k[0] + '" data-k="' + k[0] + '" rows="10"></textarea></div>'; }).join('');
+        KINDS.forEach(function (k) {
+          var ta = K.$('#lg-' + k[0]);
+          if (custom[k[0]]) ta.value = custom[k[0]];
+          else KadeApi.sitePolicy(k[0]).then(function (r) { ta.value = r.content; ta.dataset.template = r.content; }).catch(function () {});
+        });
         document.dispatchEvent(new CustomEvent('admin-settings-loaded', { detail: s }));
       }).catch(function (ex) { K.$('#planList').innerHTML = '<p class="muted">' + K.esc(ex.message) + '</p>'; });
     })();

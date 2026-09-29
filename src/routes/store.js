@@ -6,6 +6,7 @@ import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { evalCoupon } from '../services/coupons.js';
 import { LIVE_STATUSES } from '../services/plan.js';
+import { POLICY_KINDS, TITLES, loadPolicies } from '../services/policies.js';
 
 export const storeRouter = Router();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,6 +53,7 @@ storeRouter.get(
       )
     ).rows.map(S.product);
     Object.assign(store, await storeRatings(st.biz_id));
+    store.returnDays = st.return_days;
     res.json({ store, products, available: true });
   })
 );
@@ -135,6 +137,25 @@ storeRouter.post(
   })
 );
 
+// GET /api/store/:slug/policies/:kind — refund | privacy | return | terms | contact.
+// Always readable (even while a store is paused) so payment reviewers can check them.
+storeRouter.get(
+  '/:slug/policies/:kind',
+  wrap(async (req, res) => {
+    const st = await loadStore(req.params.slug);
+    const kind = req.params.kind;
+    const store = { name: st.name, slug: st.slug, preset: st.preset, logo: st.logo_url || null };
+    if (kind === 'contact') {
+      const { ctx } = await loadPolicies(st.biz_id);
+      return res.json({ store, key: 'contact', title: TITLES.contact, contact: { businessName: ctx.name, email: ctx.email, phone: ctx.phone, whatsapp: st.whatsapp || '', address: st.address || '', city: st.city || '' } });
+    }
+    if (!POLICY_KINDS.includes(kind)) throw notFound('Policy not found.');
+    const { policies } = await loadPolicies(st.biz_id);
+    const p = policies[kind];
+    res.json({ store, key: kind, title: p.title, content: p.content, updatedAt: p.updatedAt });
+  })
+);
+
 // GET /api/store/:slug/product/:id — single product (for the product page + SEO tags).
 storeRouter.get(
   '/:slug/product/:id',
@@ -172,6 +193,8 @@ storeRouter.post(
     const body = req.body || {};
     const { customer, phone } = body;
     if (!customer || !phone) throw badRequest('Name and phone are required.');
+    // Checkout requires agreeing to the shop's Terms & Conditions.
+    if (body.acceptTerms !== true) throw badRequest('Please agree to the Terms & Conditions to place your order.');
     // Address is always required, regardless of delivery, pickup or payment method.
     if (!body.address || !String(body.address).trim()) throw badRequest('An address is required.');
     if (!Array.isArray(body.items) || !body.items.length) throw badRequest('Your cart is empty.');
@@ -219,8 +242,8 @@ storeRouter.post(
           created = (
             await client.query(
               `INSERT INTO orders (business_id, code, customer_name, phone, whatsapp, address, city, district,
-                                   delivery_method, payment_method, subtotal, delivery_fee, total, note, coupon_code, discount, customer_email)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+                                   delivery_method, payment_method, subtotal, delivery_fee, total, note, coupon_code, discount, customer_email, terms_accepted_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, now()) RETURNING *`,
               [st.biz_id, orderCode(), customer, phone, body.whatsapp || null, body.address || null,
                body.city || null, body.district || null, body.delivery || 'Delivery',
                body.payment || 'Cash on delivery', subtotal, fee, total, body.note || null, couponCode, discount, body.email || null]

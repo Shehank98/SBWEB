@@ -792,3 +792,35 @@ body.has-cartbar { padding-bottom: 84px; }
 .cover-prev { aspect-ratio: 16 / 6; border-radius: var(--radius-md); overflow: hidden; background: linear-gradient(135deg, var(--brand), var(--accent)); display: grid; place-items: center; color: var(--on-brand); font-size: 14px; text-align: center; padding: 0; }
 .cover-prev span { padding: 12px; }
 .cover-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---------- Policies & compliance (seller dashboard) ---------- */
+.checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.checklist li { display: flex; align-items: center; gap: 12px; }
+.checklist a { flex: 1; min-width: 0; display: grid; min-height: 44px; align-content: center; color: var(--ink); text-decoration: none; }
+.checklist a:hover strong { text-decoration: underline; }
+.checklist small { color: var(--ink-muted); font-size: 13px; }
+.checklist__mark { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line-strong); display: grid; place-items: center; flex: none; font-weight: 800; }
+.checklist .is-done .checklist__mark { background: var(--success); border-color: var(--success); color: #fff; }
+.pol { padding: 0; overflow: hidden; }
+.pol summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; min-height: 56px; }
+.pol summary::-webkit-details-marker { display: none; }
+.pol summary > span:first-child { display: grid; min-width: 0; }
+.pol summary small { color: var(--ink-muted); font-size: 13px; }
+.pol__body { display: grid; gap: 12px; padding: 0 16px 16px; }
+.pol__text { font: 14px/1.6 var(--font-mono); min-height: 280px; }
+.doc-preview { border: 1px solid var(--line); border-radius: var(--radius-md); padding: 14px; max-height: 480px; overflow: auto; line-height: 1.6; overflow-wrap: anywhere; }
+.doc-preview h2 { font: 700 17px/24px var(--font-sans); margin: 14px 0 4px; }
+.doc-preview h2:first-child { margin-top: 0; }
+.doc-preview ul, .doc-preview ol { padding-left: 20px; }
+.compliance-card { display: grid; gap: 10px; }
+
+/* ---------- Main site footer with legal links + contact ---------- */
+.site-footer__grid { display: grid; gap: var(--space-4); }
+@media (min-width: 760px) { .site-footer__grid { grid-template-columns: 1.4fr 1fr 0.8fr; align-items: start; } }
+.site-footer__links { display: flex; flex-direction: column; gap: 2px; }
+.site-footer__links a { min-height: 40px; display: inline-flex; align-items: center; color: var(--ink); font-weight: 600; text-decoration: none; }
+.site-footer__links a:hover { color: var(--brand); text-decoration: underline; }
+.site-footer__contact { font-style: normal; display: grid; gap: 4px; margin-top: 6px; overflow-wrap: anywhere; }
+.site-footer__contact a { min-height: 32px; display: inline-flex; align-items: center; }
+.legal { padding-bottom: var(--space-7); max-width: 860px; }
+.legal h1 { font: 700 28px/34px var(--font-display); }

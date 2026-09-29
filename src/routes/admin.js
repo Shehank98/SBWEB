@@ -326,7 +326,22 @@ adminRouter.put(
 
 // ---- Platform settings (Admin Settings). Each key has a validator/normaliser. ----
 const cleanStr = (v, n = 200) => String(v == null ? '' : v).trim().slice(0, n);
+const POLICY_KEYS = ['refund', 'privacy', 'return', 'terms'];
 export const SETTINGS_SCHEMA = {
+  platform_contact: (v) => {
+    if (!v || typeof v !== 'object') throw badRequest('Contact details must be an object.');
+    const out = { businessName: cleanStr(v.businessName, 80) || 'Sidadiya', email: cleanStr(v.email, 120), phone: cleanStr(v.phone, 30), whatsapp: cleanStr(v.whatsapp, 30), address: cleanStr(v.address, 300), hours: cleanStr(v.hours, 80) };
+    if (out.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(out.email)) throw badRequest('Enter a valid platform email.');
+    if (out.address && /\bp\s*\.?\s*o\s*\.?\s*box\b/i.test(out.address)) throw badRequest('Use a physical address, not a P.O. Box.');
+    return out;
+  },
+  // Custom text per platform legal page; an empty string falls back to the template.
+  platform_policies: (v) => {
+    if (!v || typeof v !== 'object') throw badRequest('Policies must be an object.');
+    const out = {};
+    for (const k of POLICY_KEYS) if (typeof v[k] === 'string' && v[k].trim()) out[k] = v[k].trim().slice(0, 20000);
+    return out;
+  },
   trial_days: (v) => {
     const n = Number(v);
     if (!Number.isInteger(n) || n < 1 || n > 90) throw badRequest('Trial length must be 1 to 90 days.');

@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
-import { UPLOAD_DIR } from './services/uploads.js';
+import { UPLOAD_DIR, verifyPrivateRequest } from './services/uploads.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
 import { query } from './db/pool.js';
 import { bootstrapDb } from './db/bootstrap.js';
@@ -35,6 +35,7 @@ import { productsRouter } from './routes/products.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { storeRouter } from './routes/store.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { siteRouter } from './routes/site.js';
 import { serveStorePage, serveProductPage } from './services/pages.js';
 
 const app = express();
@@ -63,6 +64,16 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
+// Local-driver signed links for PRIVATE files (verification documents). The HMAC
+// signature and expiry in the query are the authorisation, like a cloud signed URL.
+app.get('/api/files/private', (req, res) => {
+  const file = verifyPrivateRequest(req.query.key, req.query.exp, req.query.sig);
+  if (!file) return res.status(403).json({ error: 'This link has expired. Open the document again from the admin panel.' });
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
+  res.sendFile(file);
+});
+
 // Simple in-memory rate limit for login, to blunt password brute-forcing.
 const loginHits = new Map();
 function loginLimiter(req, res, next) {
@@ -87,6 +98,7 @@ app.use('/api/products', productsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/store', storeRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/site', siteRouter);
 
 // Clean URLs: never expose ".html". Redirect any .html request to the extensionless
 // path (301), and let express.static resolve the extensionless path back to the file.
@@ -112,6 +124,9 @@ app.get('/store/:slug', (req, res, next) => {
   if (slug.includes('.') || RESERVED_STORE.has(slug)) return next(); // real files handled by static
   serveStorePage(req, res, next, slug);
 });
+
+// Platform legal pages: /legal/refund, /legal/privacy, /legal/return, /legal/terms, /legal/contact.
+app.get(/^\/legal\/(refund|privacy|return|terms|contact)\/?$/, (_req, res) => res.sendFile(path.join(FRONTEND_DIR, 'legal', 'index.html')));
 
 // Serve the frontend (landing, storefront, dashboard, admin) from the same origin.
 // This makes the whole platform a single deployable service: the pages call the API
