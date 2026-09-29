@@ -14,6 +14,8 @@ siteRouter.get(
     res.json({
       contact,
       trialDays: await trialDays(),
+      // Marketing social proof, editable in Admin Settings ("40+ shops onboarded").
+      socialProof: await getSetting('social_proof', { count: 40, label: 'shops onboarded' }),
       policies: [...POLICY_KINDS, 'contact'].map((k) => ({ key: k, title: TITLES[k] })),
     });
   })

@@ -19,7 +19,7 @@
       <main class="main" id="main" tabindex="-1">
         <div class="page-head"><div><h1>Settings</h1><p>Plans, trial, payments and the text shown across Sidadiya.</p></div></div>
         <nav class="settings-nav" aria-label="Settings sections" id="snav">
-          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a>
+          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a><a href="#marketing">Marketing</a>
         </nav>
 
         <section class="kd-card panel" id="plans" aria-labelledby="h-plans" style="margin-bottom:var(--space-4)">
@@ -81,6 +81,15 @@
               <div class="kd-field span-2"><label class="kd-label" for="gcDocs">Policy samples link</label><input class="kd-input" id="gcDocs" data-gc="docs"></div>
             </div>
             <div><button class="kd-btn kd-btn--primary" type="submit">Save guide</button></div>
+          </form>
+        </section>
+        <section class="kd-card panel" id="marketing" aria-labelledby="h-mkt" style="margin-bottom:var(--space-4)">
+          <h2 id="h-mkt">Marketing</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">Social proof on the main Sidadiya page, shown as “40+ shops onboarded”. Set the count to 0 to hide it.</p>
+          <form id="mktForm" class="form-grid form-grid--2" novalidate>
+            <div class="kd-field"><label class="kd-label" for="spCount">Shops onboarded</label><input class="kd-input" id="spCount" type="number" min="0" inputmode="numeric"></div>
+            <div class="kd-field"><label class="kd-label" for="spLabel">Label</label><input class="kd-input" id="spLabel" maxlength="60" placeholder="shops onboarded"></div>
+            <div class="span-2"><button class="kd-btn kd-btn--primary" type="submit">Save</button></div>
           </form>
         </section>
         <div id="moreSections"></div>
@@ -166,6 +175,10 @@
         K.$$('#legalEditors textarea').forEach(function (t) { if (t.value.trim() && t.value !== t.dataset.template) o[t.getAttribute('data-k')] = t.value; });
         KadeApi.adminSaveSettings({ platform_policies: o }).then(function () { K.toast('Legal pages saved.'); }).catch(function (ex) { K.toast(ex.message); });
       });
+      K.$('#mktForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        KadeApi.adminSaveSettings({ social_proof: { count: Number(K.$('#spCount').value || 0), label: K.$('#spLabel').value } }).then(function () { K.toast('Saved.'); }).catch(function (ex) { K.toast(ex.message); });
+      });
       K.$('#guideForm').addEventListener('submit', function (e) {
         e.preventDefault(); var g = { contacts: {} };
         K.$$('#guideForm [data-g]').forEach(function (t) { var k = t.getAttribute('data-g'); g[k] = t.hasAttribute('data-list') ? t.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean) : t.value.trim(); });
@@ -195,6 +208,8 @@
           if (custom[k[0]]) ta.value = custom[k[0]];
           else KadeApi.sitePolicy(k[0]).then(function (r) { ta.value = r.content; ta.dataset.template = r.content; }).catch(function () {});
         });
+        var sp = s.social_proof || { count: 40, label: 'shops onboarded' };
+        K.$('#spCount').value = sp.count; K.$('#spLabel').value = sp.label || '';
         var G = s.onepay_guide || {};
         K.$$('#guideForm [data-g]').forEach(function (t) { var v = G[t.getAttribute('data-g')]; t.value = Array.isArray(v) ? v.join('\n') : (v || ''); });
         K.$$('#guideForm [data-gc]').forEach(function (i) { i.value = (G.contacts || {})[i.getAttribute('data-gc')] || ''; });

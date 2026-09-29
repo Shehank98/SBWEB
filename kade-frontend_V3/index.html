@@ -40,10 +40,11 @@
           </h1>
           <p class="lp-lead">Sidadiya gives your business its own online store. Add your products, share one link on WhatsApp or Facebook, and get orders on your phone.</p>
           <div class="lp-cta" id="hero-cta">
-            <a class="kd-btn kd-btn--primary" href="register">Open my shop</a>
+            <a class="kd-btn kd-btn--primary" href="register"><span>Start <span data-trial>14</span>-day free trial</span></a>
             <a class="kd-btn kd-btn--secondary" href="dashboard/index?demo=1">Try the owner dashboard</a>
           </div>
-          <p class="lp-note">Pay by bank transfer. Your customers do not need to install anything.</p>
+          <p class="lp-note"><span data-trial>14</span> days free, no card needed. Your customers do not need to install anything.</p>
+          <p class="lp-proof" id="proof-hero" hidden></p>
         </div>
 
         <div class="stage" aria-hidden="true">
@@ -73,13 +74,48 @@
       <div class="lp-marquee__track" id="marq"></div>
     </div>
 
+    <!-- WHY MOVE BEYOND WHATSAPP-ONLY SELLING -->
+    <section class="lp-section" id="why-move" aria-labelledby="move-title">
+      <div class="container">
+        <h2 class="lp-title reveal" id="move-title">Still selling only on WhatsApp?</h2>
+        <p class="lp-sub reveal">WhatsApp is great for talking to customers. It is hard work as your only shop.</p>
+        <div class="move-grid">
+          <div class="move-card move-card--pain reveal">
+            <h3>Selling only on WhatsApp</h3>
+            <ul class="move-list move-list--pain">
+              <li><span><b>Lost chats.</b> Orders get buried under messages, statuses and group chats.</span></li>
+              <li><span><b>No catalogue.</b> You send the same photos and prices again and again.</span></li>
+              <li><span><b>Manual tracking.</b> Who paid, who is waiting, what shipped: all in your head or a notebook.</span></li>
+              <li><span><b>No invoices.</b> Customers ask for a proper receipt and you have none to send.</span></li>
+              <li><span><b>No card payments.</b> Buyers who want to pay by card go somewhere else.</span></li>
+            </ul>
+          </div>
+          <div class="move-card move-card--gain reveal" style="--d:120ms">
+            <h3>With your Sidadiya store</h3>
+            <ul class="move-list move-list--gain">
+              <li><span><b>Your own store link</b> to share on WhatsApp, Facebook and Instagram.</span></li>
+              <li><span><b>A catalogue</b> with photos, prices, sizes and stock that buyers browse themselves.</span></li>
+              <li><span><b>Orders and receipts</b> in one dashboard, with an emailed order summary for every buyer.</span></li>
+              <li><span><b>Card payments</b> through your own OnePay account, plus cash on delivery and bank transfer.</span></li>
+              <li><span><b>A verified badge</b> that shows buyers your business is real.</span></li>
+              <li><span><b>Weekly reports</b> every Monday: sales, top products and where buyers came from.</span></li>
+              <li><span><b>Tracking emails</b> so buyers know when their parcel is on the way.</span></li>
+            </ul>
+            <p class="move-keep">Keep WhatsApp for the chats. Your store handles the rest.</p>
+          </div>
+        </div>
+        <div class="move-proof reveal" id="proof" hidden></div>
+        <div class="lp-cta" style="justify-content:center;margin-top:var(--space-5)"><a class="kd-btn kd-btn--primary" href="register"><span>Start <span data-trial>14</span>-day free trial</span></a></div>
+      </div>
+    </section>
+
     <!-- HOW IT WORKS -->
     <section class="lp-section" aria-labelledby="how">
       <div class="container">
         <h2 class="lp-title reveal" id="how">Four steps to your first order</h2>
         <ol class="lp-steps">
-          <li class="lp-step reveal" style="--d:0ms"><span class="lp-step__n" aria-hidden="true">1</span><h3>Register</h3><p>Tell us about your business and pick a plan.</p></li>
-          <li class="lp-step reveal" style="--d:120ms"><span class="lp-step__n" aria-hidden="true">2</span><h3>Pay and get approved</h3><p>Send your bank transfer slip. We check it and email you when your store is ready.</p></li>
+          <li class="lp-step reveal" style="--d:0ms"><span class="lp-step__n" aria-hidden="true">1</span><h3>Open your shop</h3><p>Three quick steps: your details, your logo and cover, then a live preview.</p></li>
+          <li class="lp-step reveal" style="--d:120ms"><span class="lp-step__n" aria-hidden="true">2</span><h3>Start free</h3><p>Your store is live right away. Use it free for <span data-trial>14</span> days, then pick a plan.</p></li>
           <li class="lp-step reveal" style="--d:240ms"><span class="lp-step__n" aria-hidden="true">3</span><h3>Add your products</h3><p>Upload photos, set prices and stock from your phone or computer.</p></li>
           <li class="lp-step reveal" style="--d:360ms"><span class="lp-step__n" aria-hidden="true">4</span><h3>Share your link</h3><p>Post your store link in WhatsApp, Facebook and Instagram.</p></li>
         </ol>
@@ -109,10 +145,11 @@
           </article>
 
           <article class="bento bento--accent b-2 reveal">
-            <div class="bento__text"><h3>Cash or bank transfer</h3><p>Choose which payment methods your customers can use.</p></div>
+            <div class="bento__text"><h3>Cash, bank transfer or card</h3><p>Choose how customers pay. Card payments go through your own OnePay account.</p></div>
             <div class="viz" id="v-pay" aria-hidden="true">
               <div class="mk-row"><span>Cash on delivery</span><span class="mk-switch on"></span></div>
               <div class="mk-row"><span>Bank transfer</span><span class="mk-switch"></span></div>
+              <div class="mk-row"><span>Card (OnePay)</span><span class="mk-switch on"></span></div>
             </div>
           </article>
 
@@ -147,7 +184,7 @@
     <section class="lp-section" id="pricing" style="background:var(--surface-sunken)" aria-labelledby="pricing-title">
       <div class="container">
         <h2 class="lp-title reveal" id="pricing-title">Simple monthly plans</h2>
-        <p class="lp-sub reveal">Pay by bank transfer. Change plans any time you renew.</p>
+        <p class="lp-sub reveal">Start with <span data-trial>14</span> days free. Then pay monthly by card or bank transfer, and change plans any time.</p>
         <div class="lp-plans" id="plans" role="region" aria-label="Plans, swipe sideways to compare" tabindex="0"></div>
         <p class="lp-swipe" aria-hidden="true">Swipe sideways to compare plans</p>
       </div>
@@ -158,10 +195,12 @@
       <div class="container">
         <h2 class="lp-title reveal" id="faq-title">Questions shop owners ask</h2>
         <div class="faq reveal">
-          <details><summary>How do I pay?</summary><p>By bank transfer. Upload the slip when you register or renew. We check it and turn your store on.</p></details>
+          <details><summary>Is there a free trial?</summary><p>Yes. Every new shop gets <span data-trial>14</span> days free with Starter features. No card is needed. Before the trial ends, pick a plan to keep your store open. Everything you set up is kept.</p></details>
+          <details><summary>How do I pay for my plan?</summary><p>By card (Visa, Mastercard or Amex through OnePay) or by bank transfer. Card payments activate your plan straight away. Bank transfers are activated after we check your slip.</p></details>
+          <details><summary>Can my customers pay by card?</summary><p>Yes, through your own OnePay merchant account, so the money goes straight to your bank. You also need your refund, return, privacy and terms pages and your contact details on your store. Sidadiya creates these for you to review. Cash on delivery and bank transfer work from day one.</p></details>
           <details><summary>What if I miss a month?</summary><p>You get reminders first. After the plan ends your store stays open for a short grace period, then it pauses. Your products, photos and orders are kept, and everything returns when you renew.</p></details>
           <details><summary>Do my customers need an app?</summary><p>No. They open your store link in their phone browser, the same way they open any website.</p></details>
-          <details><summary>Can I use my own web address?</summary><p>Yes, on the Pro plan.</p></details>
+          <details><summary>Can I use my own web address?</summary><p>Not yet. Your store lives at www.sidadiya.com/store/your-shop. Custom domains are on our roadmap.</p></details>
         </div>
       </div>
     </section>
@@ -171,8 +210,8 @@
       <div class="lp-awning-wrap"><div class="lp-awning" aria-hidden="true"><svg id="awn2" viewBox="0 0 1536 56" preserveAspectRatio="xMidYMin slice"></svg></div></div>
       <div class="container lp-final__body">
         <h2 id="final-title">Open your shop tonight.</h2>
-        <p>Register in a few minutes. We will email you as soon as your store is ready.</p>
-        <a class="kd-btn" href="register">Open my shop</a>
+        <p>Set up in a few minutes and start selling today. <span data-trial>14</span> days free, no card needed.</p>
+        <a class="kd-btn" href="register"><span>Start <span data-trial>14</span>-day free trial</span></a>
       </div>
     </section>
   </main>
@@ -184,7 +223,7 @@
     </div>
   </footer>
 
-  <div class="lp-sticky" id="sticky"><span>Ready to sell online?</span><a class="kd-btn kd-btn--primary" href="register">Open my shop</a></div>
+  <div class="lp-sticky" id="sticky"><span><span data-trial>14</span> days free</span><a class="kd-btn kd-btn--primary" href="register">Start free trial</a></div>
 
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>

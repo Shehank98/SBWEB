@@ -223,3 +223,26 @@ body.landing { padding-bottom: 0; }
   .js .reveal { opacity: 1; transform: none; }
   .phone { animation: none; transform: translateX(-50%); }
 }
+
+/* ---------- Why move beyond WhatsApp-only selling ---------- */
+.move-grid { display: grid; gap: var(--space-4); margin-top: var(--space-5); }
+@media (min-width: 860px) { .move-grid { grid-template-columns: 1fr 1.15fr; align-items: stretch; } }
+.move-card { border-radius: var(--radius-lg); padding: var(--space-5) var(--space-4); border: 1px solid var(--line); background: var(--surface-raised); min-width: 0; }
+.move-card h3 { font: 700 20px/26px var(--font-display); margin-bottom: var(--space-3); }
+.move-card--pain { background: var(--surface-sunken); }
+.move-card--gain { border: 2px solid var(--brand); box-shadow: 0 10px 30px rgba(15, 91, 74, .12); }
+.move-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.move-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; line-height: 1.45; }
+.move-list li::before { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+.move-list--pain li::before { content: "✕"; background: var(--danger-soft); color: var(--danger); }
+.move-list--gain li::before { content: "✓"; background: var(--brand-soft); color: var(--brand); }
+.move-keep { margin-top: var(--space-4); font-weight: 600; color: var(--brand); }
+.move-proof { margin: var(--space-5) auto 0; max-width: 560px; text-align: center; display: grid; gap: 2px; justify-items: center; }
+.move-proof strong { font: 800 48px/1 var(--font-display); color: var(--brand); }
+.move-proof span { font: 700 18px/24px var(--font-sans); }
+.move-proof small { color: var(--ink-muted); }
+.lp-proof { margin-top: 10px; font-weight: 700; color: var(--brand); }
+.plan { position: relative; }
+.plan__flag { position: absolute; top: -12px; left: 16px; background: var(--brand); color: var(--on-brand); font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 999px; }
+.plan__price s { color: var(--ink-muted); font-size: 16px; }
+.plan__note { font-size: 13px; color: var(--ink-muted); text-align: center; margin-top: -8px; }

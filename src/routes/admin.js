@@ -545,6 +545,11 @@ export const SETTINGS_SCHEMA = {
     if (out.address && /\bp\s*\.?\s*o\s*\.?\s*box\b/i.test(out.address)) throw badRequest('Use a physical address, not a P.O. Box.');
     return out;
   },
+  social_proof: (v) => {
+    const n = Number(v && v.count);
+    if (!Number.isInteger(n) || n < 0 || n > 1000000) throw badRequest('Shop count must be a whole number.');
+    return { count: n, label: cleanStr(v.label, 60) || 'shops onboarded' };
+  },
   // "How to get OnePay" guide shown to sellers (lists: one item per entry).
   onepay_guide: (v) => {
     if (!v || typeof v !== 'object') throw badRequest('Guide must be an object.');
@@ -581,6 +586,7 @@ adminRouter.get(
     const out = {};
     for (const k of Object.keys(SETTINGS_SCHEMA)) out[k] = await getSetting(k, null);
     out.onepay_guide = await onepayGuide(); // defaults filled in until the admin edits it
+    if (!out.social_proof) out.social_proof = { count: 40, label: 'shops onboarded' };
     res.json({ settings: out });
   })
 );

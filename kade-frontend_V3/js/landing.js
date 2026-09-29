@@ -149,12 +149,17 @@
   /* (handled by the reveal observer: .in on .lp-step colours the number) */
 
   /* ---------- Plans ---------- */
+  var trialDays = 14, livePlans = null;
   function renderPlans(list) {
     $('#plans').innerHTML = list.map(function (p) {
-      return '<article class="plan' + (p.id === 'business' ? ' plan--featured' : '') + '"><h3 class="heading">' + K.esc(p.name) + '</h3>' +
-        '<div class="plan__price"><strong>' + K.rs(p.price) + '</strong><span>/ ' + (p.durationDays || 30) + ' days</span></div>' +
+      var save = p.compareAtPrice ? Math.round((1 - p.price / p.compareAtPrice) * 100) : 0;
+      return '<article class="plan' + (p.id === 'business' ? ' plan--featured' : '') + '">' + (p.id === 'business' ? '<span class="plan__flag">Most popular</span>' : '') +
+        '<h3 class="heading">' + K.esc(p.name) + '</h3>' + (p.tagline ? '<p class="muted" style="margin-top:-8px">' + K.esc(p.tagline) + '</p>' : '') +
+        '<div class="plan__price"><strong>' + K.rs(p.price) + '</strong>' + (p.compareAtPrice ? '<s>' + K.rs(p.compareAtPrice) + '</s>' : '') + '<span>/ month</span></div>' +
+        (save ? '<p><span class="save-pill">Save ' + save + '%</span></p>' : '') +
         '<ul>' + (p.features || []).map(function (f) { return '<li>' + K.esc(f) + '</li>'; }).join('') + '</ul>' +
-        '<a class="kd-btn ' + (p.id === 'business' ? 'kd-btn--primary' : 'kd-btn--secondary') + ' kd-btn--block" href="register?plan=' + p.id + '">Choose ' + K.esc(p.name) + '</a></article>';
+        '<a class="kd-btn ' + (p.id === 'business' ? 'kd-btn--primary' : 'kd-btn--secondary') + ' kd-btn--block" href="register?plan=' + p.id + '">Start ' + trialDays + '-day free trial</a>' +
+        '<p class="plan__note">No card needed. Then ' + K.rs(p.price) + ' a month.</p></article>';
     }).join('');
     /* On phones, start the plan carousel centred on the middle plan */
     var pl = $('#plans');
@@ -163,8 +168,23 @@
   /* Paint the mock plans immediately, then swap in the live plans (real caps
      and features straight from the database) when the API is available. */
   renderPlans(D.plans);
+  // Trial length + social proof from Admin Settings (GET /api/site via site-footer.js).
+  function applySite(site) {
+    if (!site) return;
+    trialDays = site.trialDays || trialDays;
+    $$('[data-trial]').forEach(function (el) { el.textContent = trialDays; });
+    var sp = site.socialProof;
+    if (sp && sp.count > 0) {
+      var txt = sp.count + '+ ' + (sp.label || 'shops onboarded');
+      $('#proof').hidden = false;
+      $('#proof').innerHTML = '<strong>' + K.esc(sp.count) + '+</strong><span>' + K.esc(sp.label || 'shops onboarded') + '</span><small>Boutiques, home bakers, handloom sellers, mobile shops and more across Sri Lanka.</small>';
+      $('#proof-hero').hidden = false; $('#proof-hero').innerHTML = '<span aria-hidden="true">★</span> ' + K.esc(txt) + ' and counting';
+    }
+  }
+  if (window.KadeSite) applySite(window.KadeSite);
+  document.addEventListener('kade-site', function (e) { applySite(e.detail); if (livePlans) renderPlans(livePlans); });
   if (window.KadeApi && KadeApi.enabled && KadeApi.plans) {
-    KadeApi.plans().then(function (r) { if (r && r.plans && r.plans.length) renderPlans(r.plans); }).catch(function () {});
+    KadeApi.plans().then(function (r) { if (r && r.plans && r.plans.length) { livePlans = r.plans; renderPlans(r.plans); } }).catch(function () {});
   }
 
   /* ---------- Sticky "Open my shop" bar on phones ---------- */
