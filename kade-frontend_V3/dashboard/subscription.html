@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subscription | Kade dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+
+        <div class="page-head"><div><h1>Subscription</h1><p>Your plan, renewal date and payments.</p></div></div>
+        <div id="notice"></div>
+        <div class="grid-2">
+          <section class="kd-card panel" aria-labelledby="s1"><h2 id="s1">Current plan</h2><div id="current"></div></section>
+          <section class="kd-card panel" aria-labelledby="s2"><h2 id="s2">If your plan ends</h2>
+            <ul class="timeline"><li><time>Plan ends</time><span>You get a reminder. Your store stays open for 5 more days (grace period).</span></li><li><time>After grace</time><span>Your store is paused. Customers see that it is temporarily unavailable.</span></li><li><time>When you renew</time><span>Your store opens again, with all products, photos and orders exactly as you left them.</span></li></ul>
+          </section>
+        </div>
+        <section class="kd-card panel" aria-labelledby="s3"><h2 id="s3">Renew or change plan</h2>
+          <form id="renew" class="stack-lg" novalidate>
+            <fieldset style="border:0;padding:0;margin:0"><legend class="kd-label" style="margin-bottom:8px">Plan</legend><div class="choice" id="choices"></div></fieldset>
+            <div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Pay by bank transfer</p><p style="margin-top:4px">Send <strong id="amt"></strong> to Commercial Bank, Kade (Pvt) Ltd, account 1000 2000 3000, then upload your slip.</p></div></div>
+            <div class="kd-field" style="max-width:420px"><label class="kd-label" for="slip">Payment slip</label><input class="kd-input" id="slip" type="file" accept="image/*,application/pdf" style="padding-top:10px"></div>
+            <div><button class="kd-btn kd-btn--primary" type="submit">Send payment slip</button></div>
+          </form>
+        </section>
+        <section class="kd-card" aria-labelledby="s4"><h2 class="heading" id="s4" style="padding:16px 16px 0">Payment history</h2><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Date</th><th scope="col">Plan</th><th scope="col">Method</th><th scope="col">Status</th><th scope="col" class="kd-num">Amount</th></tr></thead><tbody id="hist"></tbody></table></div></section>
+      </main>
+    </div>
+  </div>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      K.shell('dashboard', 'subscription');
+
+      var me = D.businesses[0], days = K.daysUntil(me.expiry), total = 30, used = Math.min(total, Math.max(0, total - days));
+      var tone = days <= 3 ? 'danger' : days <= 7 ? 'warning' : '';
+      K.$('#current').innerHTML = '<div class="row row--between"><div><p class="display-md">' + K.esc(me.plan) + '</p><p class="muted">' + K.rs(D.plans.filter(function (p) { return p.name === me.plan; })[0].price) + ' every 30 days</p></div>' + K.badge('sub', days <= 7 ? 'EXPIRING' : 'ACTIVE') + '</div>' +
+        '<div><div class="kd-meter' + (tone ? ' kd-meter--' + tone : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + used + '" aria-label="Days used this period"><span style="width:' + (used / total * 100) + '%"></span></div><div class="row row--between" style="margin-top:8px"><strong>' + days + ' days left</strong><span class="muted">Ends ' + K.fmtDate(me.expiry) + '</span></div></div>';
+      K.$('#choices').innerHTML = D.plans.map(function (p) { return '<label><input type="radio" name="plan" value="' + p.id + '"' + (p.name === me.plan ? ' checked' : '') + '><span><strong>' + p.name + '</strong> <span class="price">' + K.rs(p.price) + ' / ' + p.durationDays + ' days</span> ' + (p.name === me.plan ? '<span class="kd-badge kd-badge--neutral">Current</span>' : '') + '<br><span class="muted">' + K.esc(p.features.join(', ')) + '</span></span></label>'; }).join('');
+      function plan() { var v = K.$('input[name=plan]:checked').value; return D.plans.filter(function (p) { return p.id === v; })[0]; }
+      function amt() { K.$('#amt').textContent = K.rs(plan().price); } K.$$('input[name=plan]').forEach(function (r) { r.addEventListener('change', amt); }); amt();
+      function hist() {
+        var list = D.payments.filter(function (p) { return p.business === 'ABC Fashion'; }).sort(function (a, b) { return a.submitted < b.submitted ? 1 : -1; });
+        K.$('#hist').innerHTML = list.map(function (p) { return '<tr><td>' + K.fmtDate(p.submitted) + '</td><td>' + K.esc(p.plan) + '</td><td>' + K.esc(p.method) + '</td><td>' + K.badge('pay', p.status) + '</td><td class="kd-num">' + K.rs(p.amount) + '</td></tr>'; }).join('');
+      }
+      hist();
+      K.$('#renew').addEventListener('submit', function (e) {
+        e.preventDefault(); var s = K.$('#slip'), f = s.closest('.kd-field'), o = f.querySelector('.kd-error'); if (o) o.remove();
+        if (!s.files.length) { f.classList.add('kd-field--error'); var m = document.createElement('span'); m.className = 'kd-error'; m.textContent = 'Upload your payment slip first.'; f.appendChild(m); s.focus(); return; }
+        f.classList.remove('kd-field--error');
+        D.payments.unshift({ id: 'pay' + Date.now(), business: 'ABC Fashion', owner: 'Kasun Perera', plan: plan().name, amount: plan().price, method: 'Bank transfer', ref: '', submitted: D.today, status: 'PENDING' });
+        hist(); s.value = '';
+        K.$('#notice').innerHTML = '<div class="kd-banner kd-banner--success" role="status"><div><p class="kd-banner__title">Payment slip received</p><p style="margin-top:4px">We will check it and extend your store. You will get an email when it is done.</p></div></div>';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+    })();
+  </script>
+</body>
+</html>

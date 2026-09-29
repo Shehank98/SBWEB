@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Overview | Kade dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+
+        <div class="page-head"><div><h1 id="hello">Hello</h1><p>Here is how ABC Fashion is doing today.</p></div><a class="kd-btn kd-btn--primary" href="products.html?new=1">Add product</a></div>
+        <div id="sub-banner"></div>
+        <div class="tiles" id="tiles"></div>
+        <div class="grid-2">
+          <section class="kd-card panel" aria-labelledby="c1"><h2 id="c1">Sales, last 7 days</h2><div id="chart"></div></section>
+          <section class="kd-card panel" aria-labelledby="c2"><h2 id="c2">Needs your attention</h2><div id="attention"></div></section>
+        </div>
+        <section class="kd-card" aria-labelledby="c3">
+          <div class="row row--between" style="padding:16px 16px 0"><h2 class="heading" id="c3">Recent orders</h2><a class="kd-link" href="orders.html">See all orders</a></div>
+          <div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col" class="kd-num">Total</th></tr></thead><tbody id="recent"></tbody></table></div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      K.shell('dashboard', 'index');
+
+      var h = new Date().getHours();
+      K.$('#hello').textContent = (h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening') + ', Kasun';
+      var me = D.businesses[0], orders = K.orders(), products = D.products.filter(function (p) { return p.store === 'abc-fashion'; });
+      var days = K.daysUntil(me.expiry);
+      if (days <= 14) {
+        K.$('#sub-banner').innerHTML = '<div class="kd-banner kd-banner--' + (days <= 3 ? 'danger' : 'warning') + '"><div><p class="kd-banner__title">Your ' + K.esc(me.plan) + ' plan ends in ' + days + ' days</p><p style="margin-top:4px">Renew before ' + K.fmtDate(me.expiry) + ' so your store stays open for customers.</p></div><a class="kd-btn kd-btn--primary" href="subscription.html">Renew now</a></div>';
+      }
+      var todays = orders.filter(function (o) { return o.date === D.today && o.status !== 'CANCELLED'; });
+      var sales = todays.reduce(function (n, o) { return n + o.total; }, 0);
+      var low = products.filter(function (p) { return p.stock <= p.lowAt; });
+      var tiles = [['Sales today', K.rs(sales), todays.length + ' order' + (todays.length === 1 ? '' : 's') + ' since midnight'], ['Orders to handle', orders.filter(function (o) { return o.status === 'PENDING'; }).length, 'Waiting for you to confirm'], ['Products', products.length, me.plan + ' plan allows 500'], ['Low or out of stock', low.length, low.length ? 'Restock soon' : 'All stocked']];
+      K.$('#tiles').innerHTML = tiles.map(function (t) { return '<div class="kd-card stat"><span class="stat__label">' + t[0] + '</span><span class="stat__value">' + t[1] + '</span><span class="stat__delta">' + t[2] + '</span></div>'; }).join('');
+      var data = D.sales7.map(function (d, i, a) { var dt = new Date(d.date + 'T00:00:00'); return { label: dt.toLocaleDateString('en-GB', { weekday: 'short' }), title: dt.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }), value: i === a.length - 1 ? sales : d.value }; });
+      K.bars(K.$('#chart'), data, { label: 'Sales per day for the last 7 days, in rupees', xLabel: 'Day', yLabel: 'Sales' });
+      var pend = orders.filter(function (o) { return o.status === 'PENDING'; }).slice(0, 4);
+      K.$('#attention').innerHTML = '<ul class="list">' + pend.map(function (o) { return '<li><span><a class="kd-link" href="orders.html?o=' + o.id + '">#' + o.id + '</a><span class="sub muted" style="display:block;font-size:13px">' + K.esc(o.customer) + ', ' + K.rs(o.total) + '</span></span>' + K.badge('order', 'PENDING') + '</li>'; }).join('') +
+        low.slice(0, 3).map(function (p) { return '<li><span><a class="kd-link" href="products.html?q=' + encodeURIComponent(p.name) + '">' + K.esc(p.name) + '</a><span class="sub muted" style="display:block;font-size:13px">' + p.stock + ' left</span></span>' + K.stockBadge(p) + '</li>'; }).join('') + '</ul>' + (pend.length + low.length ? '' : '<p class="muted">Nothing needs attention right now.</p>');
+      K.$('#recent').innerHTML = orders.slice(0, 6).map(function (o) { return '<tr><td><a class="kd-link" href="orders.html?o=' + o.id + '">#' + o.id + '</a></td><td>' + K.esc(o.customer) + '<span class="sub">' + K.fmtDate(o.date) + '</span></td><td>' + K.badge('order', o.status) + '</td><td class="kd-num">' + K.rs(o.total) + '</td></tr>'; }).join('');
+
+    })();
+  </script>
+</body>
+</html>

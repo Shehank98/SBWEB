@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orders | Kade dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+
+        <div class="page-head"><div><h1>Orders</h1><p>Confirm new orders and move them along until they are delivered.</p></div></div>
+        <div class="kd-tabs" role="tablist" aria-label="Order status" id="tabs"></div>
+        <div class="toolbar"><label class="visually-hidden" for="q">Search orders</label><input class="kd-input" id="q" type="search" placeholder="Search by customer or order number"></div>
+        <section class="kd-card" aria-label="Orders"><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Payment</th><th scope="col">Status</th><th scope="col" class="kd-num">Total</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody id="rows"></tbody></table></div><div id="none" class="empty" hidden><h2>No orders here yet</h2><p class="muted">When customers order from your store link, the orders appear here.</p></div></section>
+        <dialog class="drawer" id="drawer" aria-labelledby="dt"><div class="dialog__head"><h2 class="heading" id="dt"></h2><button class="kd-btn kd-btn--ghost kd-btn--sm" type="button" id="close">Close</button></div><div class="dialog__body" id="db"></div></dialog>
+      </main>
+    </div>
+  </div>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, D = KadeData;
+      K.shell('dashboard', 'orders');
+
+      var orders = K.orders(), filter = 'ALL', q = '', open = null;
+      var TABS = ['ALL'].concat(K.ORDER_FLOW).concat('CANCELLED');
+      function counts(s) { return s === 'ALL' ? orders.length : orders.filter(function (o) { return o.status === s; }).length; }
+      function tabs() { K.$('#tabs').innerHTML = TABS.map(function (s) { return '<button class="kd-tab" role="tab" type="button" aria-selected="' + (s === filter) + '" data-s="' + s + '">' + (s === 'ALL' ? 'All' : K.orderLabel(s)) + '<span class="count">' + counts(s) + '</span></button>'; }).join(''); }
+      function rows() {
+        var list = orders.filter(function (o) { return (filter === 'ALL' || o.status === filter) && (!q || (o.id + ' ' + o.customer).toLowerCase().indexOf(q) >= 0); });
+        K.$('#none').hidden = list.length > 0;
+        K.$('#rows').innerHTML = list.map(function (o) { return '<tr style="cursor:pointer" data-o="' + o.id + '"' + (open === o ? ' aria-selected="true"' : '') + '><td><button class="kd-link" style="background:none;border:0;padding:0;cursor:pointer;font-size:14px" data-o="' + o.id + '">#' + o.id + '</button><span class="sub">' + K.fmtDate(o.date) + '</span></td><td>' + K.esc(o.customer) + '<span class="sub">' + K.esc(o.city) + '</span></td><td>' + K.esc(o.payment) + '</td><td>' + K.badge('order', o.status) + '</td><td class="kd-num">' + K.rs(o.total) + '</td><td><div class="actions"><button class="kd-btn kd-btn--secondary kd-btn--sm" data-o="' + o.id + '">View</button></div></td></tr>'; }).join('');
+      }
+      function next(s) { var i = K.ORDER_FLOW.indexOf(s); return i >= 0 && i < K.ORDER_FLOW.length - 1 ? K.ORDER_FLOW[i + 1] : null; }
+      var NEXT_LABEL = { CONFIRMED: 'Confirm order', PROCESSING: 'Start processing', READY_TO_SHIP: 'Mark ready to ship', SHIPPED: 'Mark as shipped', DELIVERED: 'Mark as delivered' };
+      function drawer(o) {
+        open = o; o.history = o.history || [{ s: 'PENDING', t: o.date }];
+        K.$('#dt').innerHTML = '#' + o.id + ' ' + K.badge('order', o.status);
+        var n = next(o.status), phone = o.phone.replace(/\s/g, ''), wa = '94' + phone.replace(/^0/, '');
+        K.$('#db').innerHTML = '<dl class="dl"><dt>Customer</dt><dd>' + K.esc(o.customer) + '</dd><dt>Phone</dt><dd><a class="kd-link" href="tel:' + phone + '">' + K.esc(o.phone) + '</a></dd><dt>Deliver to</dt><dd>' + K.esc(o.address ? o.address + ', ' + o.city : o.city) + '</dd><dt>Payment</dt><dd>' + K.esc(o.payment) + '</dd><dt>Placed</dt><dd>' + K.fmtDate(o.date) + '</dd>' + (o.note ? '<dt>Note</dt><dd>' + K.esc(o.note) + '</dd>' : '') + '</dl>' +
+          '<div><h3 class="label" style="margin-bottom:8px">Items</h3><ul class="list">' + o.items.map(function (i) { return '<li><span>' + i.qty + ' &times; ' + K.esc(i.name) + '</span><span class="price-sm">' + K.rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul><div class="totals" style="margin-top:8px"><div><span>Subtotal</span><span class="price-sm">' + K.rs(o.subtotal) + '</span></div><div><span>Delivery</span><span class="price-sm">' + (o.delivery ? K.rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span class="price">' + K.rs(o.total) + '</span></div></div></div>' +
+          '<div><h3 class="label" style="margin-bottom:8px">History</h3><ul class="timeline">' + o.history.slice().reverse().map(function (h) { return '<li><time>' + K.fmtDate(h.t) + '</time><span>' + K.orderLabel(h.s) + (h.reason ? ': ' + K.esc(h.reason) : '') + '</span></li>'; }).join('') + '</ul></div>' +
+          '<div class="stack" style="gap:12px">' + (n ? '<button class="kd-btn kd-btn--primary kd-btn--block" data-act="next">' + NEXT_LABEL[n] + '</button>' : '') +
+          '<a class="kd-btn kd-btn--secondary kd-btn--block" target="_blank" rel="noopener" href="https://wa.me/' + wa + '?text=' + encodeURIComponent('Hello ' + o.customer.split(' ')[0] + ', this is ABC Fashion about your order ' + o.id + '.') + '">Message customer on WhatsApp</a>' +
+          (o.status !== 'DELIVERED' && o.status !== 'CANCELLED' ? '<button class="kd-btn kd-btn--ghost kd-btn--block" style="color:var(--danger)" data-act="cancel">Cancel order</button>' : '') + '</div>';
+        var d = K.$('#drawer'); if (!d.open) d.showModal(); rows();
+      }
+      function setStatus(o, s, reason) { o.status = s; o.history.push({ s: s, t: D.today, reason: reason }); tabs(); rows(); drawer(o); K.toast('Order #' + o.id + ' is now ' + K.orderLabel(s).toLowerCase()); }
+      K.$('#tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { filter = b.getAttribute('data-s'); tabs(); rows(); K.$('[aria-selected=true]', K.$('#tabs')).focus(); } });
+      K.$('#q').addEventListener('input', function () { q = this.value.trim().toLowerCase(); rows(); });
+      K.$('#rows').addEventListener('click', function (e) { var b = e.target.closest('[data-o]'); if (b) drawer(orders.filter(function (o) { return o.id === b.getAttribute('data-o'); })[0]); });
+      K.$('#close').addEventListener('click', function () { K.$('#drawer').close(); });
+      K.$('#drawer').addEventListener('close', function () { open = null; rows(); });
+      K.$('#drawer').addEventListener('click', function (e) { if (e.target === this) this.close(); });
+      K.$('#db').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-act]'); if (!b || !open) return;
+        var o = open;
+        if (b.getAttribute('data-act') === 'next') setStatus(o, next(o.status));
+        else K.confirm({ title: 'Cancel order #' + o.id + '?', body: 'The customer will not receive this order. You can tell them why below.', confirmLabel: 'Cancel order', danger: true, reason: 'Reason' }).then(function (r) { if (r) setStatus(o, 'CANCELLED', r.reason); });
+      });
+      tabs(); rows();
+      var want = new URLSearchParams(location.search).get('o'); if (want) { var w = orders.filter(function (o) { return o.id === want; })[0]; if (w) drawer(w); }
+
+    })();
+  </script>
+</body>
+</html>

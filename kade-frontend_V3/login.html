@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in | Kade</title>
+  <script src="js/theme.js"></script>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="container"><a class="wordmark" href="index.html" aria-label="Kade home">Kade</a><nav class="site-nav" aria-label="Main"><a class="kd-btn kd-btn--secondary" href="register.html">Open my shop</a></nav></div></header>
+  <main id="main" class="auth">
+    <div class="stack-lg" style="width:100%;max-width:480px">
+      <div class="kd-card auth__card">
+        <h1>Log in</h1>
+        <form id="form" class="stack-lg" style="margin-top:24px" novalidate>
+          <div class="kd-field"><label class="kd-label" for="email">Email</label><input class="kd-input" id="email" type="email" autocomplete="email" required></div>
+          <div class="kd-field"><label class="kd-label" for="pw">Password</label><input class="kd-input" id="pw" type="password" autocomplete="current-password" required></div>
+          <div class="kd-error" id="err" role="alert" hidden></div>
+          <button class="kd-btn kd-btn--primary kd-btn--block" type="submit">Log in</button>
+        </form>
+        <p class="muted" style="margin-top:16px">New here? <a class="kd-link" href="register.html">Open your shop</a></p>
+      </div>
+      <div class="kd-banner kd-banner--info">
+        <div><p class="kd-banner__title">Prototype shortcuts</p><p style="margin-top:4px">There is no server yet. Any email containing "admin" opens the admin panel; anything else opens the owner dashboard for ABC Fashion.</p></div>
+        <div class="row"><a class="kd-btn kd-btn--secondary kd-btn--sm" href="dashboard/index.html">Owner dashboard</a><a class="kd-btn kd-btn--secondary kd-btn--sm" href="admin/index.html">Admin panel</a></div>
+      </div>
+    </div>
+  </main>
+  <script>
+    document.getElementById('form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var em = document.getElementById('email'), pw = document.getElementById('pw'), err = document.getElementById('err');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em.value) || !pw.value) {
+        err.hidden = false; err.textContent = 'Enter your email and password.'; (em.value ? pw : em).focus(); return;
+      }
+      location.href = /admin/i.test(em.value) ? 'admin/index.html' : 'dashboard/index.html';
+    });
+  </script>
+</body>
+</html>
