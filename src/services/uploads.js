@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHmac, timingSafeEqual } from 'crypto';
 import { fileURLToPath } from 'url';
 import { config } from '../config.js';
 import { badRequest } from '../utils/http.js';
@@ -82,3 +82,62 @@ export async function saveUpload(file, folder = 'misc', opts = {}) {
 }
 
 export { UPLOAD_DIR };
+
+// ---------------------------------------------------------------------------------
+// PRIVATE files (seller verification documents). Never publicly readable:
+//  - firebase: saved under private/shops/<businessId>/... with NO download token, so
+//    the only way to read them is a short-lived V4 signed URL made by the backend
+//    (Firebase Storage rules in storage.rules deny all client access to private/).
+//  - local: saved to ./uploads-private, which is never served statically; read back
+//    through /api/files/private?key=..&exp=..&sig=.. with an HMAC signature that
+//    expires (the same idea as a signed URL).
+// ---------------------------------------------------------------------------------
+const PRIVATE_DIR = path.join(__dirname, '..', '..', 'uploads-private');
+export const DOC_TYPES = SLIP_TYPES; // JPG/PNG/WEBP/GIF or PDF
+
+const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' };
+
+export async function savePrivate(file, businessId, name) {
+  if (!file || !file.buffer) throw badRequest('No file was uploaded.');
+  if (!DOC_TYPES.has(file.mimetype)) throw badRequest('Please upload a JPG, PNG, WEBP or PDF file.');
+  if (!/^[0-9a-f-]{36}$/i.test(String(businessId))) throw badRequest('Invalid shop.');
+  const key = `private/shops/${businessId}/verification/${name}-${Date.now()}.${EXT[file.mimetype]}`;
+  if (config.uploadDriver === 'firebase') {
+    const bucket = await getFirebaseBucket();
+    // No firebaseStorageDownloadTokens metadata and no ACL change: the object stays
+    // private (works with uniform bucket-level access, where per-object ACLs fail).
+    await bucket.file(key).save(file.buffer, { contentType: file.mimetype, resumable: false });
+  } else {
+    const dest = path.join(PRIVATE_DIR, path.dirname(key));
+    fs.mkdirSync(dest, { recursive: true });
+    fs.writeFileSync(path.join(PRIVATE_DIR, key), file.buffer);
+  }
+  return key;
+}
+
+function hmac(key, exp) {
+  return createHmac('sha256', config.jwtSecret).update(`${key}\n${exp}`).digest('base64url');
+}
+
+// A URL that works for `ttlSeconds` (default 5 minutes) and then stops working.
+export async function signedPrivateUrl(key, ttlSeconds = 300) {
+  const expires = Date.now() + ttlSeconds * 1000;
+  if (config.uploadDriver === 'firebase') {
+    const bucket = await getFirebaseBucket();
+    const [url] = await bucket.file(key).getSignedUrl({ version: 'v4', action: 'read', expires });
+    return url;
+  }
+  return `/api/files/private?key=${encodeURIComponent(key)}&exp=${expires}&sig=${hmac(key, expires)}`;
+}
+
+// Resolves a local signed request to a file path, or null if invalid/expired.
+export function verifyPrivateRequest(key, exp, sig) {
+  const e = Number(exp);
+  if (!key || !sig || !Number.isFinite(e) || e < Date.now()) return null;
+  if (!/^private\/shops\/[0-9a-f-]{36}\/verification\/[\w.-]+$/i.test(key)) return null;
+  const want = Buffer.from(hmac(key, e));
+  const got = Buffer.from(String(sig));
+  if (want.length !== got.length || !timingSafeEqual(want, got)) return null;
+  const full = path.join(PRIVATE_DIR, key);
+  return full.startsWith(PRIVATE_DIR + path.sep) && fs.existsSync(full) ? full : null;
+}

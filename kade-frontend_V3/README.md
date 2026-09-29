@@ -11,7 +11,7 @@ Plain HTML, CSS and JavaScript. No build step. It uses mock data, so it runs wit
 | Area | Files | What it does |
 | --- | --- | --- |
 | Public | `index.html`, `register.html`, `login.html` | Landing with plans, 3-step registration with validation, log in (any email containing "admin" opens the admin panel) |
-| Storefront | `store/index.html`, `product.html`, `cart.html` | A cover banner + identity card, trust strip, animated product cards, wishlist, cart and checkout with removal/flash/success animations, search, categories, variants, WhatsApp order and share links, suspended-store page |
+| Storefront | `store/index.html`, `product.html`, `cart.html` | Mobile-first store, search, categories, variants, cart, checkout, WhatsApp order and share links, suspended-store page |
 | Owner dashboard | `dashboard/index.html`, `orders`, `products`, `subscription`, `settings` | Sales chart, order workflow, product add/edit/delete, renewal with slip upload, store colours, payments and delivery |
 | Admin | `admin/index.html`, `businesses`, `payments` | Approve, reject, suspend, extend, reactivate; verify payment slips |
 
@@ -19,12 +19,12 @@ Try `store/index.html?s=abc-fashion`, `?s=nimal-bakery`, `?s=kandy-mobile`, and 
 
 ## Files
 
-- `css/tokens.css`: generated from the Kade design system `tokens.json` (colours for light and dark, type, spacing, radius, shadows, eight storefront presets: Tea, Sapphire, Cinnamon, Orchid, Ink, Sage, Coral, Ocean).
-- `css/kade.css`: components (from the design system) plus page layouts, including the phone-first pieces: bottom tab bar in the dashboard and admin, tables that turn into cards under 700px, sticky cart bar on the store, sticky buy bar on product pages, bottom-sheet dialogs. Also the storefront cover/identity/trust styles and the shared `.st-reveal` / `.kd-bump` motion utilities (both switch off for `prefers-reduced-motion`).
+- `css/tokens.css`: generated from the Kade design system `tokens.json` (colours for light and dark, type, spacing, radius, shadows, five storefront presets).
+- `css/kade.css`: components (from the design system) plus page layouts, including the phone-first pieces: bottom tab bar in the dashboard and admin, tables that turn into cards under 700px, sticky cart bar on the store, sticky buy bar on product pages, bottom-sheet dialogs.
 - `css/landing.css` and `js/landing.js`: landing page only. Animated awning, rotating headline word, live phone demo, and the "Made for shops like yours" cards with small looping demos (chat, orders, payments, stock, pause). Animations run only while on screen and are switched off for `prefers-reduced-motion`.
-- `js/data.js`: all mock data. Every business-owned record carries `business` or `store`, so each block maps to one API call filtered by the logged-in `business_id`. Each store also carries `cover` (a data URL once the owner uploads a photo, otherwise `null`) and `coverStyle` (`plain`, `dots`, `diagonal` or `wave`, used until a photo is set).
-- `js/app.js`: formatting, status badges, toast, confirm dialog, cart, app shell, bar chart, plus `K.bump()` (a quick scale pulse) and `K.reveal()` (a fade/slide-in observer used across the storefront).
-- `js/store.js`: storefront header and footer, the cover/identity/trust-strip builder (`K.storeCoverHtml`, `K.storeTrustHtml`), and the suspended / not-found pages.
+- `js/data.js`: all mock data. Every business-owned record carries `business` or `store`, so each block maps to one API call filtered by the logged-in `business_id`.
+- `js/app.js`: formatting, status badges, toast, confirm dialog, cart, app shell, bar chart.
+- `js/store.js`: storefront header and footer, and the suspended / not-found pages.
 - `js/theme.js`: applies the saved light or dark theme before first paint.
 
 ## Replacing the mock parts
@@ -36,7 +36,6 @@ Try `store/index.html?s=abc-fashion`, `?s=nimal-bakery`, `?s=kandy-mobile`, and 
 - "Email queued" toasts stand for a row in your `notifications` table that Apps Script picks up.
 - `K.host` in `js/app.js` is the placeholder domain `kade.lk`.
 - Product photos are placeholders (initials on a tinted tile). Swap the `K.ph()` output for an `<img>` with the Firebase Storage URL.
-- Cover photos: `dashboard/settings.html` reads the chosen file with `FileReader` and stores it as a data URL on `S.cover` for this prototype only. Swap that for an upload to Firebase Storage and store the resulting URL instead.
 
 ## Accessibility and design rules already applied
 

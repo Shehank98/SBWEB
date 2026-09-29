@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Legal | Sidadiya</title>
+  <meta name="description" content="Sidadiya refund, return, privacy, terms and contact details.">
+  <script src="/js/theme.js"></script>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header"><div class="container"><a class="wordmark" href="/" aria-label="Sidadiya home">Sidadiya</a><nav class="site-nav" aria-label="Main"><a href="/login">Log in</a><a class="kd-btn kd-btn--primary" href="/register">Start free trial</a></nav></div></header>
+  <main id="main" class="container legal" tabindex="-1">
+    <nav class="settings-nav" aria-label="Legal pages" id="tabs" style="margin-top:var(--space-5)"></nav>
+    <article class="kd-card panel" id="doc"><div class="kd-loading"><span class="kd-spinner"></span><p>Loading…</p></div></article>
+  </main>
+  <footer class="site-footer" id="site-footer"></footer>
+  <script src="/js/config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/md.js"></script>
+  <script src="/js/site-footer.js"></script>
+  <script>
+    (function () {
+      var PAGES = [['refund', 'Refund Policy'], ['return', 'Return Policy'], ['privacy', 'Privacy Policy'], ['terms', 'Terms & Conditions'], ['contact', 'Contact Details']];
+      var kind = (location.pathname.match(/\/legal\/(\w+)/) || [])[1] || new URLSearchParams(location.search).get('p') || 'terms';
+      function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+      document.getElementById('tabs').innerHTML = PAGES.map(function (p) { return '<a href="/legal/' + p[0] + '"' + (p[0] === kind ? ' aria-current="page"' : '') + '>' + p[1] + '</a>'; }).join('');
+      var doc = document.getElementById('doc');
+      KadeApi.sitePolicy(kind).then(function (r) {
+        document.title = r.title + ' | Sidadiya';
+        if (kind === 'contact') {
+          var c = r.contact || {}, rows = [['Business', c.businessName], ['Email', c.email && '<a class="kd-link" href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>'], ['Phone', c.phone && '<a class="kd-link" href="tel:' + esc(c.phone.replace(/\s/g, '')) + '">' + esc(c.phone) + '</a>'], ['WhatsApp', c.whatsapp && esc(c.whatsapp)], ['Address', c.address && esc(c.address)], ['Hours', c.hours && esc(c.hours)]].filter(function (x) { return x[1]; });
+          doc.innerHTML = '<h1>Contact Details</h1><dl class="dl" style="margin-top:16px">' + rows.map(function (x) { return '<dt>' + x[0] + '</dt><dd>' + (x[0] === 'Business' ? esc(x[1]) : x[1]) + '</dd>'; }).join('') + '</dl>' + (rows.length < 3 ? '<p class="muted" style="margin-top:12px">More contact details coming soon.</p>' : '');
+        } else {
+          doc.innerHTML = '<h1>' + esc(r.title) + '</h1><div class="doc-preview" style="border:0;padding:0;max-height:none;margin-top:12px">' + KadeMd(r.content) + '</div>';
+        }
+      }).catch(function () { doc.innerHTML = '<h1>Page not found</h1><p><a class="kd-link" href="/">Back to Sidadiya</a></p>'; });
+    })();
+  </script>
+</body>
+</html>

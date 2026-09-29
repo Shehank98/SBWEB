@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shop | Sidadiya admin</title>
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+        <p><a class="kd-link" href="shops">← All shops</a></p>
+        <div id="detail"><div class="kd-loading"><span class="kd-spinner"></span><p>Loading…</p></div></div>
+      </main>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, $ = function (id) { return document.getElementById(id); };
+      if (!K.guard('admin')) return;
+      K.shell('admin', 'shops');
+      var id = new URLSearchParams(location.search).get('id'), plans = [];
+      var VER = { NOT_SUBMITTED: ['neutral', 'Not submitted'], PENDING: ['warning', 'Pending review'], VERIFIED: ['success', 'Verified'], REJECTED: ['danger', 'Rejected'] };
+      function vb(v) { var b = VER[v] || ['neutral', v]; return '<span class="kd-badge kd-badge--' + b[0] + '">' + b[1] + '</span>'; }
+      function dd(label, value) { return value ? '<dt>' + label + '</dt><dd>' + value + '</dd>' : ''; }
+
+      function render(r) {
+        var s = r.shop, b = s.business || {}, c = r.compliance;
+        document.title = s.name + ' | Sidadiya admin';
+        var trialLike = s.status === 'TRIAL' || s.status === 'TRIAL_EXPIRED';
+        var ends = s.endsOn ? K.fmtDate(String(s.endsOn).slice(0, 10)) : '-';
+        $('detail').innerHTML =
+          '<div class="page-head"><div><h1>' + K.esc(s.name) + '</h1><p>' + K.badge('sub', s.status) + ' ' + vb(s.verification) + ' <span class="muted">· joined ' + K.fmtDate(String(s.created).slice(0, 10)) + '</span></p></div>' +
+          '<a class="kd-btn kd-btn--secondary" href="/store/' + encodeURIComponent(s.slug) + '" target="_blank" rel="noopener">Open storefront ↗</a></div>' +
+          '<div class="facts" style="margin-bottom:var(--space-4)">' +
+            '<div class="fact"><span>Plan</span><strong>' + K.esc(s.plan || '-') + (s.onTrial ? ' (trial)' : '') + '</strong></div>' +
+            '<div class="fact"><span>' + (trialLike ? 'Trial ends' : 'Renews / expires') + '</span><strong>' + ends + '</strong></div>' +
+            '<div class="fact"><span>Days left</span><strong>' + (s.daysLeft == null ? '-' : s.daysLeft) + '</strong></div>' +
+            '<div class="fact"><span>Orders · sales</span><strong>' + s.orders + ' · ' + K.rs(s.sales) + '</strong></div></div>' +
+
+          '<section class="kd-card panel" aria-labelledby="h-act" style="margin-bottom:var(--space-4)"><h2 id="h-act">Quick actions</h2><div class="quick-actions">' +
+            '<form data-form="trial" class="qa"><label class="kd-label" for="trialDays">Extend trial</label><div class="row"><input class="kd-input" id="trialDays" type="number" min="1" max="90" value="7" inputmode="numeric" style="max-width:100px"><button class="kd-btn kd-btn--secondary" type="submit"' + (trialLike ? '' : ' disabled title="Only for shops on a trial"') + '>Add days</button></div></form>' +
+            '<form data-form="plan" class="qa"><label class="kd-label" for="planSel">Change plan</label><div class="row"><select class="kd-select" id="planSel">' + plans.map(function (p) { return '<option value="' + p.id + '"' + (p.id === s.planId ? ' selected' : '') + '>' + K.esc(p.name) + '</option>'; }).join('') + '</select><button class="kd-btn kd-btn--secondary" type="submit">Change</button></div><span class="kd-help">Switches features now. Dates stay the same.</span></form>' +
+            '<form data-form="activate" class="qa"><label class="kd-label" for="actDays">Activate (paid time)</label><div class="row"><input class="kd-input" id="actDays" type="number" min="1" max="366" value="30" inputmode="numeric" style="max-width:100px"><button class="kd-btn kd-btn--primary" type="submit">Activate</button></div><span class="kd-help">Opens the store on the selected plan.</span></form>' +
+            '<div class="qa"><span class="kd-label">Store access</span>' + (s.status === 'SUSPENDED' || s.status === 'CANCELLED' ? '<button class="kd-btn kd-btn--primary" data-act="reactivate">Reactivate store</button>' : '<button class="kd-btn kd-btn--danger" data-act="deactivate">Deactivate store</button>') + '</div>' +
+          '</div></section>' +
+
+          '<div class="grid-2" style="margin-bottom:var(--space-4)">' +
+          '<section class="kd-card panel" aria-labelledby="h-own"><h2 id="h-own">Owner and business</h2><dl class="dl">' +
+            dd('Owner', K.esc(s.owner)) + dd('Login email', '<a class="kd-link" href="mailto:' + K.esc(s.ownerEmail) + '">' + K.esc(s.ownerEmail) + '</a>') +
+            dd('Business type', K.esc(b.type)) + dd('Phone', K.esc(b.phone)) + dd('WhatsApp', K.esc(b.whatsapp)) + dd('Store email', K.esc(s.store.contactEmail)) +
+            dd('Address', K.esc(s.store.address || b.address)) + dd('Town, district', K.esc([b.city, b.district].filter(Boolean).join(', '))) +
+            dd('Products', String(s.products)) + dd('Plan after trial', K.esc(s.preferredPlanId || '')) + '</dl></section>' +
+          '<section class="kd-card panel" aria-labelledby="h-comp"><h2 id="h-comp">Compliance (' + c.doneCount + '/5)</h2><ul class="checklist">' +
+            c.items.map(function (i) { return '<li class="' + (i.done ? 'is-done' : '') + '"><span class="checklist__mark" aria-hidden="true">' + (i.done ? '✓' : '') + '</span><a href="/store/policy?s=' + encodeURIComponent(s.slug) + '&p=' + i.key + '" target="_blank" rel="noopener"><strong>' + K.esc(i.label) + '</strong><small>' + K.esc(i.hint) + '</small></a></li>'; }).join('') + '</ul></section></div>' +
+
+          '<section class="kd-card panel" id="verify" aria-labelledby="h-ver" style="margin-bottom:var(--space-4)"><div class="row row--between"><h2 id="h-ver">Verification</h2>' + vb(s.verification) + '</div>' +
+            (s.verificationReason && s.verification === 'REJECTED' ? '<p class="muted">Last rejection: ' + K.esc(s.verificationReason) + '</p>' : '') +
+            (s.documents.length ? '<div class="doc-grid">' + s.documents.map(function (d) {
+              return '<div class="doc-card"><p><strong>' + (d.kind === 'id' ? 'ID copy' : 'Address proof') + '</strong><br><small class="muted">' + K.esc(d.filename || '') + ' · ' + Math.max(1, Math.round((d.size || 0) / 1024)) + ' KB · ' + K.fmtDate(String(d.uploadedAt).slice(0, 10)) + '</small></p>' +
+                '<div class="doc-view" id="view-' + d.kind + '"><button class="kd-btn kd-btn--secondary" data-view="' + d.kind + '">View document</button></div></div>';
+            }).join('') + '</div><p class="kd-help">Links are private and expire after 5 minutes. Open again to refresh.</p>' : '<p class="muted">No documents uploaded yet.</p>') +
+            (s.verification === 'PENDING' ? '<div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="kd-btn kd-btn--primary" data-act="approve">Approve: Verified Sri Lankan Business</button><button class="kd-btn kd-btn--danger" data-act="reject">Reject with reason</button></div>'
+              : (s.verification === 'VERIFIED' ? '<div class="row" style="margin-top:12px"><button class="kd-btn kd-btn--ghost" data-act="reject">Revoke verification</button></div>' : '')) +
+          '</section>' +
+
+          '<section class="kd-card" aria-labelledby="h-pay"><h2 class="heading" id="h-pay" style="padding:16px 16px 0">Payment history</h2><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Date</th><th scope="col">Plan</th><th scope="col">Method</th><th scope="col">Status</th><th scope="col" class="kd-num">Amount</th></tr></thead><tbody>' +
+            (r.payments.map(function (p) { return '<tr><td>' + K.fmtDate(String(p.submitted).slice(0, 10)) + '</td><td>' + K.esc(p.plan) + '</td><td>' + K.esc(p.method) + (p.ref ? '<br><small class="muted">' + K.esc(p.ref) + '</small>' : '') + '</td><td>' + K.badge('pay', p.status) + '</td><td class="kd-num">' + K.rs(p.amount) + '</td></tr>'; }).join('') || '<tr><td colspan="5" class="muted" style="padding:12px">No payments yet.</td></tr>') +
+          '</tbody></table></div></section>';
+      }
+
+      function act(promise, msg) { return promise.then(function () { K.toast(msg); return load(); }).catch(function (ex) { K.toast(ex.message); }); }
+      $('detail').addEventListener('submit', function (e) {
+        e.preventDefault(); var f = e.target.getAttribute('data-form');
+        if (f === 'trial') act(KadeApi.adminExtendTrial(id, Number($('trialDays').value)), 'Trial extended');
+        if (f === 'plan') act(KadeApi.adminChangePlan(id, $('planSel').value), 'Plan changed');
+        if (f === 'activate') act(KadeApi.adminActivate(id, Number($('actDays').value), $('planSel').value), 'Store activated');
+      });
+      $('detail').addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        var v = b.getAttribute('data-view'), a = b.getAttribute('data-act');
+        if (v) {
+          var box = $('view-' + v); box.innerHTML = K.spinner();
+          KadeApi.adminShopDoc(id, v).then(function (d) {
+            var link = '<a class="kd-btn kd-btn--secondary kd-btn--sm" href="' + K.esc(d.url) + '" target="_blank" rel="noopener noreferrer">Open full size</a>';
+            box.innerHTML = /^image\//.test(d.contentType) ? '<img src="' + K.esc(d.url) + '" alt="' + (v === 'id' ? 'ID copy' : 'Address proof') + '" referrerpolicy="no-referrer">' + link
+              : '<p class="muted">PDF document</p>' + link;
+          }).catch(function (ex) { box.innerHTML = '<p class="kd-error">' + K.esc(ex.message) + '</p>'; });
+        }
+        if (a === 'approve') K.confirm({ title: 'Approve verification?', body: 'The shop gets the "Verified Sri Lankan Business" seal on its store and product pages, and an email.', confirmLabel: 'Approve' }).then(function (ok) { if (ok) act(KadeApi.adminVerifyApprove(id), 'Verified. Seller emailed.'); });
+        if (a === 'reject') K.confirm({ title: 'Reject verification', body: 'The seller sees this reason and can upload new documents.', reason: 'Reason', confirmLabel: 'Reject', danger: true }).then(function (r) { if (r && r.reason && r.reason.trim()) act(KadeApi.adminVerifyReject(id, r.reason), 'Rejected. Seller emailed.'); });
+        if (a === 'deactivate') K.confirm({ title: 'Deactivate this store?', body: 'Buyers will see that the store is unavailable. Nothing is deleted.', confirmLabel: 'Deactivate', danger: true }).then(function (ok) { if (ok) act(KadeApi.adminSuspend(id), 'Store deactivated'); });
+        if (a === 'reactivate') act(KadeApi.adminReactivate(id), 'Store reactivated');
+      });
+      function load() { return KadeApi.adminShop(id).then(render).catch(function (ex) { $('detail').innerHTML = '<p class="muted">' + K.esc(ex.message) + '</p>'; }); }
+      KadeApi.adminPlans().then(function (r) { plans = r.plans; }).catch(function () {}).then(load);
+    })();
+  </script>
+</body>
+</html>

@@ -195,8 +195,8 @@ setting — it finds `package.json` and runs `npm start`.
 4. First deploy runs `npm start` and serves the whole platform at your Railway
    URL. Then, once, from the Railway shell: `npm run db:setup`
    (and `npm run db:seed` for the demo data).
-5. Optional: add a **Cron** service (same repo) with schedule `0 1 * * *`
-   running `npm run job:subscriptions` for the subscription lifecycle.
+5. Optional: the jobs run in-process by default. To use Railway **Cron** instead,
+   see section 8.3 (and set `ENABLE_SCHEDULER=false`).
 
 ## 6. Firebase Storage (product photos & slips)
 
@@ -241,12 +241,124 @@ function sendPendingEmails() {
 }
 ```
 
-Add a trigger to run `sendPendingEmails` every 5 minutes. Set `NOTIFY_TOKEN` in
+This is a minimal sketch; use the full script in `apps-script/Code.gs` (styled emails,
+quota guard, Sheet sync). Add a trigger to run `sendPendingEmails` every 2 minutes. Set `NOTIFY_TOKEN` in
 the backend env (falls back to `JWT_SECRET` if unset).
 
 ---
 
-## 8. What's next (v2/v3)
+## 8. V3 upgrade: configuration checklist
+
+V3 adds free trials, card payments through OnePay, seller verification, policy
+pages, visit tracking, weekly summaries and courier tracking. Everything below is
+**additive**: existing shops, orders and data keep working.
+
+### 8.1 Database migrations
+
+Schema changes live in `src/db/migrations/NNN_*.sql`. They run **automatically at
+boot** (in order, once each, recorded in `schema_migrations`, behind a Postgres
+advisory lock so two instances never race). To run them by hand:
+
+```bash
+npm run db:migrate
+```
+
+| File | Adds |
+| --- | --- |
+| `001_plans_trial.sql` | Plan prices (Starter 999 / Business 1,399 / Pro 2,000), compare-at price, feature flags, trial columns, `platform_settings`, `job_runs` |
+| `002_storefront_reviews.sql` | `orders.public_token` (buyer order-status link), `product_reviews` |
+| `003_policies_compliance.sql` | `store_policies` (back-filled for every existing shop), store contact + return/refund days, `orders.terms_accepted_at` |
+| `004_verification.sql` | Seller verification status + `verification_documents` |
+| `005_onepay_transactions.sql` | `gateway_transactions` (one row per OnePay checkout) |
+| `006_seller_gateways.sql` | `store_gateways` (encrypted seller keys), order `payment_status`, `paid_on`, refund note |
+| `007_tracking_weekly.sql` | `store_visits`, `seller_digests`, order attribution + courier tracking, weekly-summary preference |
+
+### 8.2 New environment variables
+
+| Variable | Required | What it does |
+| --- | --- | --- |
+| `FRONTEND_DIR` | No (default `kade-frontend_V3`) | Which UI folder is served. `kade-frontend_V2` rolls the UI back **but** V2 checkout does not send `acceptTerms`, so V2 checkout will fail against this API. Use only as an emergency rollback of the seller/admin UI. |
+| `ENABLE_SCHEDULER` | No (default on) | In-process scheduler for the daily and weekly jobs. Set `false` if you use Railway Cron instead (both together is safe: each period is claimed once in `job_runs`). |
+| `ONEPAY_APP_ID` | For platform card payments | Sidadiya's own OnePay App ID (plan subscriptions). |
+| `ONEPAY_HASH_SALT` | For platform card payments | Sidadiya's OnePay hash salt. Never shown to browsers. |
+| `ONEPAY_MODE` | No (default `sandbox`) | `live` or `sandbox`. |
+| `ONEPAY_APP_TOKEN` | Only if OnePay requires it | Sent as the `Authorization` header when set (see open questions). |
+| `ONEPAY_SANDBOX_API_BASE` | No | API host for sandbox mode, if OnePay gives you a separate one. Default: `https://api.onepay.lk`. |
+| `ONEPAY_API_BASE` | No (tests only) | Overrides the API host for every mode (the test suite points it at a local mock). Leave unset in production. |
+| `GATEWAY_ENC_KEY` | **Yes, before any seller saves OnePay keys** | 32 random bytes (base64 or hex) used for AES-256-GCM encryption of seller gateway credentials. `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. If unset, a key is derived from `JWT_SECRET` (with a warning); changing `JWT_SECRET` later would then make saved seller keys unreadable. **Never change it once sellers have saved keys.** |
+| `NOTIFY_TOKEN` | Yes | Shared secret for the Apps Script (outbox + Sheet exports). Falls back to `JWT_SECRET`. |
+| `PUBLIC_BASE_URL` | Yes | Absolute site URL. Used in emails **and in the OnePay callback/redirect URLs**, so it must be the public https domain. |
+| `UPLOAD_DRIVER`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_SERVICE_ACCOUNT` | For production | Unchanged, but now also used for **private** verification documents (see 8.4). |
+
+### 8.3 Cron jobs
+
+| Job | When | Command | Railway Cron schedule (UTC) |
+| --- | --- | --- | --- |
+| Daily: subscription lifecycle, trial reminders (3 days / 1 day), trial expiry, cancel stale unpaid card checkouts | 07:00 Sri Lanka time | `npm run job:subscriptions` | `30 1 * * *` |
+| Weekly: seller summary email | Monday 08:00 Sri Lanka time | `npm run job:weekly` | `30 2 * * 1` |
+
+With the in-process scheduler on (default), you don't need Railway Cron. Jobs are
+idempotent per period: a rerun on the same day/week does nothing.
+
+### 8.4 Firebase Storage rules
+
+`storage.rules` in the repo root. Deploy with `firebase deploy --only storage`,
+or paste it into *Firebase console → Storage → Rules*.
+
+- Seller verification documents are saved under `private/shops/<shopId>/verification/`
+  and are **never public**. Admins open them through 5-minute V4 signed URLs
+  generated by the backend.
+- Everything else (product photos, logos, covers, slips) stays publicly readable.
+- Nobody writes from the browser; the backend uses the Admin SDK.
+- With `UPLOAD_DRIVER=local`, private files go to `./uploads-private` (gitignored)
+  and are served only through `/api/files/private` with an HMAC-signed, expiring link.
+
+### 8.5 OnePay URLs
+
+Set these in the OnePay merchant dashboard (Sidadiya's own app **and** tell every
+seller; sellers also see them in *Store settings → Card payments*):
+
+| | URL |
+| --- | --- |
+| Callback (webhook) | `https://<your-domain>/api/onepay/callback` |
+| Redirect / return | `https://<your-domain>/api/onepay/return` |
+
+One callback endpoint serves both platform subscriptions and seller orders; it is
+routed by `additional_data`. The callback is unsigned, so the server never trusts
+it: it always re-checks with `POST /v3/transaction/status/` and marks a payment
+paid only when status is true **and** amount and currency match. Repeated callbacks
+are harmless (row lock + idempotent settle).
+
+**Open questions for OnePay** (the docs site was not reachable while building, so
+these follow the spec we were given and are written defensively):
+
+1. Exact field names in the checkout-link and transaction-status responses (the
+   code searches for them by name, e.g. `gateway.redirect_url`, `ipg_transaction_id`).
+2. Is there a separate sandbox API host? (`ONEPAY_SANDBOX_API_BASE`)
+3. Is an app token / `Authorization` header required? (`ONEPAY_APP_TOKEN`)
+4. Is the hash compared as lowercase hex? (we send lowercase)
+5. Does the status response always include currency? (if missing, amount alone is
+   checked and a warning is logged)
+6. Is a SaaS subscription merchant category approved for Sidadiya's own account?
+
+### 8.6 Tests
+
+```bash
+node test/onepay-mock.js &          # fake OnePay API on :4455
+ONEPAY_API_BASE=http://localhost:4455 ONEPAY_APP_ID=test-app ONEPAY_HASH_SALT=test-salt \
+  ENABLE_SCHEDULER=false npm start &
+npm test
+```
+
+### 8.7 Apps Script
+
+See `apps-script/README.md`: paste the new `Code.gs`, save (and *Deploy → New
+version* if deployed as a web app), optionally set `SHEETS_SYNC_ID` and run
+`installSyncTrigger` for the hourly Shops / Payments / Shipments sheet.
+
+---
+
+## 9. What's next
 
 The schema and routes are shaped so these slot in without a redesign: product
 variants table, coupons, delivery zones, analytics pages, staff accounts,

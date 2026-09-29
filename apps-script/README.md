@@ -27,6 +27,19 @@ per order event) and double checked inside each run.
 | `ORDER_SHIPPED` | Owner marks the order shipped | Customer (full order summary) |
 | `EXPIRY_REMINDER` | 7 / 3 / 1 days before expiry | Owner |
 | `SUSPENDED` | Subscription lapses | Owner |
+| `TRIAL_STARTED` | A shop registers (V3: live straight away on a free trial) | Owner, with store link and login |
+| `TRIAL_REMINDER` | 3 days and 1 day before the trial ends | Owner |
+| `TRIAL_EXPIRED` | Trial ended without a paid plan | Owner |
+| `SUBSCRIPTION_RECEIPT` | Platform plan paid by card (OnePay) | Owner (receipt) |
+| `ORDER_PAID` | A buyer paid a shop order by card | Owner |
+| `ORDER_PAYMENT_RECEIPT` | Same moment | Customer (receipt + order summary) |
+| `ORDER_SHIPPED` | Now also carries **courier + tracking number + tracking link** and a "View your order" link when the owner adds tracking | Customer |
+| `VERIFICATION_SUBMITTED` | A seller uploads ID + address proof | Admin |
+| `VERIFICATION_APPROVED` / `VERIFICATION_REJECTED` | Admin reviews the documents | Owner (with reason if rejected) |
+| `WEEKLY_SUMMARY` | Every Monday morning (Sri Lanka time) | Owner: sales, orders, top products, traffic sources |
+
+Unknown types still fall back to a plain email with the subject and message, so an
+older script version never drops a new notification; it just sends it unstyled.
 
 The customer is emailed only at the two moments that matter to them, when the order
 is **confirmed** and when it **ships**, so inboxes stay uncluttered.
@@ -47,6 +60,7 @@ is **confirmed** and when it **ships**, so inboxes stay uncluttered.
    | `BATCH` | Optional. Max emails sent per run (default `50`) |
    | `QUOTA_FLOOR` | Optional. Stop sending when fewer than this many emails remain in today's quota (default `15`) |
    | `AUDIT_SHEET_ID` | Optional. A Google Sheet ID; every send is appended as one row for auditing |
+   | `SHEETS_SYNC_ID` | Optional (V3). A Google Sheet ID that `syncSheets` mirrors Shops / Payments / Shipments into |
 
 4. Back in the editor, select the function **`sendPendingEmails`** and click **Run**.
    Google asks you to **review permissions** the first time. Approve them
@@ -64,9 +78,51 @@ from the URL (`docs.google.com/spreadsheets/d/<THIS_PART>/edit`), and set it as
 recipient, subject and outcome. The backend also records the send: the row's
 `status` becomes `SENT` with a `sent_at` timestamp, and `attempts` counts retries.
 
+## Upgrading an existing deployment to V3
+
+The script is backward compatible: the same 3 outbox endpoints, the same trigger,
+the same Script properties. Only new things were added.
+
+1. Open your existing project at script.google.com, select all of `Code.gs`, and
+   paste the new `Code.gs` over it. **Save**.
+2. Run **`previewWeeklySummary`** once, then open the Execution log to check it
+   renders (no permission prompt unless you also use the Sheet sync).
+3. If you deployed the script as a **web app or API executable**: *Deploy → Manage
+   deployments → edit (pencil) → Version: New version → Deploy*. Time triggers
+   always run the latest saved code, so if you only use triggers, saving is enough.
+4. Optional Sheet sync (below): add `SHEETS_SYNC_ID`, run `syncSheets` once to
+   approve the Sheets permission, then run **`installSyncTrigger`** once.
+
+## Google Sheet sync (V3, optional)
+
+`syncSheets` pulls three read-only exports from the backend and rewrites one tab
+each in the spreadsheet `SHEETS_SYNC_ID` (tabs are created if missing; row 1 is
+the header, frozen). `installSyncTrigger` runs it **every hour**. A `Sync info`
+tab records the last run time. If one export fails, that tab keeps its old data.
+
+| Tab | Columns |
+| --- | --- |
+| **Shops** | Shop ID, Shop name, Store link, Business type, Owner, Owner email, Phone, WhatsApp, Town, District, Status, Plan, Subscription status, Paid until, **Trial started, Trial ends, Plan after trial, Verification, Verification reason, Verification submitted, Verification reviewed, Contact email, Contact address, Contact phone, Policies published (of 4), Policy status, Return days, Refund days, Return shipping paid by, OnePay on, OnePay mode, Weekly summary**, Orders, Created |
+| **Payments** | Payment ID, Submitted, Shop, Store link, Plan, Amount (LKR), Method, Reference, Status, Reason, Reviewed / paid, **OnePay transaction, OnePay status, OnePay mode, OnePay paid on** |
+| **Shipments** | Order, Placed, Shop, Status, Customer, Town, District, Total (LKR), Payment, **Payment status, Courier, Tracking number, Tracking link, Shipped, Came from** |
+
+Bold = new in V3. The headers come from the API, so future columns appear
+without editing the script. Do not type into these tabs (they are overwritten
+every hour); add your own notes on a separate tab.
+
+Endpoints (same `x-notify-token` header):
+
+```
+GET /api/notifications/export/shops
+GET /api/notifications/export/payments
+GET /api/notifications/export/shipments
+```
+
 ## Test it
 
-- In the editor, run **`previewOrderConfirmed`**, then open **Execution log**
+- In the editor, run **`previewOrderConfirmed`** (or the V3 previews:
+  `previewTrialStarted`, `previewTrialReminder`, `previewSubscriptionReceipt`,
+  `previewOrderShippedTracking`, `previewWeeklySummary`), then open **Execution log**
   (View → Logs) to see the rendered HTML. Uncomment the last line to email a
   test copy to yourself.
 - Or trigger a real one: register a shop on the site, then run `sendPendingEmails`

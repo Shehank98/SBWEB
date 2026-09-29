@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Orders | Kade dashboard</title>
+  <title>Orders | Sidadiya dashboard</title>
   <meta name="robots" content="noindex">
   <script src="../js/theme.js"></script>
   <link rel="stylesheet" href="../css/tokens.css">
@@ -25,21 +26,28 @@
       </main>
     </div>
   </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
+  <script src="../js/demo.js"></script>
   <script src="../js/app.js"></script>
   <script>
     (function () {
       var K = Kade, D = KadeData;
+      if (!K.guard('owner', 'orders')) return;
       K.shell('dashboard', 'orders');
+      var API = !!(window.KadeApi && KadeApi.enabled);
+      var sess = API ? KadeApi.currentUser() : null;
+      var storeName = (sess && sess.storeName) || 'ABC Fashion';
 
-      var orders = K.orders(), filter = 'ALL', q = '', open = null;
-      var TABS = ['ALL'].concat(K.ORDER_FLOW).concat('CANCELLED');
+      var orders = [], filter = 'ALL', q = '', open = null;
+      var TABS = ['ALL'].concat(K.ORDER_FLOW).concat('CANCELLED', 'REFUNDED');
       function counts(s) { return s === 'ALL' ? orders.length : orders.filter(function (o) { return o.status === s; }).length; }
       function tabs() { K.$('#tabs').innerHTML = TABS.map(function (s) { return '<button class="kd-tab" role="tab" type="button" aria-selected="' + (s === filter) + '" data-s="' + s + '">' + (s === 'ALL' ? 'All' : K.orderLabel(s)) + '<span class="count">' + counts(s) + '</span></button>'; }).join(''); }
       function rows() {
         var list = orders.filter(function (o) { return (filter === 'ALL' || o.status === filter) && (!q || (o.id + ' ' + o.customer).toLowerCase().indexOf(q) >= 0); });
         K.$('#none').hidden = list.length > 0;
-        K.$('#rows').innerHTML = list.map(function (o) { return '<tr style="cursor:pointer" data-o="' + o.id + '"' + (open === o ? ' aria-selected="true"' : '') + '><td><button class="kd-link" style="background:none;border:0;padding:0;cursor:pointer;font-size:14px" data-o="' + o.id + '">#' + o.id + '</button><span class="sub">' + K.fmtDate(o.date) + '</span></td><td>' + K.esc(o.customer) + '<span class="sub">' + K.esc(o.city) + '</span></td><td>' + K.esc(o.payment) + '</td><td>' + K.badge('order', o.status) + '</td><td class="kd-num">' + K.rs(o.total) + '</td><td><div class="actions"><button class="kd-btn kd-btn--secondary kd-btn--sm" data-o="' + o.id + '">View</button></div></td></tr>'; }).join('');
+        K.$('#rows').innerHTML = list.map(function (o) { return '<tr style="cursor:pointer" data-o="' + o.id + '"' + (open === o ? ' aria-selected="true"' : '') + '><td><button class="kd-link" style="background:none;border:0;padding:0;cursor:pointer;font-size:14px" data-o="' + o.id + '">#' + o.id + '</button><span class="sub">' + K.fmtDate(o.date) + '</span></td><td>' + K.esc(o.customer) + '<span class="sub">' + K.esc(o.city) + '</span></td><td>' + K.esc(o.payment) + (o.paymentStatus ? '<span class="sub">' + K.badge('paystat', o.paymentStatus) + '</span>' : '') + '</td><td>' + K.badge('order', o.status) + '</td><td class="kd-num">' + K.rs(o.total) + '</td><td><div class="actions"><button class="kd-btn kd-btn--secondary kd-btn--sm" data-o="' + o.id + '">View</button></div></td></tr>'; }).join('');
       }
       function next(s) { var i = K.ORDER_FLOW.indexOf(s); return i >= 0 && i < K.ORDER_FLOW.length - 1 ? K.ORDER_FLOW[i + 1] : null; }
       var NEXT_LABEL = { CONFIRMED: 'Confirm order', PROCESSING: 'Start processing', READY_TO_SHIP: 'Mark ready to ship', SHIPPED: 'Mark as shipped', DELIVERED: 'Mark as delivered' };
@@ -47,29 +55,68 @@
         open = o; o.history = o.history || [{ s: 'PENDING', t: o.date }];
         K.$('#dt').innerHTML = '#' + o.id + ' ' + K.badge('order', o.status);
         var n = next(o.status), phone = o.phone.replace(/\s/g, ''), wa = '94' + phone.replace(/^0/, '');
-        K.$('#db').innerHTML = '<dl class="dl"><dt>Customer</dt><dd>' + K.esc(o.customer) + '</dd><dt>Phone</dt><dd><a class="kd-link" href="tel:' + phone + '">' + K.esc(o.phone) + '</a></dd><dt>Deliver to</dt><dd>' + K.esc(o.address ? o.address + ', ' + o.city : o.city) + '</dd><dt>Payment</dt><dd>' + K.esc(o.payment) + '</dd><dt>Placed</dt><dd>' + K.fmtDate(o.date) + '</dd>' + (o.note ? '<dt>Note</dt><dd>' + K.esc(o.note) + '</dd>' : '') + '</dl>' +
+        K.$('#db').innerHTML = '<dl class="dl"><dt>Customer</dt><dd>' + K.esc(o.customer) + '</dd><dt>Phone</dt><dd><a class="kd-link" href="tel:' + phone + '">' + K.esc(o.phone) + '</a></dd><dt>Deliver to</dt><dd>' + K.esc(o.address ? o.address + ', ' + o.city : o.city) + '</dd><dt>Payment</dt><dd>' + K.esc(o.payment) + (o.paymentStatus ? ' ' + K.badge('paystat', o.paymentStatus) : '') + '</dd>' + (o.refundNote ? '<dt>Refund</dt><dd>' + K.esc(o.refundNote) + '</dd>' : '') + (o.tracking ? '<dt>Shipped with</dt><dd>' + K.esc(o.tracking.courier) + ' · <strong>' + K.esc(o.tracking.number) + '</strong>' + (o.tracking.url ? ' · <a class="kd-link" href="' + K.esc(o.tracking.url) + '" target="_blank" rel="noopener">track</a>' : '') + '</dd>' : '') + (o.source ? '<dt>Came from</dt><dd>' + K.esc(o.source) + '</dd>' : '') + '<dt>Placed</dt><dd>' + K.fmtDate(o.date) + '</dd>' + (o.note ? '<dt>Note</dt><dd>' + K.esc(o.note) + '</dd>' : '') + '</dl>' +
           '<div><h3 class="label" style="margin-bottom:8px">Items</h3><ul class="list">' + o.items.map(function (i) { return '<li><span>' + i.qty + ' &times; ' + K.esc(i.name) + '</span><span class="price-sm">' + K.rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul><div class="totals" style="margin-top:8px"><div><span>Subtotal</span><span class="price-sm">' + K.rs(o.subtotal) + '</span></div><div><span>Delivery</span><span class="price-sm">' + (o.delivery ? K.rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span class="price">' + K.rs(o.total) + '</span></div></div></div>' +
           '<div><h3 class="label" style="margin-bottom:8px">History</h3><ul class="timeline">' + o.history.slice().reverse().map(function (h) { return '<li><time>' + K.fmtDate(h.t) + '</time><span>' + K.orderLabel(h.s) + (h.reason ? ': ' + K.esc(h.reason) : '') + '</span></li>'; }).join('') + '</ul></div>' +
-          '<div class="stack" style="gap:12px">' + (n ? '<button class="kd-btn kd-btn--primary kd-btn--block" data-act="next">' + NEXT_LABEL[n] + '</button>' : '') +
-          '<a class="kd-btn kd-btn--secondary kd-btn--block" target="_blank" rel="noopener" href="https://wa.me/' + wa + '?text=' + encodeURIComponent('Hello ' + o.customer.split(' ')[0] + ', this is ABC Fashion about your order ' + o.id + '.') + '">Message customer on WhatsApp</a>' +
-          (o.status !== 'DELIVERED' && o.status !== 'CANCELLED' ? '<button class="kd-btn kd-btn--ghost kd-btn--block" style="color:var(--danger)" data-act="cancel">Cancel order</button>' : '') + '</div>';
+          shipBlock(o) +
+          '<div class="stack" style="gap:12px">' + (n && n !== 'SHIPPED' ? '<button class="kd-btn kd-btn--primary kd-btn--block" data-act="next">' + NEXT_LABEL[n] + '</button>' : '') +
+          '<a class="kd-btn kd-btn--secondary kd-btn--block" target="_blank" rel="noopener" href="https://wa.me/' + wa + '?text=' + encodeURIComponent('Hello ' + o.customer.split(' ')[0] + ', this is ' + storeName + ' about your order ' + o.id + '.') + '">Message customer on WhatsApp</a>' +
+          (o.status !== 'DELIVERED' && o.status !== 'CANCELLED' && o.status !== 'REFUNDED' ? '<button class="kd-btn kd-btn--ghost kd-btn--block" style="color:var(--danger)" data-act="cancel">Cancel order</button>' : '') +
+          (o.status !== 'REFUNDED' && (o.paymentStatus === 'PAID' || o.status === 'DELIVERED' || o.status === 'CANCELLED') ? '<button class="kd-btn kd-btn--ghost kd-btn--block" data-act="refund">Mark as refunded</button>' + (o.paymentStatus === 'PAID' ? '<p class="kd-help">Refund card payments from your OnePay dashboard first (full or partial), then record it here.</p>' : '') : '') + '</div>';
         var d = K.$('#drawer'); if (!d.open) d.showModal(); rows();
       }
-      function setStatus(o, s, reason) { o.status = s; o.history.push({ s: s, t: D.today, reason: reason }); tabs(); rows(); drawer(o); K.toast('Order #' + o.id + ' is now ' + K.orderLabel(s).toLowerCase()); }
+      // Courier + tracking number. Shown once the order is confirmed; saving marks it
+      // shipped and emails the buyer the tracking details.
+      var COURIERS = ['Domex', 'Pronto Lanka', 'Koombiyo', 'Prompt Xpress', 'Citypak', 'Grasshoppers', 'Sri Lanka Post', 'Own delivery'];
+      function shipBlock(o) {
+        if (['CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED'].indexOf(o.status) < 0) return '';
+        var t = o.tracking || {}, again = o.status === 'SHIPPED';
+        return '<form class="ship-form" id="shipForm" novalidate><h3 class="label">' + (again ? 'Tracking details' : 'Mark as shipped') + '</h3>' +
+          '<div class="kd-field"><label class="kd-label" for="shCourier">Courier</label><input class="kd-input" id="shCourier" list="couriers" value="' + K.esc(t.courier || '') + '" placeholder="e.g. Domex" autocomplete="off"><datalist id="couriers">' + COURIERS.map(function (c) { return '<option value="' + c + '">'; }).join('') + '</datalist></div>' +
+          '<div class="kd-field"><label class="kd-label" for="shNo">Tracking number</label><input class="kd-input" id="shNo" value="' + K.esc(t.number || '') + '" autocomplete="off" autocapitalize="characters"></div>' +
+          '<div class="kd-field"><label class="kd-label" for="shUrl">Tracking link <span class="muted">(optional)</span></label><input class="kd-input" id="shUrl" type="url" inputmode="url" value="' + K.esc(t.url || '') + '" placeholder="https://"></div>' +
+          '<button class="kd-btn kd-btn--primary kd-btn--block" type="submit">' + (again ? 'Update tracking' : 'Mark as shipped') + '</button>' +
+          '<p class="kd-help">' + (o.email || o.hasEmail ? 'The buyer gets an email with the tracking details.' : 'The buyer did not give an email. Send the tracking number on WhatsApp.') + ' It also shows on their order page.</p></form>';
+      }
+      function applyStatus(o, s, reason) { o.status = s; o.history = o.history || [{ s: 'PENDING', t: o.date }]; o.history.push({ s: s, t: D.today, reason: reason }); tabs(); rows(); drawer(o); K.toast('Order #' + o.id + ' is now ' + K.orderLabel(s).toLowerCase()); }
+      function setStatus(o, s, reason) {
+        if (API) { KadeApi.setOrderStatusNote(o.id, s, reason || null).then(function () { if (s === 'REFUNDED') { o.refundNote = reason; if (o.paymentStatus === 'PAID') o.paymentStatus = 'REFUNDED'; } applyStatus(o, s, reason); }).catch(function (ex) { K.toast(ex.message || 'Could not update the order.'); }); }
+        else applyStatus(o, s, reason);
+      }
       K.$('#tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { filter = b.getAttribute('data-s'); tabs(); rows(); K.$('[aria-selected=true]', K.$('#tabs')).focus(); } });
       K.$('#q').addEventListener('input', function () { q = this.value.trim().toLowerCase(); rows(); });
       K.$('#rows').addEventListener('click', function (e) { var b = e.target.closest('[data-o]'); if (b) drawer(orders.filter(function (o) { return o.id === b.getAttribute('data-o'); })[0]); });
       K.$('#close').addEventListener('click', function () { K.$('#drawer').close(); });
       K.$('#drawer').addEventListener('close', function () { open = null; rows(); });
       K.$('#drawer').addEventListener('click', function (e) { if (e.target === this) this.close(); });
+      K.$('#db').addEventListener('submit', function (e) {
+        if (e.target.id !== 'shipForm' || !open) return;
+        e.preventDefault();
+        var o = open, body = { courier: K.$('#shCourier').value.trim(), trackingNumber: K.$('#shNo').value.trim(), trackingUrl: K.$('#shUrl').value.trim() };
+        if (!body.courier || !body.trackingNumber) { K.toast('Add the courier and tracking number.'); return; }
+        if (!API) { o.tracking = { courier: body.courier, number: body.trackingNumber, url: body.trackingUrl }; applyStatus(o, 'SHIPPED'); return; }
+        var restore = K.btnLoading(K.$('#shipForm button[type=submit]'), 'Saving…');
+        KadeApi.shipOrder(o.id, body).then(function (r) {
+          o.tracking = { courier: r.tracking.courier, number: r.tracking.number, url: r.tracking.url };
+          if (o.status !== r.status) applyStatus(o, r.status, body.courier + ' ' + body.trackingNumber); else drawer(o);
+          K.toast(r.emailed ? 'Saved. Tracking emailed to the buyer.' : 'Saved.');
+        }).catch(function (ex) { restore(); K.toast(ex.message); });
+      });
       K.$('#db').addEventListener('click', function (e) {
         var b = e.target.closest('[data-act]'); if (!b || !open) return;
         var o = open;
         if (b.getAttribute('data-act') === 'next') setStatus(o, next(o.status));
+        else if (b.getAttribute('data-act') === 'refund') K.confirm({ title: 'Mark order #' + o.id + ' as refunded?', body: 'Record how much was refunded, how and when (for example: Full refund of Rs. 4,150 via OnePay on 30 Sep).', confirmLabel: 'Mark as refunded', reason: 'Refund note' }).then(function (r) { if (r && r.reason.trim()) setStatus(o, 'REFUNDED', r.reason.trim()); else if (r) K.toast('Add a refund note.'); });
         else K.confirm({ title: 'Cancel order #' + o.id + '?', body: 'The customer will not receive this order. You can tell them why below.', confirmLabel: 'Cancel order', danger: true, reason: 'Reason' }).then(function (r) { if (r) setStatus(o, 'CANCELLED', r.reason); });
       });
-      tabs(); rows();
-      var want = new URLSearchParams(location.search).get('o'); if (want) { var w = orders.filter(function (o) { return o.id === want; })[0]; if (w) drawer(w); }
+      function boot(list) {
+        orders = list; tabs(); rows();
+        var want = new URLSearchParams(location.search).get('o'); if (want) { var w = orders.filter(function (o) { return o.id === want; })[0]; if (w) drawer(w); }
+      }
+      if (API) {
+        K.$('#rows').innerHTML = '<tr><td colspan="6" style="padding:16px">' + K.spinner() + ' Loading orders…</td></tr>';
+        KadeApi.myOrders().then(function (r) { boot(r.orders); }).catch(function () { K.$('#rows').innerHTML = '<tr><td colspan="6" class="muted" style="padding:16px">Could not load orders.</td></tr>'; });
+      } else boot(K.orders());
 
     })();
   </script>

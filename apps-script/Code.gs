@@ -5,6 +5,19 @@
  *   REGISTERED (waiting for approval), APPROVED (store link + login),
  *   REJECTED, NEW_ORDER (to the owner), ORDER_CONFIRMED and ORDER_SHIPPED
  *   (to the customer), EXPIRY_REMINDER, SUSPENDED.
+ * Added in the V3 upgrade (older types above are unchanged):
+ *   TRIAL_STARTED, TRIAL_REMINDER (day 10 / day 13), TRIAL_EXPIRED,
+ *   SUBSCRIPTION_RECEIPT (OnePay card payment for a plan),
+ *   VERIFICATION_SUBMITTED (to the admin), VERIFICATION_APPROVED / _REJECTED,
+ *   ORDER_PAID (to the owner) and ORDER_PAYMENT_RECEIPT (to the buyer) for card
+ *   orders, ORDER_SHIPPED now carries courier + tracking number, WEEKLY_SUMMARY.
+ *
+ * Optional Google Sheet sync (V3): set SHEETS_SYNC_ID and run installSyncTrigger
+ * once. Every hour syncSheets() rewrites three tabs from the backend:
+ *   Shops     (plan, trial, verification, contact details, policy status, OnePay)
+ *   Payments  (subscription payments, bank + OnePay, with transaction ids)
+ *   Shipments (courier + tracking numbers, card payment status)
+ * The sheet is a read-only mirror: edits there are overwritten on the next sync.
  *
  * High volume design (Task 2):
  *   - A single time trigger runs sendPendingEmails every 2 minutes.
@@ -36,7 +49,9 @@ function cfg_() {
     // Do not send if fewer than this many emails remain in today's quota; keep a
     // buffer for the next run so a burst never drains the account completely.
     quotaFloor: Number(p.getProperty('QUOTA_FLOOR') || 15),
-    auditSheetId: p.getProperty('AUDIT_SHEET_ID') || ''
+    auditSheetId: p.getProperty('AUDIT_SHEET_ID') || '',
+    // V3: spreadsheet that syncSheets() mirrors shops / payments / shipments into.
+    sheetsSyncId: p.getProperty('SHEETS_SYNC_ID') || ''
   };
 }
 
@@ -269,10 +284,19 @@ function orderBody_(d) {
       kv_('Shop', esc_(d.storeName || d.business)) +
       (d.customer ? kv_('Name', esc_(d.customer)) : '')
     ) +
+    // V3: courier + tracking number (ORDER_SHIPPED from "Mark as shipped").
+    (d.trackingNumber ? infoBox_(
+      kv_('Courier', esc_(d.courier || '')) +
+      kv_('Tracking number', '<span style="font-family:' + MONO + ';">' + esc_(d.trackingNumber) + '</span>') +
+      (d.trackingUrl ? '<div style="margin-top:8px;">' + button_('Track your parcel', d.trackingUrl, 'accent') + '</div>' : '')
+    ) : '') +
+    // V3: card payment reference (ORDER_PAYMENT_RECEIPT).
+    (d.transactionId ? infoBox_(kv_('Paid by card', 'OnePay reference ' + esc_(d.transactionId))) : '') +
     '<h2 style="margin:8px 0 6px;font-family:' + DISPLAY + ';font-size:16px;font-weight:700;color:' + THEME.ink + ';">Order summary</h2>' +
     orderTable_(d) +
     orderFulfilment_(d) +
-    (d.storeUrl ? button_('Visit the shop', d.storeUrl, 'brand') : '');
+    (d.statusUrl ? button_('View your order', d.statusUrl, 'brand') : '') +
+    (d.storeUrl ? button_('Visit the shop', d.storeUrl, d.statusUrl ? 'accent' : 'brand') : '');
 }
 
 // Build the per-type body; unknown types fall back to the plain message.
@@ -367,10 +391,123 @@ function renderEmail_(n) {
         button_('Renew now', d.renewUrl, 'accent');
       break;
 
+    // ---- V3: free trial --------------------------------------------------------
+    case 'TRIAL_STARTED':
+      body = h1_(d.heading || 'Your store is live') +
+        p_('Welcome to Sidadiya! <strong>' + esc_(d.business) + '</strong> is open and your <strong>' + esc_(d.trialDays) + '-day free trial</strong> has started.') +
+        infoBox_(
+          kv_('Your store link', '<a href="' + esc_(d.storeUrl) + '" style="color:' + THEME.brand + ';">' + esc_(d.storeUrl) + '</a>') +
+          kv_('Sign in with', esc_(d.email || '')) +
+          kv_('Free until', esc_(d.trialEndsOn || ''))
+        ) +
+        p_('Add your products, then share your store link on WhatsApp, Facebook and Instagram. Choose a plan any time before the trial ends; your remaining free days are kept.') +
+        '<div style="margin-top:6px;">' + button_('Add my products', d.dashboardUrl || d.loginUrl, 'accent') + button_('Open my store', d.storeUrl, 'brand') + '</div>';
+      break;
+
+    case 'TRIAL_REMINDER':
+      body = h1_(d.heading || 'Your free trial is ending') +
+        p_('<strong>' + esc_(d.business) + '</strong>, your free trial ends ' + (Number(d.daysLeft) <= 1 ? '<strong>tomorrow</strong>' : 'in <strong>' + esc_(d.daysLeft) + ' days</strong>') + (d.trialEndsOn ? ' (on ' + esc_(d.trialEndsOn) + ')' : '') + '.') +
+        p_('Choose a plan now so buyers can keep ordering. You can pay by card or bank transfer, and your products, orders and settings stay exactly as they are.') +
+        button_('Choose a plan', d.planUrl, 'accent');
+      break;
+
+    case 'TRIAL_EXPIRED':
+      body = h1_(d.heading || 'Your free trial has ended') +
+        p_('<strong>' + esc_(d.business) + '</strong> is closed to buyers for now because the free trial has ended.') +
+        p_('Everything you set up is saved. Choose a plan and your store opens again straight away.') +
+        button_('Choose a plan', d.planUrl, 'accent');
+      break;
+
+    // ---- V3: OnePay receipts ------------------------------------------------------
+    case 'SUBSCRIPTION_RECEIPT':
+      body = h1_(d.heading || 'Payment received') +
+        p_('Thank you. We received your payment for <strong>' + esc_(d.business) + '</strong>.') +
+        infoBox_(
+          kv_('Plan', esc_(d.plan)) +
+          kv_('Amount', rs_(d.amount)) +
+          kv_('Paid by', esc_(d.method || 'Card (OnePay)')) +
+          kv_('Paid on', esc_(d.paidOn)) +
+          kv_('Active until', esc_(d.validUntil)) +
+          kv_('Reference', esc_(d.reference)) +
+          (d.transactionId ? kv_('OnePay transaction', esc_(d.transactionId)) : '')
+        ) +
+        p_('Keep this email as your receipt.') +
+        button_('View my subscription', d.planUrl, 'brand');
+      break;
+
+    case 'ORDER_PAID':
+      body = h1_(d.heading || 'Card payment received') +
+        p_('<strong>' + esc_(d.customer) + '</strong> paid <strong>' + rs_(d.total) + '</strong> by card for order <strong>' + esc_(d.orderCode) + '</strong>.') +
+        infoBox_(kv_('OnePay transaction', esc_(d.transactionId || '')) + kv_('Payout', 'OnePay pays out to your bank account (usually T+2).')) +
+        button_('View order', d.ordersUrl, 'brand');
+      break;
+
+    case 'ORDER_PAYMENT_RECEIPT':
+      body = orderBody_(d);
+      footer = orderFooter_(d);
+      break;
+
+    // ---- V3: seller verification ---------------------------------------------------
+    case 'VERIFICATION_SUBMITTED':
+      body = h1_(d.heading || 'New verification to review') +
+        p_('<strong>' + esc_(d.business) + '</strong> uploaded an ID copy and an address proof.') +
+        button_('Review documents', d.reviewUrl, 'accent');
+      break;
+
+    case 'VERIFICATION_APPROVED':
+      body = h1_(d.heading || 'Your business is verified') +
+        p_('Congratulations! <strong>' + esc_(d.business) + '</strong> is now a <strong>Verified Sri Lankan Business</strong> on Sidadiya.') +
+        p_('The verified seal now shows on your store and product pages, so buyers know they can trust you.') +
+        (d.storeUrl ? button_('See my store', d.storeUrl, 'brand') : '');
+      break;
+
+    case 'VERIFICATION_REJECTED':
+      body = h1_(d.heading || 'Verification needs attention') +
+        p_('We could not verify <strong>' + esc_(d.business) + '</strong> yet.') +
+        (d.reason ? infoBox_(kv_('Reason', esc_(d.reason))) : '') +
+        p_('Please upload clear copies of both documents again in Store settings.') +
+        button_('Upload documents', d.settingsUrl, 'accent');
+      break;
+
+    // ---- V3: weekly summary (Monday morning) ---------------------------------------
+    case 'WEEKLY_SUMMARY':
+      body = weeklyBody_(d);
+      break;
+
     default:
       body = h1_(n.subject || 'Sidadiya') + p_(esc_(n.message || ''));
   }
   return shell_(body, footer);
+}
+
+// V3: the Monday summary. Numbers first, then top products and traffic sources.
+function weeklyBody_(d) {
+  function change(pct) {
+    if (pct === null || pct === undefined) return '';
+    var up = Number(pct) >= 0;
+    return ' <span style="font-size:13px;color:' + (up ? '#1b6b3f' : '#b3261e') + ';">' + (up ? '▲ +' : '▼ ') + esc_(pct) + '%</span>';
+  }
+  var top = (d.topProducts || []).map(function (p) {
+    return '<tr><td style="font-family:' + SANS + ';font-size:14px;padding:5px 0;border-bottom:1px solid ' + THEME.line + ';">' + esc_(p.name) + '</td>' +
+      '<td align="right" style="font-family:' + MONO + ';font-size:14px;padding:5px 0;border-bottom:1px solid ' + THEME.line + ';">' + esc_(p.units) + ' sold</td></tr>';
+  }).join('');
+  var src = (d.trafficSources || []).map(function (t) {
+    return '<tr><td style="font-family:' + SANS + ';font-size:14px;padding:5px 0;text-transform:capitalize;border-bottom:1px solid ' + THEME.line + ';">' + esc_(t.source) + '</td>' +
+      '<td align="right" style="font-family:' + MONO + ';font-size:14px;padding:5px 0;border-bottom:1px solid ' + THEME.line + ';">' + esc_(t.sessions) + ' visitors' + (t.orders ? ', ' + esc_(t.orders) + ' orders' : '') + '</td></tr>';
+  }).join('');
+  function h2(t) { return '<h2 style="margin:16px 0 6px;font-family:' + DISPLAY + ';font-size:16px;font-weight:700;color:' + THEME.ink + ';">' + t + '</h2>'; }
+  return h1_(d.heading || 'Your weekly summary') +
+    p_('<strong>' + esc_(d.business) + '</strong>, here is how your store did from ' + esc_(d.periodStart) + ' to ' + esc_(d.periodEnd) + '.') +
+    infoBox_(
+      kv_('Sales', rs_(d.revenue) + change(d.revenueChangePct)) +
+      kv_('Orders', esc_(d.orders) + change(d.ordersChangePct)) +
+      kv_('Average order', rs_(d.avgOrder)) +
+      kv_('Visitors', esc_(d.visitors))
+    ) +
+    h2('Top products') + (top ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + top + '</table>' : p_('No sales this week. A new photo or a WhatsApp status post can bring buyers back.')) +
+    h2('Where visitors came from') + (src ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + src + '</table>' : p_('No visits recorded. Share your store link to get started.')) +
+    '<div style="margin-top:14px;">' + button_('See full reports', d.reportsUrl, 'brand') + (d.storeUrl ? button_('Open my store', d.storeUrl, 'accent') : '') + '</div>' +
+    '<p style="margin:14px 0 0;font-family:' + SANS + ';font-size:12px;color:' + THEME.muted + ';">You get this every Monday. Turn it off in <a href="' + esc_(d.settingsUrl) + '" style="color:' + THEME.muted + ';">Store settings</a>.</p>';
 }
 
 // ---- Handy for testing: preview an order email without sending --------------
@@ -390,4 +527,88 @@ function previewOrderConfirmed() {
   });
   Logger.log(html);
   // MailApp.sendEmail({ to: Session.getActiveUser().getEmail(), subject: 'Preview: order confirmed', htmlBody: html, name: 'Sidadiya' });
+}
+
+// =============================================================================
+// V3: Google Sheet sync. Mirrors Shops / Payments / Shipments from the API into
+// the spreadsheet in Script property SHEETS_SYNC_ID. Each tab is rewritten in
+// full every run (headers come from the API, so new columns need no script
+// change). Read-only: nothing in the Sheet is ever sent back to the platform.
+// =============================================================================
+var SYNC_TABS_ = [['Shops', 'shops'], ['Payments', 'payments'], ['Shipments', 'shipments']];
+
+function syncSheets() {
+  var c = cfg_();
+  if (!c.token) throw new Error('Set NOTIFY_TOKEN in Script properties first.');
+  if (!c.sheetsSyncId) throw new Error('Set SHEETS_SYNC_ID (the spreadsheet ID) in Script properties first.');
+  var ss = SpreadsheetApp.openById(c.sheetsSyncId);
+  SYNC_TABS_.forEach(function (t) {
+    var res = UrlFetchApp.fetch(c.apiBase + '/api/notifications/export/' + t[1], {
+      method: 'get', headers: { 'x-notify-token': c.token }, muteHttpExceptions: true
+    });
+    if (res.getResponseCode() !== 200) {
+      Logger.log('Sync ' + t[0] + ' failed: HTTP ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200));
+      return; // keep the old data in that tab rather than blanking it
+    }
+    var body = JSON.parse(res.getContentText());
+    var values = [body.columns].concat(body.rows || []).map(function (r) {
+      return r.map(function (v) { return v === null || v === undefined ? '' : v; });
+    });
+    var sh = ss.getSheetByName(t[0]) || ss.insertSheet(t[0]);
+    sh.clearContents();
+    sh.getRange(1, 1, values.length, body.columns.length).setValues(values);
+    sh.getRange(1, 1, 1, body.columns.length).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    Logger.log('Synced ' + t[0] + ': ' + (values.length - 1) + ' rows.');
+  });
+  var info = ss.getSheetByName('Sync info') || ss.insertSheet('Sync info');
+  info.getRange(1, 1, 1, 2).setValues([['Last synced', new Date()]]);
+}
+
+// Run once: hourly sheet sync (the 2 minute email trigger is separate).
+function installSyncTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'syncSheets') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('syncSheets').timeBased().everyHours(1).create();
+  Logger.log('Trigger installed: syncSheets every hour.');
+}
+
+// ---- V3 previews: log the HTML (uncomment the MailApp line to email yourself) --
+function previewV3_(type, data) {
+  var html = renderEmail_({ type: type, subject: type, message: '', data: data });
+  Logger.log(html);
+  // MailApp.sendEmail({ to: Session.getActiveUser().getEmail(), subject: 'Preview: ' + type, htmlBody: html, name: 'Sidadiya' });
+  return html;
+}
+function previewTrialStarted() {
+  var b = cfg_().apiBase;
+  return previewV3_('TRIAL_STARTED', { business: 'ABC Fashion', storeUrl: b + '/store/abc-fashion', dashboardUrl: b + '/dashboard/', email: 'owner@example.com', trialDays: 14, trialEndsOn: '2026-10-13' });
+}
+function previewTrialReminder() {
+  return previewV3_('TRIAL_REMINDER', { business: 'ABC Fashion', daysLeft: 3, trialEndsOn: '2026-10-13', planUrl: cfg_().apiBase + '/dashboard/subscription' });
+}
+function previewSubscriptionReceipt() {
+  return previewV3_('SUBSCRIPTION_RECEIPT', { business: 'ABC Fashion', plan: 'Business', amount: 1399, reference: 'SUB-8F2K1', transactionId: 'OP123456', paidOn: '2026-09-29 10:42', validUntil: '2026-10-29', planUrl: cfg_().apiBase + '/dashboard/subscription' });
+}
+function previewOrderShippedTracking() {
+  var b = cfg_().apiBase;
+  return previewV3_('ORDER_SHIPPED', {
+    heading: 'Your order is on the way', intro: 'Your order from ABC Fashion has shipped with Domex.',
+    business: 'ABC Fashion', storeName: 'ABC Fashion', orderCode: 'ORD-10452', customer: 'Nimal Silva',
+    items: [{ name: 'Cotton Shirt (Blue, L)', qty: 2, price: 3500 }], subtotal: 7000, deliveryFee: 350, total: 7350,
+    fulfilment: 'delivery', address: '42 Galle Road', city: 'Dehiwala', district: 'Colombo', payment: 'Cash on delivery',
+    courier: 'Domex', trackingNumber: 'DX123456789LK', trackingUrl: 'https://www.domex.lk/',
+    statusUrl: b + '/store/order?s=abc-fashion&o=ORD-10452&k=demo', storeUrl: b + '/store/abc-fashion'
+  });
+}
+function previewWeeklySummary() {
+  var b = cfg_().apiBase;
+  return previewV3_('WEEKLY_SUMMARY', {
+    business: 'ABC Fashion', periodStart: '2026-09-21', periodEnd: '2026-09-27',
+    revenue: 48500, orders: 12, avgOrder: 4042, revenueChangePct: 18, ordersChangePct: -5, visitors: 340,
+    topProducts: [{ name: 'Cotton Shirt', units: 7 }, { name: 'Leather Belt', units: 3 }],
+    trafficSources: [{ source: 'facebook', sessions: 180, orders: 6 }, { source: 'whatsapp', sessions: 95, orders: 4 }],
+    storeUrl: b + '/store/abc-fashion', reportsUrl: b + '/dashboard/reports', settingsUrl: b + '/dashboard/settings#weekly'
+  });
 }

@@ -3,11 +3,12 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
-import { UPLOAD_DIR } from './services/uploads.js';
+import { UPLOAD_DIR, verifyPrivateRequest } from './services/uploads.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
 import { query } from './db/pool.js';
 import { bootstrapDb } from './db/bootstrap.js';
 import { hashPassword } from './utils/auth.js';
+import { startScheduler } from './jobs/scheduler.js';
 
 // Create or update the SUPER_ADMIN account from environment variables, so admin
 // credentials live in the deployment's variables (never hard-coded or exposed).
@@ -25,7 +26,7 @@ async function ensureAdmin() {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FRONTEND_DIR = path.join(__dirname, '..', 'kade-frontend_V2');
+const FRONTEND_DIR = path.join(__dirname, '..', config.frontendDir);
 
 import { authRouter } from './routes/auth.js';
 import { plansRouter } from './routes/plans.js';
@@ -34,6 +35,8 @@ import { productsRouter } from './routes/products.js';
 import { dashboardRouter } from './routes/dashboard.js';
 import { storeRouter } from './routes/store.js';
 import { notificationsRouter } from './routes/notifications.js';
+import { siteRouter } from './routes/site.js';
+import { onepayRouter } from './routes/onepay.js';
 import { serveStorePage, serveProductPage } from './services/pages.js';
 
 const app = express();
@@ -62,6 +65,16 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
+// Local-driver signed links for PRIVATE files (verification documents). The HMAC
+// signature and expiry in the query are the authorisation, like a cloud signed URL.
+app.get('/api/files/private', (req, res) => {
+  const file = verifyPrivateRequest(req.query.key, req.query.exp, req.query.sig);
+  if (!file) return res.status(403).json({ error: 'This link has expired. Open the document again from the admin panel.' });
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
+  res.sendFile(file);
+});
+
 // Simple in-memory rate limit for login, to blunt password brute-forcing.
 const loginHits = new Map();
 function loginLimiter(req, res, next) {
@@ -86,6 +99,9 @@ app.use('/api/products', productsRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/store', storeRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/site', siteRouter);
+// OnePay webhook (JSON per the spec; form-encoded accepted too) and buyer return page.
+app.use('/api/onepay', express.urlencoded({ extended: false, limit: '100kb' }), onepayRouter);
 
 // Clean URLs: never expose ".html". Redirect any .html request to the extensionless
 // path (301), and let express.static resolve the extensionless path back to the file.
@@ -103,7 +119,7 @@ app.get(/\.html$/i, (req, res, next) => {
 // shared link shows the shop, not a generic page. Registered before the static
 // middleware so they take precedence over the raw files. The page's own JS still
 // renders the body. Pretty URL /store/<slug> also resolves the storefront here.
-const RESERVED_STORE = new Set(['index', 'product', 'cart']);
+const RESERVED_STORE = new Set(['index', 'product', 'cart', 'order', 'policy']);
 app.get('/store/product', (req, res, next) => serveProductPage(req, res, next));
 app.get(['/store', '/store/index'], (req, res, next) => serveStorePage(req, res, next, req.query.s));
 app.get('/store/:slug', (req, res, next) => {
@@ -111,6 +127,9 @@ app.get('/store/:slug', (req, res, next) => {
   if (slug.includes('.') || RESERVED_STORE.has(slug)) return next(); // real files handled by static
   serveStorePage(req, res, next, slug);
 });
+
+// Platform legal pages: /legal/refund, /legal/privacy, /legal/return, /legal/terms, /legal/contact.
+app.get(/^\/legal\/(refund|privacy|return|terms|contact)\/?$/, (_req, res) => res.sendFile(path.join(FRONTEND_DIR, 'legal', 'index.html')));
 
 // Serve the frontend (landing, storefront, dashboard, admin) from the same origin.
 // This makes the whole platform a single deployable service: the pages call the API
@@ -139,6 +158,8 @@ const server = app.listen(config.port, async () => {
   // without running any manual db commands.
   try {
     await bootstrapDb();
+    // Daily lifecycle + weekly summary. Needs the migrated schema, so start after bootstrap.
+    startScheduler();
   } catch (e) {
     console.error('[db] bootstrap failed:', e.message);
   }

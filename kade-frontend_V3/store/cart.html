@@ -2,119 +2,392 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Your cart</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <meta name="robots" content="noindex">
+  <title>Checkout</title>
   <link rel="stylesheet" href="../css/tokens.css">
-  <link rel="stylesheet" href="../css/kade.css">
+  <link rel="stylesheet" href="../css/storefront.css">
 </head>
-<body>
-  <a class="skip-link" href="#main">Skip to cart</a>
-  <script>document.documentElement.classList.add('js');</script>
-  <div id="store-header"></div>
-  <main id="main" class="container" tabindex="-1"></main>
-  <div id="store-footer"></div>
+<body class="has-bar">
+  <a class="sf-skip" href="#view">Skip to checkout</a>
+  <div id="sf-header"></div>
+  <div class="wrap">
+    <nav aria-label="Checkout progress"><ol class="steps" id="steps"></ol></nav>
+    <div class="layout">
+      <main id="view" tabindex="-1"></main>
+      <aside id="summary" aria-label="Order summary"></aside>
+    </div>
+  </div>
+  <div id="sf-footer"></div>
+  <div class="bar" id="bar" hidden>
+    <div class="bar-in"><div class="sum"><small id="bar-items">0 items</small><b id="bar-total">Rs 0</b></div><button class="btn btn-primary" type="button" id="bar-btn" data-act="next">Checkout</button></div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
   <script src="../js/app.js"></script>
   <script src="../js/store.js"></script>
   <script>
     (function () {
-      var K = Kade, D = KadeData, s = K.storeInit(); if (!s) return;
-      document.title = 'Your cart | ' + s.name;
-      var main = K.$('#main'), DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
-      var method = 'delivery', pay = s.payments.cod ? 'cod' : 'bank';
+      var K = Kade, $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+      var API = !!(window.KadeApi && KadeApi.enabled);
+      var DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
+      var STEPS = ['cart', 'details', 'delivery', 'payment', 'review'];
+      var LABELS = { cart: 'Cart', details: 'Details', delivery: 'Delivery', payment: 'Payment', review: 'Review' };
+      var PHONE = /^(?:\+94|94|0)?7\d{8}$/;
+      var rs = SF.rs, ic = SF.ic;
 
-      function lines() {
-        return K.cart.get(s.slug).map(function (i) { var p = D.products.filter(function (x) { return x.id === i.pid; })[0]; return p ? { i: i, p: p } : null; }).filter(Boolean);
-      }
-      function money() {
-        var sub = lines().reduce(function (n, l) { return n + K.priceOf(l.p) * l.i.qty; }, 0);
-        var free = s.delivery.freeAbove > 0 && sub >= s.delivery.freeAbove;
-        var fee = method === 'pickup' || free ? 0 : s.delivery.fee;
-        return { sub: sub, fee: fee, free: free, total: sub + fee };
-      }
-      function optTxt(o) { var k = Object.keys(o || {}); return k.length ? k.map(function (g) { return o[g]; }).join(', ') : ''; }
+      SF.load(function (S, P) {
+        var KEY = 'kade-checkout-' + S.slug;
+        var d = S.delivery || {}, pays = S.payments || {};
+        var PAY_OPTS = [];
+        if (pays.cod) PAY_OPTS.push('cod');
+        if (pays.bank) PAY_OPTS.push('bank');
+        if (pays.card) PAY_OPTS.push('card');
+        var st = { step: 'cart', reach: 0, f: {}, method: 'delivery', pay: PAY_OPTS[0] || 'cod', waSame: true, promo: null, promoErr: '', errs: {}, saved: [] };
+        try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv) { st = Object.assign(st, sv); st.errs = {}; st.promoErr = ''; } } catch (e) {}
+        if (PAY_OPTS.indexOf(st.pay) < 0) st.pay = PAY_OPTS[0] || 'cod';
+        if (st.method === 'pickup' && !d.pickup) st.method = 'delivery';
+        if (st.step === 'done') st.step = 'cart';
+        function save() { try { var c = Object.assign({}, st); delete c.errs; delete c.order; localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) {} }
 
-      function view() {
-        var ls = lines();
-        if (!ls.length) {
-          main.innerHTML = '<div class="empty"><h1 class="heading">Your cart is empty</h1><p class="muted">Find something you like and it will show up here.</p><a class="kd-btn kd-btn--primary" href="' + K.sUrl('index.html') + '">Browse products</a></div>'; return;
+        var find = function (id) { return P.filter(function (p) { return p.id === id; })[0]; };
+        function lines() { return K.cart.get(S.slug).map(function (i, k) { var p = find(i.pid); return p ? { i: i, p: p, k: k } : null; }).filter(Boolean); }
+        function count() { return K.cart.get(S.slug).reduce(function (n, i) { return n + i.qty; }, 0); }
+        function optTxt(i) { if (i.variant) return i.variant; var o = i.opts || {}; return Object.keys(o).map(function (k) { return k + ': ' + o[k]; }).join(' · '); }
+        function lineLabel(i) { if (i.variant) return i.variant; var o = i.opts || {}; return Object.keys(o).map(function (k) { return o[k]; }).join(', '); }
+        function lineStock(l) { if (l.i.variant && l.p.variants) { var v = l.p.variants.filter(function (x) { return x.label === l.i.variant; })[0]; return v ? v.stock : 0; } return l.p.stock; }
+        function money() {
+          var sub = lines().reduce(function (n, l) { return n + K.linePrice(l.p, l.i) * l.i.qty; }, 0);
+          var disc = st.promo ? Math.min(st.promo.discount, sub) : 0;
+          var freeReached = d.freeAbove > 0 && sub >= d.freeAbove;
+          var fee = st.method === 'pickup' || freeReached ? 0 : (d.fee || 0);
+          return { sub: sub, disc: disc, fee: fee, freeReached: freeReached, total: Math.max(0, sub - disc) + fee };
         }
-        var m = money();
-        var payOpts = [['cod', 'Cash on delivery', 'Pay the rider when your order arrives.'], ['bank', 'Bank transfer', 'Send the amount to the shop account and share the slip on WhatsApp.']].filter(function (o) { return s.payments[o[0]]; });
-        main.innerHTML = '<h1 class="display-md" style="padding-top:24px">Your cart</h1><div class="cart-layout">' +
-          '<section class="kd-card" aria-label="Items in your cart">' + ls.map(function (l, n) {
-            return '<div class="cart-line st-reveal in" data-line="' + n + '"><div class="cart-line__img">' + K.ph(l.p, true) + '</div><div><a class="kd-link" href="' + K.sUrl('product.html', '&p=' + l.p.id) + '">' + K.esc(l.p.name) + '</a><div class="muted" style="font-size:14px">' + K.esc(optTxt(l.i.opts)) + '</div>' +
-              '<div class="cart-line__row"><div class="qty" role="group" aria-label="Quantity of ' + K.esc(l.p.name) + '"><button type="button" data-dec="' + n + '" aria-label="Decrease quantity">&minus;</button><output>' + l.i.qty + '</output><button type="button" data-inc="' + n + '" aria-label="Increase quantity">+</button></div><span class="price-sm">' + K.rs(K.priceOf(l.p) * l.i.qty) + '</span></div>' +
-              '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" data-rm="' + n + '" style="margin-top:4px;padding-left:0">Remove</button></div></div>';
-          }).join('') + '</section>' +
-          '<form class="kd-card panel stack-lg" id="co" novalidate style="padding:24px"><h2 class="heading">Delivery details</h2>' +
-          '<div class="form-grid form-grid--2">' +
-          '<div class="kd-field span-2"><label class="kd-label" for="fn">Full name</label><input class="kd-input" id="fn" data-rule="required" autocomplete="name"></div>' +
-          '<div class="kd-field"><label class="kd-label" for="ph">Phone</label><input class="kd-input" id="ph" type="tel" inputmode="tel" data-rule="phone" placeholder="077 123 4567" autocomplete="tel"></div>' +
-          '<div class="kd-field"><label class="kd-label" for="wa">WhatsApp (optional)</label><input class="kd-input" id="wa" type="tel" inputmode="tel" placeholder="Same as phone"></div>' +
-          '<fieldset class="span-2" style="border:0;padding:0;margin:0"><legend class="kd-label">How do you want it?</legend><div class="choice" style="margin-top:8px">' +
-          '<label><input type="radio" name="method" value="delivery"' + (method === 'delivery' ? ' checked' : '') + '><span><strong>Delivery</strong><br><span class="muted">' + (s.delivery.freeAbove > 0 ? K.rs(s.delivery.fee) + ', free above ' + K.rs(s.delivery.freeAbove) : K.rs(s.delivery.fee)) + '</span></span></label>' +
-          (s.delivery.pickup ? '<label><input type="radio" name="method" value="pickup"' + (method === 'pickup' ? ' checked' : '') + '><span><strong>Pick up from the shop</strong><br><span class="muted">' + K.esc(s.address) + '. Free.</span></span></label>' : '') + '</div></fieldset>' +
-          (method === 'delivery' ? '<div class="kd-field span-2"><label class="kd-label" for="ad">Delivery address</label><input class="kd-input" id="ad" data-rule="required" autocomplete="street-address"></div>' +
-            '<div class="kd-field"><label class="kd-label" for="ct">Town or city</label><input class="kd-input" id="ct" data-rule="required" autocomplete="address-level2"></div>' +
-            '<div class="kd-field"><label class="kd-label" for="ds">District</label><select class="kd-select" id="ds" data-rule="required"><option value="">Choose one</option>' + DISTRICTS.map(function (d) { return '<option>' + d + '</option>'; }).join('') + '</select></div>' : '') +
-          '<fieldset class="span-2" style="border:0;padding:0;margin:0"><legend class="kd-label">Payment</legend><div class="choice" style="margin-top:8px">' + payOpts.map(function (o) { return '<label><input type="radio" name="pay" value="' + o[0] + '"' + (pay === o[0] ? ' checked' : '') + '><span><strong>' + o[1] + '</strong><br><span class="muted">' + o[2] + '</span></span></label>'; }).join('') + '</div></fieldset>' +
-          (pay === 'bank' ? '<div class="kd-banner kd-banner--info span-2"><div><p class="kd-banner__title">Shop bank account</p><p style="margin-top:4px">' + K.esc(s.bank) + '</p></div></div>' : '') +
-          '<div class="kd-field span-2"><label class="kd-label" for="nt">Note for the shop (optional)</label><textarea class="kd-input" id="nt"></textarea></div></div>' +
-          '<div class="totals" aria-live="polite"><div><span>Subtotal</span><span class="price-sm">' + K.rs(m.sub) + '</span></div><div><span>' + (method === 'pickup' ? 'Pickup' : 'Delivery') + '</span><span class="price-sm">' + (m.fee ? K.rs(m.fee) : 'Free') + '</span></div>' +
-          (method === 'delivery' && !m.free && s.delivery.freeAbove > 0 ? '<p class="muted" style="font-size:14px">Add ' + K.rs(s.delivery.freeAbove - m.sub) + ' more for free delivery.</p>' : '') +
-          '<div class="grand"><span>Total</span><span class="price">' + K.rs(m.total) + '</span></div></div>' +
-          '<button class="kd-btn kd-btn--primary kd-btn--block" type="submit">Place order</button></form></div>';
-      }
+        function payName(k) { return { cod: st.method === 'pickup' ? 'Pay at the shop' : 'Cash on delivery', bank: 'Bank transfer', card: 'Card payment' }[k]; }
+        function ctaLabel() { return { cart: 'Checkout securely', details: 'Continue to delivery', delivery: 'Continue to payment', payment: 'Review order', review: (st.pay === 'card' ? 'Pay ' : 'Place order · ') + rs(money().total) }[st.step] || 'Continue'; }
 
-      function saveForm() { var f = {}; K.$$('#co input:not([type=radio]), #co select, #co textarea').forEach(function (e) { f[e.id] = e.value; }); return f; }
-      function restore(f) { Object.keys(f || {}).forEach(function (k) { var e = document.getElementById(k); if (e) e.value = f[k]; }); }
-
-      main.addEventListener('click', function (e) {
-        var t = e.target.closest('button'); if (!t) return;
-        var items = K.cart.get(s.slug), n;
-        function apply() { var f = saveForm(); K.cart.set(s.slug, items); view(); restore(f); K.updateCartCount(); }
-        if ((n = t.getAttribute('data-inc')) != null) {
-          items[n].qty = Math.min(items[n].qty + 1, 20); apply();
-          var l1 = K.$('.cart-line[data-line="' + n + '"]'); if (l1) K.bump(K.$('output', l1));
-        } else if ((n = t.getAttribute('data-dec')) != null) {
-          items[n].qty = Math.max(items[n].qty - 1, 1); apply();
-          var l2 = K.$('.cart-line[data-line="' + n + '"]'); if (l2) K.bump(K.$('output', l2));
-        } else if ((n = t.getAttribute('data-rm')) != null) {
-          var line = K.$('.cart-line[data-line="' + n + '"]');
-          if (line && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            line.classList.add('removing');
-            setTimeout(function () { items.splice(+n, 1); apply(); }, 180);
-          } else { items.splice(+n, 1); apply(); }
+        /* ---------- Field helpers ---------- */
+        function fld(id, label, control, o) {
+          o = o || {}; var e = st.errs[id];
+          return '<div class="fld' + (e ? ' bad' : '') + (o.cls ? ' ' + o.cls : '') + '"><label for="' + id + '">' + label + '</label>' + control +
+            (e ? '<p class="err" id="err-' + id + '">' + K.esc(e) + '</p>' : (o.hint ? '<p class="hint-t">' + o.hint + '</p>' : '')) + '</div>';
         }
-      });
-      main.addEventListener('change', function (e) {
-        if (e.target.name === 'method' || e.target.name === 'pay') { var f = saveForm(); if (e.target.name === 'method') method = e.target.value; else pay = e.target.value; view(); restore(f); }
-      });
+        function inp(id, a) { return '<input class="input" id="' + id + '" value="' + K.esc(st.f[id] || '') + '" ' + (a || '') + (st.errs[id] ? ' aria-invalid="true" aria-describedby="err-' + id + '"' : '') + '>'; }
+        function choice(name, val, title, sub, icon, cur, right) {
+          return '<label class="choice' + (cur === val ? ' on' : '') + '"><input type="radio" name="' + name + '" value="' + val + '"' + (cur === val ? ' checked' : '') + '><span class="ct"><b>' + title + (right ? '<em>' + right + '</em>' : '') + '</b><small>' + sub + '</small></span>' + ic(icon) + '</label>';
+        }
+        function qtyCtl(k, q, name) { return '<div class="qty" role="group" aria-label="Quantity of ' + K.esc(name) + '"><button type="button" data-act="dec" data-k="' + k + '" aria-label="Decrease">−</button><output aria-live="polite">' + q + '</output><button type="button" data-act="inc" data-k="' + k + '" aria-label="Increase">+</button></div>'; }
 
-      function err(inp, msg) {
-        var f = inp.closest('.kd-field'), o = f.querySelector('.kd-error'); if (o) o.remove();
-        f.classList.toggle('kd-field--error', !!msg); inp.setAttribute('aria-invalid', msg ? 'true' : 'false');
-        if (msg) { var e = document.createElement('span'); e.className = 'kd-error'; e.textContent = msg; f.appendChild(e); }
-      }
-      main.addEventListener('submit', function (e) {
-        e.preventDefault(); var first = null;
-        K.$$('#co [data-rule]').forEach(function (inp) {
-          var msg = inp.getAttribute('data-rule') === 'phone' ? (/^(\+94|0)\d{9}$/.test(inp.value.replace(/[\s-]/g, '')) ? '' : 'Enter a phone number like 077 123 4567.') : (inp.value.trim() ? '' : 'This field is needed.');
-          err(inp, msg); if (msg && !first) first = inp;
+        /* ---------- Views ---------- */
+        var V = {};
+        V.cart = function () {
+          var ls = lines(), m = money();
+          if (!ls.length) return '<div class="vhead"><h1 id="v-title" tabindex="-1">Your cart</h1></div><div class="panel empty"><div class="big" aria-hidden="true">🛍️</div><h2>Your cart is empty</h2><p style="color:var(--sf-muted)">Find something you love. It will show up here.</p><a class="btn btn-primary" href="' + SF.homeUrl(S.slug) + '">Browse products</a></div>' + savedHtml() + recsHtml(m);
+          var prog = '';
+          if (d.freeAbove > 0 && st.method !== 'pickup') {
+            var pct = Math.min(100, (m.sub - m.disc) / d.freeAbove * 100);
+            prog = m.freeReached ? '<div class="progress ok"><p>🎉 <b>You unlocked free delivery!</b></p></div>'
+              : '<div class="progress"><p>You are <b>' + rs(d.freeAbove - m.sub) + '</b> away from <b>free delivery</b></p><div class="track"><div class="fill" style="width:' + pct + '%"></div></div></div>';
+          }
+          return '<div class="vhead"><h1 id="v-title" tabindex="-1">Your cart <span>(' + count() + ' ' + (count() === 1 ? 'item' : 'items') + ')</span></h1><p>Check sizes and quantities before you check out.</p></div>' +
+            '<section class="panel" aria-label="Items in your cart">' + prog + ls.map(lineHtml).join('') + '</section>' + savedHtml() + recsHtml(m);
+        };
+        function lineHtml(l) {
+          var o = optTxt(l.i), stock = lineStock(l), low = stock > 0 && stock <= 3, pr = K.linePrice(l.p, l.i);
+          return '<div class="line"><a class="line-img" href="' + SF.pUrl(l.p) + '">' + SF.media(l.p) + '</a><div><div class="line-top"><div><h3 class="line-name">' + K.esc(l.p.name) + '</h3>' +
+            '<p class="line-opts">' + (o ? K.esc(o) + ' · ' : '') + rs(pr) + ' each</p>' + (low ? '<p class="line-warn">⚡ Only ' + stock + ' left, order soon</p>' : '') + (stock <= 0 ? '<p class="line-warn" style="color:var(--sf-danger)">Sold out. Please remove it.</p>' : '') + '</div>' +
+            '<p class="line-total">' + rs(pr * l.i.qty) + '</p></div>' +
+            '<div class="line-row">' + qtyCtl(l.k, l.i.qty, l.p.name) + '<div style="display:flex;gap:14px"><button type="button" class="link" data-act="save" data-k="' + l.k + '">Save for later</button><button type="button" class="link danger" data-act="rm" data-k="' + l.k + '">Remove</button></div></div></div></div>';
+        }
+        function savedHtml() {
+          var sv = st.saved.map(function (x, k) { var p = find(x.pid); return p ? { x: x, p: p, k: k } : null; }).filter(Boolean);
+          if (!sv.length) return '';
+          return '<section class="panel" aria-labelledby="saved-h"><h2 id="saved-h">Saved for later (' + sv.length + ')</h2>' + sv.map(function (o) {
+            return '<div class="line" style="grid-template-columns:52px minmax(0,1fr)"><div class="line-img" style="width:52px;height:64px">' + SF.media(o.p) + '</div><div class="line-top"><div><p class="line-name">' + K.esc(o.p.name) + '</p><p class="line-opts">' + rs(K.linePrice(o.p, o.x)) + (optTxt(o.x) ? ' · ' + K.esc(optTxt(o.x)) : '') + '</p></div>' +
+              '<div style="display:grid;justify-items:end"><button type="button" class="link" data-act="move" data-k="' + o.k + '">Move to cart</button><button type="button" class="link danger" data-act="unsave" data-k="' + o.k + '">Remove</button></div></div></div>';
+          }).join('') + '</section>';
+        }
+        function recsHtml(m) {
+          var inCart = K.cart.get(S.slug).map(function (i) { return i.pid; });
+          var recs = P.filter(function (p) { return inCart.indexOf(p.id) < 0 && SF.stockOf(p) > 0 && !(p.variants && p.variants.length) && !Object.keys(p.options || {}).length; })
+            .sort(function (a, b) { return K.priceOf(a) - K.priceOf(b); }).slice(0, 6);
+          if (!recs.length) return '';
+          return '<section class="panel" aria-labelledby="recs-h"><h2 id="recs-h">Complete your order</h2><p style="color:var(--sf-muted);font-size:14px;margin:-6px 0 12px">' + (m.freeReached || !count() || !(d.freeAbove > 0) ? 'Picked for you by ' + K.esc(S.name) : 'Add one of these to get closer to free delivery') + '</p>' +
+            '<div class="reviews-strip" style="margin:0;padding:2px 0 4px;grid-auto-columns:minmax(150px,46%)">' + recs.map(function (p) {
+              return '<article class="card"><div class="media" style="aspect-ratio:1/1">' + SF.media(p) + (p.sale ? '<span class="tag">SALE</span>' : '') + '</div><div class="card-body"><h3 class="pname" style="font-size:14px">' + K.esc(p.name) + '</h3>' + SF.priceHtml(p) + '</div><div class="card-foot"><button type="button" class="btn btn-accent btn-sm btn-block" data-act="rec" data-id="' + K.esc(p.id) + '">+ Add</button></div></article>';
+            }).join('') + '</div></section>';
+        }
+
+        V.details = function () {
+          return '<div class="vhead"><h1 id="v-title" tabindex="-1">Your details</h1><p>No account needed. We only use this for your order.</p></div>' +
+            '<div class="panel"><div class="fgrid two">' +
+            fld('fn', 'Full name', inp('fn', 'autocomplete="name" placeholder="e.g. Nadeesha Perera"'), { cls: 'span2' }) +
+            fld('ph', 'Mobile number', '<div class="pre"><span>🇱🇰 +94</span>' + inp('ph', 'type="tel" inputmode="tel" autocomplete="tel-national" placeholder="77 123 4567"') + '</div>', { hint: 'The shop will call or WhatsApp you on this number.' }) +
+            fld('em', 'Email <span class="opt">(optional)</span>', inp('em', 'type="email" inputmode="email" autocomplete="email" placeholder="For your receipt and tracking"')) +
+            '<label class="check span2"><input type="checkbox" id="waSame"' + (st.waSame ? ' checked' : '') + '><span>My WhatsApp number is the same</span></label>' +
+            (st.waSame ? '' : fld('wa', 'WhatsApp number', inp('wa', 'type="tel" inputmode="tel" placeholder="077 123 4567"'), { cls: 'span2' })) +
+            '</div></div>';
+        };
+
+        V.delivery = function () {
+          var m = money(), pick = st.method === 'pickup';
+          var stdRight = m.freeReached ? 'Free' : (d.fee ? rs(d.fee) : 'Free');
+          return '<div class="vhead"><h1 id="v-title" tabindex="-1">Delivery</h1><p>Choose how you would like to get your order.</p></div>' +
+            '<section class="panel" aria-labelledby="dm-h"><h2 id="dm-h">Delivery method</h2><div class="choices" role="radiogroup" aria-labelledby="dm-h">' +
+            choice('method', 'delivery', 'Islandwide delivery', 'By courier to your door' + (d.freeAbove > 0 && !m.freeReached ? ' · free above ' + rs(d.freeAbove) : ''), 'truck', st.method, stdRight) +
+            (d.pickup ? choice('method', 'pickup', 'Pick up from the shop', K.esc(S.address || S.city || 'Collect in person'), 'store', st.method, 'Free') : '') +
+            '</div></section>' +
+            '<section class="panel" aria-labelledby="ad-h"><h2 id="ad-h">' + (pick ? 'Your address' : 'Delivery address') + '</h2>' + (pick ? '<p class="hint-t" style="margin:-6px 0 12px">Kept on your order for the shop\'s records.</p>' : '') + '<div class="fgrid two">' +
+            fld('ad', 'House no. and street', inp('ad', 'autocomplete="street-address" placeholder="e.g. 45/2, Temple Road"'), { cls: 'span2' }) +
+            (pick ? '' : fld('ct', 'Town or city', inp('ct', 'autocomplete="address-level2" placeholder="e.g. Peradeniya"')) +
+              fld('ds', 'District', '<select class="select" id="ds"' + (st.errs.ds ? ' aria-invalid="true" aria-describedby="err-ds"' : '') + '><option value="">Choose district</option>' + DISTRICTS.map(function (x) { return '<option' + (st.f.ds === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select>') +
+              fld('lm', 'Nearby landmark <span class="opt">(optional)</span>', inp('lm', 'placeholder="e.g. Opposite the temple"'), { cls: 'span2', hint: 'Helps the rider find you faster.' })) +
+            '</div></section>' +
+            (pick ? '<section class="panel"><h2>Pickup location</h2><div class="info">' + ic('pin') + '<p><b>' + K.esc(S.name) + '</b><br>' + K.esc(S.address || S.city || '') + '<br>Bring your order number.</p></div></section>' : '');
+        };
+
+        function bankBox(total) {
+          var a = S.bankAccount || {};
+          var rows = [['Bank', a.bankName], ['Branch', a.branch], ['Account no.', a.accountNo, true], ['Account name', a.holder]].filter(function (r) { return r[1]; });
+          if (!rows.length && !S.bank) return '';
+          return '<div class="bankbox"><h3>Transfer to this account</h3>' +
+            (rows.length ? rows.map(function (r) { return '<div class="brow"><span>' + r[0] + '</span><b>' + K.esc(r[1]) + (r[2] ? '<button type="button" class="copy" data-act="copy" data-copy="' + K.esc(r[1]) + '">Copy</button>' : '') + '</b></div>'; }).join('') : '<p>' + K.esc(S.bank) + '</p>') +
+            '<div class="brow"><span>Amount</span><b>' + rs(total) + '<button type="button" class="copy" data-act="copy" data-copy="' + Math.round(total) + '">Copy</button></b></div>' +
+            '<p class="hint-t">Place the order now, then send the slip on WhatsApp with your order number.</p></div>';
+        }
+        V.payment = function () {
+          var m = money(), pick = st.method === 'pickup';
+          var opts = [];
+          if (pays.card) opts.push(choice('pay', 'card', 'Card payment', 'Visa, Mastercard or Amex. Secure checkout by OnePay.', 'card', st.pay));
+          if (pays.cod) opts.push(choice('pay', 'cod', payName('cod'), pick ? 'Pay in cash when you collect.' : 'Pay the rider in cash when your parcel arrives.', 'cash', st.pay, pick ? '' : 'Popular'));
+          if (pays.bank) opts.push(choice('pay', 'bank', 'Bank transfer', 'Online banking, ATM or CDM. Then share the slip.', 'bank', st.pay));
+          return '<div class="vhead"><h1 id="v-title" tabindex="-1">Payment</h1><p>Pay the way that suits you.</p></div>' +
+            '<section class="panel" aria-labelledby="pm-h"><h2 id="pm-h">Payment method</h2><div class="choices" role="radiogroup" aria-labelledby="pm-h">' + opts.join('') + '</div>' +
+            (st.pay === 'cod' ? '<div class="info">' + ic('cash') + '<p>Please keep <b>' + rs(m.total) + '</b> ready. Riders carry limited change.</p></div>' : '') +
+            (st.pay === 'bank' ? bankBox(m.total) : '') +
+            (st.pay === 'card' ? '<div class="info">' + ic('lock') + '<p>You will pay <b>' + rs(m.total) + '</b> on OnePay\'s secure page, then come straight back here.</p></div>' +
+              (st.f.em && !st.errs.em ? '' : '<div class="fgrid" style="margin-top:12px">' + fld('em', 'Email for your receipt', inp('em', 'type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"'), { hint: 'OnePay and the shop send your payment receipt here.' }) + '</div>') : '') +
+            '</section>';
+        };
+
+        function termsHtml() {
+          var t = (S.policies || []).filter(function (x) { return x.key === 'terms'; })[0];
+          if (!t) return '';
+          var e = st.errs.terms;
+          return '<label class="check' + (e ? ' bad' : '') + '" style="margin-top:12px"><input type="checkbox" id="agree"' + (st.f.agree ? ' checked' : '') + (e ? ' aria-invalid="true" aria-describedby="err-terms"' : '') + ' required><span>I agree to the <a href="/store/policy?s=' + encodeURIComponent(S.slug) + '&p=terms" target="_blank" rel="noopener">Terms &amp; Conditions</a></span></label>' +
+            (e ? '<p class="err" id="err-terms" role="alert">' + K.esc(e) + '</p>' : '');
+        }
+        V.review = function () {
+          var f = st.f, m = money(), ls = lines(), pick = st.method === 'pickup';
+          var phone = '+94 ' + String(f.ph || '').replace(/^(\+94|94|0)/, '');
+          var addr = pick ? 'Pickup at ' + (S.address || S.city || 'the shop') : [f.ad, f.ct, f.ds].filter(Boolean).join(', ') + (f.lm ? ' (near ' + f.lm + ')' : '');
+          return '<div class="vhead"><h1 id="v-title" tabindex="-1">Review your order</h1><p>Check everything, then place your order.</p></div>' +
+            '<section class="panel">' +
+            '<div class="rv"><h3>Contact</h3><p>' + K.esc(f.fn) + ' · ' + K.esc(phone) + (f.em ? ' · ' + K.esc(f.em) : '') + '<br><span style="color:var(--sf-muted);font-size:14px">WhatsApp: ' + (st.waSame ? 'same number' : K.esc(f.wa)) + '</span></p><button type="button" class="link" data-act="go" data-step="details">Edit</button></div>' +
+            '<div class="rv"><h3>Delivery</h3><p><b>' + (pick ? 'Pick up from the shop' : 'Islandwide delivery') + '</b><br><span style="color:var(--sf-muted);font-size:14px">' + K.esc(addr) + '</span></p><button type="button" class="link" data-act="go" data-step="delivery">Edit</button></div>' +
+            '<div class="rv"><h3>Payment</h3><p>' + payName(st.pay) + '</p><button type="button" class="link" data-act="go" data-step="payment">Edit</button></div>' +
+            '<div class="rv"><h3>Items (' + count() + ')</h3><p>' + ls.map(function (l) { return K.esc(l.i.qty + ' × ' + l.p.name) + (optTxt(l.i) ? ' <span style="color:var(--sf-muted)">(' + K.esc(optTxt(l.i)) + ')</span>' : ''); }).join('<br>') + '</p><button type="button" class="link" data-act="go" data-step="cart">Edit</button></div>' +
+            '</section><section class="panel">' + fld('nt', 'Note for the shop <span class="opt">(optional)</span>', '<textarea class="input" id="nt" placeholder="e.g. Gift wrap please, or call before delivery">' + K.esc(f.nt || '') + '</textarea>') +
+            termsHtml() + '<p class="hint-t" style="margin-top:10px">You will pay <b>' + rs(m.total) + '</b>.</p></section>';
+        };
+
+        function tracker(status) {
+          var FLOW = ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED'], NAMES = ['Placed', 'Confirmed', 'Shipped', 'Delivered'];
+          var at = Math.max(0, FLOW.indexOf(status === 'PROCESSING' || status === 'READY_TO_SHIP' ? 'CONFIRMED' : status));
+          return '<ol class="tracker" aria-label="Order status">' + NAMES.map(function (n, i) { return '<li class="' + (i <= at ? 'on' : '') + '"><span class="dot">' + (i <= at ? '✓' : i + 1) + '</span>' + n + '</li>'; }).join('') + '</ol>';
+        }
+        V.done = function () {
+          var o = st.order; if (!o) return '';
+          var first = (o.name || '').trim().split(' ')[0] || 'friend', bank = o.pay === 'bank';
+          var msg = 'Hello ' + S.name + ', I placed order ' + o.code + '.\n\n' + o.items.map(function (i) { return i.qty + ' × ' + i.name + ': ' + rs(i.qty * i.price); }).join('\n') + '\n\nTotal: ' + rs(o.total) + '\nPayment: ' + payName(o.pay) + '\nName: ' + o.name + ' · ' + o.phone + (bank ? '\n\nI am sending the payment slip here.' : '');
+          return '<div class="thanks"><div class="ok-ic">' + ic('check') + '</div>' +
+            '<h1 id="done-h" tabindex="-1">Thank you, ' + K.esc(first) + '! Your order is placed 🎉</h1>' +
+            '<p style="color:var(--sf-muted)">Order <b style="color:var(--sf-ink)">' + K.esc(o.code) + '</b> · ' + K.esc(S.name) + ' will confirm it with you soon.</p>' + tracker('PENDING') +
+            (bank ? bankBox(o.total).replace('<div class="bankbox"><h3>Transfer to this account</h3>', '<div class="bankbox" style="text-align:left"><h3>Complete your payment</h3><p style="font-size:14px">Use <b>' + K.esc(o.code) + '</b> as the payment reference.</p>') : '') +
+            (S.whatsapp ? '<a class="btn btn-wa btn-block" target="_blank" rel="noopener" href="' + K.wa(S, msg) + '">' + SF.WA + (bank ? 'Send payment slip on WhatsApp' : 'Send order details on WhatsApp') + '</a>' : '') +
+            (o.statusUrl ? '<a class="btn btn-soft btn-block" href="' + K.esc(o.statusUrl) + '">Track this order</a>' : '') +
+            '<section class="panel"><h2>Order summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li><span class="mini-img"><span class="ph">' + K.esc(K.initials(i.name)) + '</span><b>' + i.qty + '</b></span><span class="mini-n">' + K.esc(i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
+            '<div class="rows" style="margin-bottom:0"><div><span>Subtotal</span><span>' + rs(o.subtotal) + '</span></div>' + (o.discount ? '<div class="disc"><span>Discount</span><span>− ' + rs(o.discount) + '</span></div>' : '') + '<div><span>' + (o.pickup ? 'Pickup' : 'Delivery') + '</span><span' + (o.delivery ? '' : ' class="free"') + '>' + (o.delivery ? rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span>' + rs(o.total) + '</span></div></div>' +
+            '<p class="hint-t">Save the tracking link to check your order any time.</p></section>' +
+            '<a class="btn btn-ghost" href="' + SF.homeUrl(S.slug) + '">Continue shopping</a></div>';
+        };
+
+        /* ---------- Summary ---------- */
+        function summaryHtml() {
+          var m = money(), ls = lines();
+          var feeTxt = m.fee === 0 ? '<span class="free">Free</span>' : rs(m.fee);
+          var promo = st.promo
+            ? '<div class="promo-on"><span>🏷️ <b>' + K.esc(st.promo.code) + '</b> · ' + rs(m.disc) + ' off</span><button type="button" class="link danger" data-act="promo-rm">Remove</button></div>'
+            : '<div class="promo"><label for="promo">Promo code</label><div class="promo-row"><input class="input" id="promo" placeholder="Enter code" autocomplete="off"' + (st.promoErr ? ' aria-invalid="true" aria-describedby="promo-err"' : '') + '><button type="button" class="btn btn-soft" data-act="promo">Apply</button></div>' + (st.promoErr ? '<p class="err" id="promo-err">' + K.esc(st.promoErr) + '</p>' : '') + '</div>';
+          return '<div class="panel sum-panel"><h2>Order summary</h2>' +
+            (st.step !== 'cart' && ls.length ? '<ul class="mini">' + ls.map(function (l) { return '<li><span class="mini-img">' + SF.media(l.p) + '<b>' + l.i.qty + '</b></span><span class="mini-n">' + K.esc(l.p.name) + '<small>' + K.esc(optTxt(l.i)) + '</small></span><span>' + rs(K.linePrice(l.p, l.i) * l.i.qty) + '</span></li>'; }).join('') + '</ul>' : '') +
+            promo +
+            '<div class="rows" aria-live="polite"><div><span>Subtotal (' + count() + ' ' + (count() === 1 ? 'item' : 'items') + ')</span><span>' + rs(m.sub) + '</span></div>' +
+            (m.disc ? '<div class="disc"><span>Discount</span><span>− ' + rs(m.disc) + '</span></div>' : '') +
+            '<div><span>' + (st.method === 'pickup' ? 'Pickup' : 'Delivery') + '</span><span>' + feeTxt + '</span></div>' +
+            '<div class="grand"><span>Total</span><span>' + rs(m.total) + '</span></div></div>' +
+            '<button type="button" class="btn btn-primary btn-block hide-m" data-act="next"' + (ls.length ? '' : ' disabled') + ' style="min-height:54px">' + ctaLabel() + '</button>' +
+            (st.step !== 'cart' ? '<button type="button" class="btn btn-ghost btn-block hide-m" data-act="back">← Back</button>' : '') +
+            '</div>';
+        }
+
+        /* ---------- Render ---------- */
+        function render() {
+          var done = st.step === 'done', cur = STEPS.indexOf(st.step);
+          $('#steps').parentNode.hidden = done;
+          $('#steps').innerHTML = STEPS.map(function (s, i) {
+            var cls = i === cur ? 's-cur' : (i < cur || i <= st.reach) ? 's-done' : '';
+            var inner = '<span class="n">' + (cls === 's-done' ? '✓' : i + 1) + '</span><span class="sl">' + LABELS[s] + '</span>';
+            return '<li class="' + cls + '">' + (cls === 's-done' ? '<button type="button" class="stp" data-act="go" data-step="' + s + '" aria-label="Go to ' + LABELS[s] + '">' + inner + '</button>' : '<span class="stp"' + (i === cur ? ' aria-current="step"' : '') + '>' + inner + '</span>') + '</li>';
+          }).join('');
+          $('#view').innerHTML = V[st.step]();
+          $('#summary').innerHTML = done ? '' : summaryHtml();
+          $('#summary').hidden = done;
+          document.querySelector('.layout').style.gridTemplateColumns = done ? '1fr' : '';
+          var n = count();
+          $('#bar').hidden = done || !n;
+          document.body.classList.toggle('has-bar', !done && !!n);
+          $('#bar-items').textContent = n + (n === 1 ? ' item' : ' items') + ' · Total';
+          $('#bar-total').textContent = rs(money().total);
+          $('#bar-btn').textContent = st.step === 'review' ? (st.pay === 'card' ? 'Pay now' : 'Place order') : ctaLabel();
+          document.title = (done ? 'Order placed' : LABELS[st.step]) + ' | ' + S.name;
+          SF.updateCart();
+        }
+        function goStep(s) {
+          st.step = s; st.errs = {}; var i = STEPS.indexOf(s); if (i > st.reach) st.reach = i;
+          save(); render(); window.scrollTo({ top: 0, behavior: 'smooth' });
+          var h = $('#v-title') || $('#done-h'); if (h) h.focus({ preventScroll: true });
+        }
+
+        /* ---------- Validation ---------- */
+        function clean(v) { return String(v || '').replace(/[\s-]/g, ''); }
+        function validate(step) {
+          var e = {}, f = st.f;
+          if (step === 'cart') {
+            var bad = lines().filter(function (l) { return lineStock(l) <= 0; });
+            if (bad.length) { SF.toast('Remove sold-out items to continue'); e.cart = 1; }
+          }
+          if (step === 'details') {
+            if (!String(f.fn || '').trim()) e.fn = 'Please enter your full name.';
+            if (!clean(f.ph)) e.ph = 'We need your mobile number to confirm the order.'; else if (!PHONE.test(clean(f.ph))) e.ph = 'Enter a Sri Lankan mobile number, e.g. 77 123 4567.';
+            if (!st.waSame && !PHONE.test(clean(f.wa))) e.wa = 'Enter a valid WhatsApp number.';
+            if (f.em && !/^\S+@\S+\.\S+$/.test(f.em)) e.em = 'This email does not look right.';
+          }
+          if (step === 'delivery') {
+            if (!String(f.ad || '').trim()) e.ad = 'Please enter your house number and street.';
+            if (st.method !== 'pickup') { if (!String(f.ct || '').trim()) e.ct = 'Please enter your town or city.'; if (!f.ds) e.ds = 'Please choose your district.'; }
+          }
+          if (step === 'payment' && PAY_OPTS.indexOf(st.pay) < 0) e.pay = 'Choose a payment method.';
+          if (step === 'payment' && st.pay === 'card' && !/^\S+@\S+\.\S+$/.test(f.em || '')) e.em = 'Enter your email to pay by card.';
+          if (step === 'review' && termsHtml() && !f.agree) e.terms = 'Please agree to the Terms & Conditions to place your order.';
+          st.errs = e;
+          if (Object.keys(e).length) {
+            render();
+            var firstBad = $('[aria-invalid="true"]'); if (firstBad) { firstBad.focus(); firstBad.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+            return false;
+          }
+          return true;
+        }
+        function next() {
+          if (!lines().length) return;
+          var i = STEPS.indexOf(st.step);
+          if (!validate(st.step)) return;
+          if (st.step === 'review') return place();
+          goStep(STEPS[i + 1]);
+        }
+
+        /* ---------- Place the order ---------- */
+        var placing = false;
+        function place() {
+          if (placing) return; placing = true;
+          var f = st.f, ls = lines(), m = money(), pick = st.method === 'pickup';
+          var btns = $$('[data-act="next"]'); btns.forEach(function (b) { b.disabled = true; b.textContent = st.pay === 'card' ? 'Opening secure payment…' : 'Placing order…'; });
+          var body = {
+            customer: f.fn.trim(), phone: '0' + clean(f.ph).replace(/^(\+94|94|0)/, ''), whatsapp: st.waSame ? '' : f.wa, email: f.em || '',
+            address: f.ad.trim() + (f.lm && !pick ? ' (near ' + f.lm.trim() + ')' : ''), city: pick ? 'Pickup' : f.ct, district: pick ? '' : f.ds,
+            delivery: pick ? 'Pickup' : 'Delivery', payment: payName(st.pay), paymentMethod: st.pay, note: f.nt || '',
+            coupon: st.promo ? st.promo.code : '', acceptTerms: !!f.agree, attribution: SF.attribution() || {},
+            items: ls.map(function (l) { return { pid: l.p.id, qty: l.i.qty, variant: lineLabel(l.i) }; })
+          };
+          function finish(res) {
+            var od = res.order || {};
+            st.order = { code: res.code, name: f.fn, phone: body.phone, pay: st.pay, pickup: pick, items: od.items && od.items.length ? od.items : ls.map(function (l) { return { name: l.p.name, qty: l.i.qty, price: K.linePrice(l.p, l.i) }; }),
+              subtotal: od.subtotal != null ? od.subtotal : m.sub, discount: od.discount || m.disc, delivery: od.delivery != null ? od.delivery : m.fee, total: od.total != null ? od.total : m.total, statusUrl: res.statusUrl || '' };
+            K.cart.clear(S.slug); st.promo = null; st.reach = 0; st.f.nt = ''; st.f.agree = false;
+            placing = false; goStep('done');
+          }
+          if (!API) return finish({ code: 'ORD-' + Math.floor(10000 + Math.random() * 90000) });
+          KadeApi.placeOrder(S.slug, body).then(function (res) {
+            if (res.payment && res.payment.redirectUrl) { K.cart.clear(S.slug); location.href = res.payment.redirectUrl; return; } // card: same window
+            finish(res);
+          }).catch(function (ex) {
+            placing = false; render(); SF.toast(ex.message || 'Could not place your order. Please try again.');
+          });
+        }
+
+        /* ---------- Events ---------- */
+        document.addEventListener('input', function (e) {
+          var t = e.target; if (!t.id || t.closest('#sf-header')) return;
+          if (t.id === 'promo') return;
+          if (t.type === 'checkbox') return;
+          st.f[t.id] = t.value;
+          if (st.errs[t.id]) { delete st.errs[t.id]; var fl = t.closest('.fld'); if (fl) { fl.classList.remove('bad'); var er = fl.querySelector('.err'); if (er) er.remove(); } t.removeAttribute('aria-invalid'); }
+          save();
         });
-        if (first) { first.focus(); return; }
-        var ls = lines(), m = money(), v = function (id) { var x = document.getElementById(id); return x ? x.value.trim() : ''; };
-        var n = 10453 + K.newOrders.get().length;
-        var order = { id: 'ORD-' + n, business: s.slug, date: D.today, customer: v('fn'), phone: v('ph'), city: method === 'pickup' ? 'Pickup' : v('ct'), address: v('ad'), items: ls.map(function (l) { var o = optTxt(l.i.opts); return { name: l.p.name + (o ? ' (' + o + ')' : ''), qty: l.i.qty, price: K.priceOf(l.p) }; }), subtotal: m.sub, delivery: m.fee, total: m.total, status: 'PENDING', payment: pay === 'cod' ? 'Cash on delivery' : 'Bank transfer', note: v('nt') };
-        K.newOrders.add(order); K.cart.clear(s.slug); K.updateCartCount();
-        var msg = 'Hello ' + s.name + ', I placed order ' + order.id + ' (' + K.rs(order.total) + ').' + (pay === 'bank' ? ' I am sending the payment slip.' : '');
-        main.innerHTML = '<div class="stack-lg" style="max-width:560px;margin:0 auto;padding:48px 0" role="status"><div class="kd-banner kd-banner--success"><svg class="success-check" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="26"/><path d="M19 31l7 7 15-16"/></svg><div><p class="kd-banner__title">Order placed</p><p style="margin-top:4px">Your order number is <strong class="price-sm">' + order.id + '</strong>. ' + K.esc(s.name) + ' will confirm it shortly.</p></div></div>' +
-          '<div class="kd-card panel"><h2 class="heading">Summary</h2><ul class="list">' + order.items.map(function (i) { return '<li><span>' + i.qty + ' &times; ' + K.esc(i.name) + '</span><span class="price-sm">' + K.rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul><div class="totals"><div><span>Delivery</span><span class="price-sm">' + (order.delivery ? K.rs(order.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span class="price">' + K.rs(order.total) + '</span></div></div><p class="muted">' + K.esc(order.payment) + (pay === 'bank' ? '. Send the amount to ' + K.esc(s.bank) + '.' : '.') + '</p></div>' +
-          '<div class="row"><a class="kd-btn kd-btn--primary" href="' + K.wa(s, msg) + '" target="_blank" rel="noopener">Message the shop on WhatsApp</a><a class="kd-btn kd-btn--ghost" href="' + K.sUrl('index.html') + '">Keep shopping</a></div></div>';
-        main.focus(); window.scrollTo({ top: 0 });
-      });
-      view(); K.reveal();
+        document.addEventListener('change', function (e) {
+          var t = e.target;
+          if (t.name === 'method') { st.method = t.value; save(); render(); }
+          else if (t.name === 'pay') { st.pay = t.value; save(); render(); }
+          else if (t.id === 'waSame') { st.waSame = t.checked; save(); render(); }
+          else if (t.id === 'agree') { st.f.agree = t.checked; if (t.checked) delete st.errs.terms; save(); render(); }
+          else if (t.id === 'ds') { st.f.ds = t.value; save(); }
+        });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.id === 'promo') { e.preventDefault(); applyPromo(); } });
+        function applyPromo() {
+          var code = ($('#promo') || {}).value || ''; code = code.trim();
+          if (!code) { st.promoErr = 'Enter a code.'; render(); return; }
+          if (!API) { st.promoErr = 'That code is not valid.'; render(); return; }
+          KadeApi.applyCoupon(S.slug, code, money().sub).then(function (r) {
+            if (r.valid) { st.promo = { code: r.code, discount: r.discount }; st.promoErr = ''; SF.toast('Code applied'); } else st.promoErr = r.message || 'That code is not valid.';
+            save(); render();
+          }).catch(function (ex) { st.promoErr = ex.message || 'Could not check the code.'; render(); });
+        }
+        document.addEventListener('click', function (e) {
+          var b = e.target.closest('[data-act]'); if (!b) return;
+          var act = b.getAttribute('data-act'), k = +b.getAttribute('data-k'), items = K.cart.get(S.slug);
+          if (act === 'next') next();
+          else if (act === 'back') goStep(STEPS[Math.max(0, STEPS.indexOf(st.step) - 1)]);
+          else if (act === 'go') goStep(b.getAttribute('data-step'));
+          else if (act === 'inc' || act === 'dec') {
+            var l = lines().filter(function (x) { return x.k === k; })[0]; if (!l) return;
+            var max = Math.min(lineStock(l), 20);
+            if (act === 'inc' && items[k].qty >= max) { SF.toast('That is all we have in stock'); return; }
+            items[k].qty = act === 'inc' ? items[k].qty + 1 : Math.max(1, items[k].qty - 1);
+            K.cart.set(S.slug, items); refreshPromo(); render();
+          } else if (act === 'rm') { items.splice(k, 1); K.cart.set(S.slug, items); refreshPromo(); render(); SF.toast('Removed from your cart'); }
+          else if (act === 'save') { st.saved.push(items[k]); items.splice(k, 1); K.cart.set(S.slug, items); save(); refreshPromo(); render(); SF.toast('Saved for later'); }
+          else if (act === 'move') { K.cart.add(S.slug, st.saved[k]); st.saved.splice(k, 1); save(); refreshPromo(); render(); }
+          else if (act === 'unsave') { st.saved.splice(k, 1); save(); render(); }
+          else if (act === 'rec') { K.cart.add(S.slug, { pid: b.getAttribute('data-id'), opts: {}, qty: 1 }); refreshPromo(); render(); SF.toast('Added to your cart'); }
+          else if (act === 'promo') applyPromo();
+          else if (act === 'promo-rm') { st.promo = null; save(); render(); }
+          else if (act === 'copy') { var v = b.getAttribute('data-copy'); if (navigator.clipboard) navigator.clipboard.writeText(v).then(function () { SF.toast('Copied'); }); else SF.toast(v); }
+        });
+        // Re-check an applied coupon when the cart changes (minimums, percentage).
+        function refreshPromo() {
+          if (!st.promo || !API) return;
+          KadeApi.applyCoupon(S.slug, st.promo.code, money().sub).then(function (r) {
+            st.promo = r.valid ? { code: r.code, discount: r.discount } : null;
+            if (!r.valid) SF.toast(r.message || 'Your code no longer applies');
+            save(); render();
+          }).catch(function () {});
+        }
+        refreshPromo();
+        render();
+      }, { checkout: true });
     })();
   </script>
 </body>

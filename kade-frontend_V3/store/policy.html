@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <title>Store policy</title>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/storefront.css">
+</head>
+<body>
+  <a class="sf-skip" href="#main">Skip to content</a>
+  <div id="sf-header"></div>
+  <main id="main" class="wrap" tabindex="-1"><div class="doc"><div class="skeleton" style="height:320px;margin-top:24px"></div></div></main>
+  <div id="sf-footer"></div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/md.js"></script>
+  <script src="../js/store.js"></script>
+  <script>
+    (function () {
+      var K = Kade, q = new URLSearchParams(location.search), slug = K.slug(), kind = q.get('p') || 'terms';
+      var main = document.getElementById('main');
+      document.documentElement.classList.add('sf');
+      function tabs() {
+        return '<nav class="doc-tabs" aria-label="Store policies">' + SF.POLICY_LINKS.map(function (l) {
+          return '<a href="?s=' + encodeURIComponent(slug) + '&p=' + l.key + '"' + (l.key === kind ? ' aria-current="page"' : '') + '>' + K.esc(l.title) + '</a>';
+        }).join('') + '</nav>';
+      }
+      if (!(window.KadeApi && KadeApi.enabled)) { main.innerHTML = '<div class="doc"><h1>Store policies</h1><p>Open this page on the live site to read the policy.</p></div>'; return; }
+      KadeApi.storePolicy(slug, kind).then(function (r) {
+        var s = Object.assign({ policies: SF.POLICY_LINKS, payments: {}, delivery: {} }, r.store);
+        if (r.contact) s.contact = { email: r.contact.email, phone: r.contact.phone, address: r.contact.address };
+        SF.chrome(s, {});
+        document.title = r.title + ' | ' + s.name;
+        var body;
+        if (kind === 'contact') {
+          var c = r.contact;
+          body = '<div class="content"><h2>' + K.esc(c.businessName) + '</h2><ul style="list-style:none;padding:0;display:grid;gap:12px">' +
+            (c.address ? '<li>' + SF.ic('pin', 'ic-sm') + ' <b>Address</b><br>' + K.esc(c.address) + '</li>' : '') +
+            (c.email ? '<li>✉️ <b>Email</b><br><a href="mailto:' + K.esc(c.email) + '">' + K.esc(c.email) + '</a></li>' : '') +
+            (c.phone ? '<li>📞 <b>Phone</b><br><a href="tel:' + K.esc(c.phone.replace(/\s/g, '')) + '">' + K.esc(c.phone) + '</a></li>' : '') +
+            (c.whatsapp ? '<li>' + SF.WA.replace('class="ic"', 'class="ic ic-sm"') + ' <b>WhatsApp</b><br><a href="' + K.wa({ whatsapp: c.whatsapp }, 'Hello ' + c.businessName) + '" target="_blank" rel="noopener">' + K.esc(c.whatsapp) + '</a></li>' : '') +
+            '</ul></div>';
+        } else {
+          body = '<div class="content">' + SF.md(r.content) + '</div>';
+        }
+        main.innerHTML = '<article class="doc"><nav class="crumbs" aria-label="Breadcrumb"><a href="' + SF.homeUrl(s.slug) + '">' + SF.ic('back', 'ic-sm') + K.esc(s.name) + '</a></nav>' + tabs() +
+          '<h1>' + K.esc(r.title) + '</h1>' + (r.updatedAt ? '<p class="updated">Last updated ' + K.fmtDate(String(r.updatedAt).slice(0, 10)) + '</p>' : '<p class="updated">' + K.esc(s.name) + '</p>') + body + '</article>';
+      }).catch(function (e) {
+        main.innerHTML = '<div class="empty"><h1>' + (e && e.status === 404 ? 'Page not found' : 'Could not load this page') + '</h1><a class="btn btn-soft" href="/">Visit Sidadiya</a></div>';
+      });
+    })();
+  </script>
+</body>
+</html>

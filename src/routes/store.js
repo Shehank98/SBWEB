@@ -1,20 +1,43 @@
 import { Router } from 'express';
 import { query, withTransaction } from '../db/pool.js';
-import { wrap, badRequest, notFound } from '../utils/http.js';
+import { wrap, badRequest, notFound, HttpError } from '../utils/http.js';
 import { orderCode } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { evalCoupon } from '../services/coupons.js';
+import { LIVE_STATUSES } from '../services/plan.js';
+import { POLICY_KINDS, TITLES, loadPolicies } from '../services/policies.js';
+import { cardAvailability, shopOnePayCreds } from '../services/gateways.js';
+import { createCheckout, toE164, splitName } from '../services/onepay.js';
+import { returnUrl, settleFailure } from '../services/cardPayments.js';
+import { classify, recordVisit } from '../services/traffic.js';
+import { config } from '../config.js';
+
+const OWN_HOST = (() => { try { return new URL(config.publicBaseUrl).hostname.replace(/^www\./, ''); } catch { return null; } })();
+const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|preview|curl|wget|headless/i;
+// Tiny per-IP limiter for the visit beacon (best effort, in memory).
+const beaconHits = new Map();
+function beaconAllowed(ip) {
+  const now = Date.now(), w = 60000;
+  if (beaconHits.size > 20000) beaconHits.clear();
+  const r = beaconHits.get(ip) || { c: 0, t: now };
+  if (now - r.t > w) { r.c = 0; r.t = now; }
+  r.c += 1; beaconHits.set(ip, r);
+  return r.c <= 60;
+}
+import { randomBytes } from 'crypto';
 
 export const storeRouter = Router();
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Statuses in which the storefront is visible to customers.
-const LIVE = new Set(['ACTIVE', 'EXPIRING', 'GRACE_PERIOD']);
+// Statuses in which the storefront is visible to customers (includes TRIAL; a
+// TRIAL_EXPIRED shop is locked for buyers until the seller pays).
+const LIVE = LIVE_STATUSES;
 
 async function loadStore(slug) {
   const row = (
     await query(
-      `SELECT st.*, b.status AS business_status, b.id AS biz_id, b.name AS biz_name, b.email AS biz_email
+      `SELECT st.*, b.status AS business_status, b.id AS biz_id, b.name AS biz_name, b.email AS biz_email, b.verification_status
          FROM stores st JOIN businesses b ON b.id = st.business_id
         WHERE st.slug = $1`,
       [slug]
@@ -33,14 +56,145 @@ storeRouter.get(
     const cats = (await query('SELECT name FROM categories WHERE business_id=$1 ORDER BY sort_order, name', [st.biz_id])).rows.map((r) => r.name);
     const store = S.storePublic(st, cats);
     store.status = st.business_status;
+    // Shown as the "Verified Sri Lankan Business" seal on the store header and product pages.
+    store.verified = st.verification_status === 'VERIFIED';
 
     if (!LIVE.has(st.business_status)) {
       return res.json({ store, products: [], available: false });
     }
     const products = (
-      await query(`SELECT *, $2::text AS store_slug FROM products WHERE business_id=$1 AND status='ACTIVE' ORDER BY created_at DESC`, [st.biz_id, st.slug])
+      await query(
+        `SELECT p.*, $2::text AS store_slug, r.avg_rating, r.review_count
+           FROM products p
+           LEFT JOIN (SELECT product_id, ROUND(AVG(rating)::numeric, 1) avg_rating, COUNT(*) review_count
+                        FROM product_reviews WHERE business_id = $1 AND status = 'PUBLISHED' GROUP BY product_id) r
+             ON r.product_id = p.id
+          WHERE p.business_id=$1 AND p.status='ACTIVE' ORDER BY p.created_at DESC`,
+        [st.biz_id, st.slug]
+      )
     ).rows.map(S.product);
+    Object.assign(store, await storeRatings(st.biz_id));
+    // Card payments show at checkout only when the shop's gateway is on AND compliant.
+    store.payments.card = (await cardAvailability(st.biz_id)).available;
+    store.returnDays = st.return_days;
     res.json({ store, products, available: true });
+  })
+);
+
+// Store-level rating summary + the latest few reviews for the "What buyers say" strip.
+async function storeRatings(businessId) {
+  const agg = (await query(
+    `SELECT ROUND(AVG(rating)::numeric, 1) avg, COUNT(*) n FROM product_reviews WHERE business_id = $1 AND status = 'PUBLISHED'`,
+    [businessId]
+  )).rows[0];
+  const latest = (await query(
+    `SELECT rating, body, customer_name, product_name, created_at FROM product_reviews
+      WHERE business_id = $1 AND status = 'PUBLISHED' AND COALESCE(body, '') <> '' ORDER BY created_at DESC LIMIT 6`,
+    [businessId]
+  )).rows.map(S.review);
+  return { rating: { avg: agg.avg != null ? Number(agg.avg) : null, count: Number(agg.n) }, latestReviews: latest };
+}
+
+// POST /api/store/:slug/visit — storefront page-view beacon for traffic sources.
+// Body: { page, referrer, utm_source, utm_medium, utm_campaign, sid }. Always 204.
+storeRouter.post(
+  '/:slug/visit',
+  wrap(async (req, res) => {
+    res.status(204).end();
+    try {
+      if (BOT_UA.test(req.get('user-agent') || '') || !beaconAllowed(req.ip || '')) return;
+      const st = (await query('SELECT business_id FROM stores WHERE slug = $1', [req.params.slug])).rows[0];
+      if (!st) return;
+      const b = req.body || {};
+      const c = classify({ referrer: b.referrer, utmSource: b.utm_source, utmMedium: b.utm_medium, utmCampaign: b.utm_campaign, ownHost: OWN_HOST });
+      if (!c) return; // internal navigation, not a new visit
+      const page = ['home', 'product', 'cart', 'order', 'policy'].includes(b.page) ? b.page : 'home';
+      await recordVisit(st.business_id, { ...c, page, sessionId: /^[a-z0-9]{8,40}$/i.test(String(b.sid || '')) ? String(b.sid) : null });
+    } catch (e) { console.warn('[visit]', e.message); }
+  })
+);
+
+// GET /api/store/:slug/product/:id/reviews — published reviews for one product.
+storeRouter.get(
+  '/:slug/product/:id/reviews',
+  wrap(async (req, res) => {
+    const st = await loadStore(req.params.slug);
+    if (!LIVE.has(st.business_status) || !UUID_RE.test(req.params.id)) throw notFound('Product not found.');
+    const { rows } = await query(
+      `SELECT rating, body, customer_name, product_name, created_at FROM product_reviews
+        WHERE business_id = $1 AND product_id = $2 AND status = 'PUBLISHED' ORDER BY created_at DESC LIMIT 50`,
+      [st.biz_id, req.params.id]
+    );
+    res.json({ reviews: rows.map(S.review) });
+  })
+);
+
+// ---- Buyer order status page (no account: the private token from the order link) ----
+async function loadBuyerOrder(req) {
+  const st = await loadStore(req.params.slug);
+  const token = String(req.query.k || (req.body && req.body.k) || '');
+  if (!/^[a-f0-9]{16,64}$/.test(token)) throw notFound('Order not found.');
+  const order = (await query('SELECT * FROM orders WHERE business_id = $1 AND code = $2 AND public_token = $3', [st.biz_id, req.params.code, token])).rows[0];
+  if (!order) throw notFound('Order not found.');
+  return { st, order };
+}
+
+// GET /api/store/:slug/orders/:code?k=<token>
+storeRouter.get(
+  '/:slug/orders/:code',
+  wrap(async (req, res) => {
+    const { st, order } = await loadBuyerOrder(req);
+    const items = (await query('SELECT * FROM order_items WHERE order_id = $1', [order.id])).rows;
+    const history = (await query('SELECT status, created_at FROM order_status_history WHERE order_id = $1 ORDER BY created_at', [order.id])).rows;
+    const reviewed = new Set((await query('SELECT product_id FROM product_reviews WHERE order_id = $1', [order.id])).rows.map((r) => r.product_id));
+    res.json({ order: S.buyerOrder(order, items, history, reviewed), store: { name: st.name, slug: st.slug, phone: st.phone || '', whatsapp: st.whatsapp || '' } });
+  })
+);
+
+// POST /api/store/:slug/orders/:code/reviews?k=<token>  { reviews: [{ productId, rating, body }] }
+// Only for delivered orders; one review per product per order (later posts are ignored).
+storeRouter.post(
+  '/:slug/orders/:code/reviews',
+  wrap(async (req, res) => {
+    const { st, order } = await loadBuyerOrder(req);
+    if (order.status !== 'DELIVERED') throw badRequest('You can review your order once it has been delivered.');
+    const list = Array.isArray(req.body && req.body.reviews) ? req.body.reviews.slice(0, 50) : [];
+    if (!list.length) throw badRequest('Add a star rating first.');
+    const items = (await query('SELECT product_id, name FROM order_items WHERE order_id = $1 AND product_id IS NOT NULL', [order.id])).rows;
+    const byId = new Map(items.map((i) => [i.product_id, i.name]));
+    let saved = 0;
+    for (const r of list) {
+      const rating = Math.round(Number(r.rating));
+      if (!byId.has(r.productId) || !(rating >= 1 && rating <= 5)) continue;
+      const body = r.body ? String(r.body).trim().slice(0, 1000) : null;
+      const ins = await query(
+        `INSERT INTO product_reviews (business_id, product_id, order_id, product_name, rating, body, customer_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (order_id, product_id) DO NOTHING RETURNING id`,
+        [st.biz_id, r.productId, order.id, byId.get(r.productId).split(' (')[0], rating, body, order.customer_name]
+      );
+      saved += ins.rowCount;
+    }
+    if (!saved) throw badRequest('These products are already reviewed, or the rating is missing.');
+    res.status(201).json({ ok: true, saved });
+  })
+);
+
+// GET /api/store/:slug/policies/:kind — refund | privacy | return | terms | contact.
+// Always readable (even while a store is paused) so payment reviewers can check them.
+storeRouter.get(
+  '/:slug/policies/:kind',
+  wrap(async (req, res) => {
+    const st = await loadStore(req.params.slug);
+    const kind = req.params.kind;
+    const store = { name: st.name, slug: st.slug, preset: st.preset, logo: st.logo_url || null };
+    if (kind === 'contact') {
+      const { ctx } = await loadPolicies(st.biz_id);
+      return res.json({ store, key: 'contact', title: TITLES.contact, contact: { businessName: ctx.name, email: ctx.email, phone: ctx.phone, whatsapp: st.whatsapp || '', address: st.address || '', city: st.city || '' } });
+    }
+    if (!POLICY_KINDS.includes(kind)) throw notFound('Policy not found.');
+    const { policies } = await loadPolicies(st.biz_id);
+    const p = policies[kind];
+    res.json({ store, key: kind, title: p.title, content: p.content, updatedAt: p.updatedAt });
   })
 );
 
@@ -81,6 +235,8 @@ storeRouter.post(
     const body = req.body || {};
     const { customer, phone } = body;
     if (!customer || !phone) throw badRequest('Name and phone are required.');
+    // Checkout requires agreeing to the shop's Terms & Conditions.
+    if (body.acceptTerms !== true) throw badRequest('Please agree to the Terms & Conditions to place your order.');
     // Address is always required, regardless of delivery, pickup or payment method.
     if (!body.address || !String(body.address).trim()) throw badRequest('An address is required.');
     if (!Array.isArray(body.items) || !body.items.length) throw badRequest('Your cart is empty.');
@@ -111,6 +267,23 @@ storeRouter.post(
 
     const fee = st.delivery_free_above && subtotal >= st.delivery_free_above ? 0 : st.delivery_fee;
 
+    // Card payment (the shop's own OnePay account): only when the shop has it switched
+    // on and compliant. The order is created PENDING-payment, then the buyer is sent
+    // to OnePay; the webhook / return page verify and mark it PAID.
+    const card = body.paymentMethod === 'card';
+    let cardCreds = null;
+    if (card) {
+      const av = await cardAvailability(st.biz_id);
+      if (!av.available) throw badRequest('Card payments are not available at this store right now. Please choose another payment method.');
+      cardCreds = await shopOnePayCreds(st.biz_id);
+      if (!toE164(phone)) throw badRequest('Enter a Sri Lankan mobile number to pay by card.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(body.email || ''))) throw badRequest('Enter your email address to pay by card. OnePay sends your receipt there.');
+    }
+
+    // First-touch attribution captured by the storefront (source of the visit that led here).
+    const at = body.attribution || {};
+    const attr = classify({ referrer: at.referrer, utmSource: at.utm_source, utmMedium: at.utm_medium, utmCampaign: at.utm_campaign, ownHost: OWN_HOST }) || { source: 'direct' };
+
     const order = await withTransaction(async (client) => {
       // Apply a coupon if one was sent and is valid (re-checked server-side).
       let discount = 0;
@@ -128,11 +301,11 @@ storeRouter.post(
           created = (
             await client.query(
               `INSERT INTO orders (business_id, code, customer_name, phone, whatsapp, address, city, district,
-                                   delivery_method, payment_method, subtotal, delivery_fee, total, note, coupon_code, discount, customer_email)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING *`,
+                                   delivery_method, payment_method, subtotal, delivery_fee, total, note, coupon_code, discount, customer_email, terms_accepted_at)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, now()) RETURNING *`,
               [st.biz_id, orderCode(), customer, phone, body.whatsapp || null, body.address || null,
                body.city || null, body.district || null, body.delivery || 'Delivery',
-               body.payment || 'Cash on delivery', subtotal, fee, total, body.note || null, couponCode, discount, body.email || null]
+               card ? 'Card payment' : (body.payment || 'Cash on delivery'), subtotal, fee, total, body.note || null, couponCode, discount, body.email || null]
             )
           ).rows[0];
         } catch (e) {
@@ -162,6 +335,14 @@ storeRouter.post(
         }
       }
       await client.query('INSERT INTO order_status_history (order_id, status) VALUES ($1, $2)', [created.id, 'PENDING']);
+      await client.query('UPDATE orders SET source=$2, medium=$3, campaign=$4 WHERE id=$1', [created.id, attr.source, attr.medium, attr.campaign]);
+      if (card) {
+        await client.query(`UPDATE orders SET payment_status='PENDING' WHERE id=$1`, [created.id]);
+        created.gatewayTx = (await client.query(
+          `INSERT INTO gateway_transactions (kind, business_id, order_id, reference, amount, mode) VALUES ('ORDER',$1,$2,$3,$4,$5) RETURNING *`,
+          [st.biz_id, created.id, `${created.code}-${randomBytes(3).toString('hex').toUpperCase()}`, created.total, cardCreds.mode]
+        )).rows[0];
+      }
 
       // Notify the store owner of the new order. The customer is not emailed at
       // placement: they receive a branded email only when the shop confirms the
@@ -173,6 +354,35 @@ storeRouter.post(
       return created;
     });
 
-    res.status(201).json({ order: S.order(order, lines), code: order.code });
+    let payment = null;
+    if (card) {
+      const tx = order.gatewayTx;
+      try {
+        const name = splitName(customer);
+        const out = await createCheckout(cardCreds, {
+          amount: order.total,
+          reference: tx.reference,
+          customer: { firstName: name.first, lastName: name.last, phone, email: body.email },
+          redirectUrl: returnUrl(tx.reference),
+          additionalData: { k: 'order', shop_id: st.biz_id, order_id: order.id, tx: tx.id },
+        });
+        await query('UPDATE gateway_transactions SET ipg_transaction_id=$2, raw_create=$3, updated_at=now() WHERE id=$1', [tx.id, out.ipgTransactionId, JSON.stringify(out.raw)]);
+        payment = { provider: 'onepay', redirectUrl: out.redirectUrl };
+      } catch (e) {
+        console.error('[onepay] shop checkout failed:', st.slug, e.message);
+        // Could not reach OnePay: cancel this order and return its stock.
+        await settleFailure(tx.id, 'Could not start the card payment');
+        throw new HttpError(502, 'We could not open the card payment page. Nothing was charged. Please try again or choose another payment method.');
+      }
+    }
+
+    res.status(201).json({
+      order: S.order(order, lines),
+      code: order.code,
+      payment,
+      // Private link to the buyer's order status page (tracking, reviews).
+      token: order.public_token,
+      statusUrl: `/store/order?s=${encodeURIComponent(st.slug)}&o=${encodeURIComponent(order.code)}&k=${order.public_token}`,
+    });
   })
 );

@@ -1,11 +1,12 @@
 // Runs on server start so a fresh deploy just works:
-//  1) apply schema.sql (idempotent — CREATE TABLE IF NOT EXISTS / ALTER … IF NOT EXISTS)
+//  1) apply schema.sql (the idempotent baseline), then any pending versioned migrations
 //  2) if the database has no businesses yet, seed the demo data (unless SEED_DEMO=false)
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { query } from './pool.js';
 import { seed, seedPlans } from './seed.js';
+import { runMigrations } from './migrate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,6 +15,9 @@ export async function bootstrapDb() {
   const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await query(sql);
   console.log('[db] schema ensured');
+
+  // 1b) Versioned migrations (src/db/migrations) — each applied once, in order.
+  await runMigrations();
 
   // 2) Pricing plans — essential reference data, always ensured (idempotent upsert).
   await seedPlans(query);
