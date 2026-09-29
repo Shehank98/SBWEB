@@ -9,23 +9,10 @@
 import { query } from '../db/pool.js';
 import { runLifecycle } from '../services/subscription.js';
 import { cancelStaleCheckouts } from '../services/cardPayments.js';
+import { runWeeklySummary } from '../services/weeklySummary.js';
 
-const SL_OFFSET_MS = 5.5 * 3600 * 1000; // Asia/Colombo is UTC+05:30 all year (no DST)
-
-// "Wall clock" in Sri Lanka as a Date whose UTC fields read as local SL time.
-export function slNow(now = new Date()) { return new Date(now.getTime() + SL_OFFSET_MS); }
-export function slDate(now = new Date()) { return slNow(now).toISOString().slice(0, 10); }
-
-// ISO-8601 week id for the SL date, e.g. "2026-W40".
-export function slIsoWeek(now = new Date()) {
-  const d = slNow(now);
-  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  const dow = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - dow);
-  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  const week = Math.ceil(((t - yearStart) / 86400000 + 1) / 7);
-  return `${t.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
-}
+export { slNow, slDate, slIsoWeek } from '../utils/time.js';
+import { slDate, slIsoWeek } from '../utils/time.js';
 
 export async function claimRun(job, period) {
   const { rows } = await query(
@@ -54,8 +41,8 @@ export function runDaily(opts) {
   return once('daily-lifecycle', slDate(), async () => ({ ...(await runLifecycle()), ...(await cancelStaleCheckouts()) }), opts);
 }
 
-// Registry of weekly jobs (filled in by later features, e.g. the Monday summary).
-const weeklyJobs = [];
+// Weekly jobs (Monday 08:00 Sri Lanka time).
+const weeklyJobs = [{ name: 'weekly-summary', fn: () => runWeeklySummary() }];
 export function registerWeekly(name, fn) { weeklyJobs.push({ name, fn }); }
 export async function runWeekly(opts) {
   const period = slIsoWeek();

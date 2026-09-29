@@ -857,3 +857,11 @@ body.has-cartbar { padding-bottom: 84px; }
 .guide__body h3 { font: 700 16px/22px var(--font-sans); margin-top: 6px; }
 .guide__list { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .placeholder-note { display: inline-block; background: var(--warning-soft); color: var(--warning); border: 1px dashed var(--warning); border-radius: 6px; padding: 2px 8px; font-size: 13px; }
+
+/* ---------- Orders: ship form; overview: traffic sources; weekly toggle ---------- */
+.ship-form { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.src-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.src-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; font-size: 14px; }
+.src-list .bar-track { grid-column: 1 / -1; height: 8px; border-radius: 99px; background: var(--surface-sunken); overflow: hidden; }
+.src-list .bar-track span { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
+.src-list strong { text-transform: capitalize; overflow-wrap: anywhere; }

@@ -113,6 +113,11 @@
         </section>
         <section class="kd-card panel guide" id="onepayGuide" aria-labelledby="og-h" style="margin-top:16px"></section>
 
+        <section class="kd-card panel" id="weekly" aria-labelledby="wk-h" style="margin-top:16px">
+          <h2 id="wk-h">Weekly summary email</h2>
+          <label class="kd-switch"><span class="kd-check__text"><strong>Send me a summary every Monday morning</strong><span class="muted">Last week's sales, orders, top products and where your visitors came from.</span></span><input type="checkbox" role="switch" id="weeklyOn"></label>
+        </section>
+
         <section class="kd-card panel danger-zone" aria-labelledby="dz" style="margin-top:24px">
           <h2 id="dz">Delete my shop</h2>
           <p class="muted">Deleting your shop is permanent. Your storefront, all products, orders, customer details and this login are removed and <strong>cannot be recovered</strong>.</p>
@@ -291,6 +296,13 @@
         var b = e.target.closest('[data-copy]'); if (!b) return;
         var v = b.getAttribute('data-copy');
         if (navigator.clipboard) navigator.clipboard.writeText(v).then(function () { K.toast('Copied'); }); else K.toast(v);
+      });
+
+      // Weekly summary on/off (saves immediately).
+      if (API && KadeApi.preferences) KadeApi.preferences().then(function (p) { $('weeklyOn').checked = !!p.weeklySummary; }).catch(function () {});
+      $('weeklyOn').addEventListener('change', function () {
+        var on = this.checked;
+        KadeApi.savePreferences({ weeklySummary: on }).then(function () { K.toast(on ? 'Weekly summary on' : 'Weekly summary off'); }).catch(function (ex) { K.toast(ex.message); });
       });
 
       // Business verification: status + private document upload.

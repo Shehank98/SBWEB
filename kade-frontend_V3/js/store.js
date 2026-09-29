@@ -182,6 +182,34 @@
     SF.updateCart();
   }
 
+  /* ---------- Traffic source beacon + first-touch attribution ----------
+     One tiny request per page view (no cookies, no personal data). The first
+     external source a buyer arrived from is kept for 30 days and sent with the
+     order, so sellers see which channel brought the sale. */
+  function sid() {
+    try { var v = sessionStorage.getItem('kade-sid'); if (!v) { v = Math.random().toString(36).slice(2, 12) + Date.now().toString(36); sessionStorage.setItem('kade-sid', v); } return v; } catch (e) { return null; }
+  }
+  function landing() {
+    var q = new URLSearchParams(location.search);
+    return { referrer: document.referrer || '', utm_source: q.get('utm_source') || '', utm_medium: q.get('utm_medium') || '', utm_campaign: q.get('utm_campaign') || '' };
+  }
+  SF.attribution = function () {
+    var key = 'kade-attr-' + K.slug(), cur = K.storage.get(key);
+    return cur && Date.now() - cur.at < 30 * 86400000 ? cur : null;
+  };
+  SF.track = function (page) {
+    if (!(window.KadeApi && KadeApi.enabled)) return;
+    var l = landing(), own = document.referrer && document.referrer.indexOf(location.origin) === 0;
+    var external = (l.referrer && !own) || l.utm_source;
+    if (external && !SF.attribution()) K.storage.set('kade-attr-' + K.slug(), Object.assign({ at: Date.now() }, l));
+    var body = JSON.stringify(Object.assign({ page: page, sid: sid() }, own && !l.utm_source ? { referrer: document.referrer } : l));
+    var url = '/api/store/' + encodeURIComponent(K.slug()) + '/visit';
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) return;
+    } catch (e) { /* fall back to fetch */ }
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
+  };
+
   SF.chrome = applyChrome;
   SF.POLICY_LINKS = [{ key: 'refund', title: 'Refund Policy' }, { key: 'return', title: 'Return Policy' }, { key: 'privacy', title: 'Privacy Policy' }, { key: 'terms', title: 'Terms & Conditions' }, { key: 'contact', title: 'Contact Details' }];
 
@@ -196,6 +224,7 @@
         SF.store = res.store;
         applyChrome(res.store, opts);
         cb(res.store, res.products || []);
+        SF.track(/\/product/.test(location.pathname) ? 'product' : /\/cart/.test(location.pathname) ? 'cart' : /\/order/.test(location.pathname) ? 'order' : 'home');
       }).catch(function (e) {
         if (e && e.status === 404) blocked(NOT_FOUND[0], NOT_FOUND[1]);
         else blocked('Store unavailable', 'Please check your connection and try again.');

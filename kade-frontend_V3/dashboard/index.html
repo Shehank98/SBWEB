@@ -26,6 +26,7 @@
           <section class="kd-card panel" aria-labelledby="c1"><h2 id="c1">Sales, last 7 days</h2><div id="chart"></div></section>
           <section class="kd-card panel" aria-labelledby="c2"><h2 id="c2">Needs your attention</h2><div id="attention"></div></section>
         </div>
+        <section class="kd-card panel" aria-labelledby="c4" style="margin-bottom:var(--space-4)"><div class="row row--between"><h2 id="c4">Where visitors came from</h2><span class="muted" style="font-size:13px">Last 7 days</span></div><div id="traffic"></div></section>
         <section class="kd-card" aria-labelledby="c3">
           <div class="row row--between" style="padding:16px 16px 0"><h2 class="heading" id="c3">Recent orders</h2><a class="kd-link" href="orders">See all orders</a></div>
           <div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col" class="kd-num">Total</th></tr></thead><tbody id="recent"></tbody></table></div>
@@ -78,6 +79,15 @@
 
       if (API) {
         K.loading(K.$('#tiles'), 'Loading your dashboard…');
+        // Traffic sources (storefront visits by referrer / UTM tag), last 7 days.
+        KadeApi.traffic(7).then(function (t) {
+          var max = Math.max.apply(null, t.sources.map(function (x) { return x.sessions; }).concat([1]));
+          K.$('#traffic').innerHTML = t.sources.length ? '<ul class="src-list">' + t.sources.map(function (x) {
+            return '<li><strong>' + K.esc(x.source) + '</strong><span class="muted">' + x.sessions + ' visitor' + (x.sessions === 1 ? '' : 's') + (x.orders ? ' · ' + x.orders + ' order' + (x.orders === 1 ? '' : 's') : '') + '</span><span class="bar-track"><span style="width:' + Math.round(x.sessions / max * 100) + '%"></span></span></li>';
+          }).join('') + '</ul><p class="kd-help" style="margin-top:10px">Tip: add <code>?utm_source=whatsapp</code> to links you share to see exactly which posts bring buyers.</p>'
+            : '<p class="muted">No visits yet this week. Share your store link on WhatsApp, Facebook and Instagram.</p>';
+        }).catch(function () { K.$('#traffic').innerHTML = ''; });
+
         // Compliance checklist (policies + contact): shown until all 5 are done.
         var sess = KadeApi.currentUser && KadeApi.currentUser();
         if (!sess || sess.role !== 'BUSINESS_STAFF') KadeApi.compliance().then(function (c) {

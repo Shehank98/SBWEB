@@ -9,6 +9,7 @@ import { startSubscriptionCheckout } from '../services/cardPayments.js';
 import { platformCreds } from '../services/onepay.js';
 import { listGateways, saveGateway, cardAvailability, gatewayUrls } from '../services/gateways.js';
 import { onepayGuide } from '../services/onepayGuide.js';
+import { trafficSources } from '../services/traffic.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { currentPlan, cap, businessAccess, assertFeature, paywall, trialInfo } from '../services/plan.js';
@@ -342,6 +343,72 @@ dashboardRouter.put(
       }
     });
     res.json({ ok: true, status });
+  })
+);
+
+// ---- Mark as shipped with courier + tracking number; emails the buyer ----
+dashboardRouter.put(
+  '/orders/:code/ship',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const courier = String((req.body && req.body.courier) || '').trim().slice(0, 60);
+    const number = String((req.body && req.body.trackingNumber) || '').trim().slice(0, 80);
+    let url = String((req.body && req.body.trackingUrl) || '').trim().slice(0, 300);
+    if (!courier) throw badRequest('Choose or type the courier name.');
+    if (!number) throw badRequest('Enter the tracking number.');
+    if (url && !/^https:\/\/[^\s]+$/i.test(url)) throw badRequest('The tracking link must start with https://');
+    const order = (await query('SELECT * FROM orders WHERE business_id=$1 AND code=$2', [b, req.params.code])).rows[0];
+    if (!order) throw notFound('Order not found.');
+    if (['CANCELLED', 'REFUNDED'].includes(order.status)) throw badRequest('This order is cancelled.');
+    const updated = await withTransaction(async (client) => {
+      const o = (await client.query(
+        `UPDATE orders SET courier_name=$2, tracking_number=$3, tracking_url=$4, shipped_at=COALESCE(shipped_at, now()),
+                status = CASE WHEN status = 'DELIVERED' THEN status ELSE 'SHIPPED' END
+          WHERE id=$1 RETURNING *`,
+        [order.id, courier, number, url || null]
+      )).rows[0];
+      if (order.status !== o.status) {
+        await client.query('INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)', [o.id, o.status, req.user.sub, `${courier} ${number}`]);
+      }
+      if (o.customer_email) {
+        const shop = (await client.query('SELECT s.name, s.slug, s.phone, s.whatsapp, s.address FROM stores s WHERE s.business_id=$1', [b])).rows[0];
+        const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [o.id])).rows;
+        // New tracking number = new email; saving the same one twice sends once.
+        await queueNotification({ businessId: b, recipient: o.customer_email, dedupeKey: `SHIPPED_TRACK:${o.id}:${number}`, ...templates.orderShippedTracking(shop, o, items) }, client);
+      }
+      return o;
+    });
+    res.json({ ok: true, status: updated.status, emailed: !!updated.customer_email, tracking: { courier, number, url: url || '' } });
+  })
+);
+
+// ---- Seller preferences: weekly summary on/off (+ channels for later) ----
+dashboardRouter.get(
+  '/preferences',
+  requireOwner,
+  wrap(async (req, res) => {
+    const s = (await query('SELECT weekly_summary_enabled, digest_channels FROM stores WHERE business_id=$1', [bid(req)])).rows[0] || {};
+    res.json({ weeklySummary: s.weekly_summary_enabled !== false, channels: s.digest_channels || { email: true } });
+  })
+);
+dashboardRouter.put(
+  '/preferences',
+  requireOwner,
+  wrap(async (req, res) => {
+    const on = !!(req.body && req.body.weeklySummary);
+    await query(`UPDATE stores SET weekly_summary_enabled=$2 WHERE business_id=$1`, [bid(req), on]);
+    res.json({ ok: true, weeklySummary: on });
+  })
+);
+
+// ---- Traffic sources for the overview (last N days) ----
+dashboardRouter.get(
+  '/traffic',
+  wrap(async (req, res) => {
+    const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
+    const to = new Date(), from = new Date(Date.now() - days * 86400000);
+    res.json({ days, sources: await trafficSources(bid(req), from, to, 8) });
   })
 );
 

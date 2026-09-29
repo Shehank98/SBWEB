@@ -10,6 +10,21 @@ import { POLICY_KINDS, TITLES, loadPolicies } from '../services/policies.js';
 import { cardAvailability, shopOnePayCreds } from '../services/gateways.js';
 import { createCheckout, toE164, splitName } from '../services/onepay.js';
 import { returnUrl, settleFailure } from '../services/cardPayments.js';
+import { classify, recordVisit } from '../services/traffic.js';
+import { config } from '../config.js';
+
+const OWN_HOST = (() => { try { return new URL(config.publicBaseUrl).hostname.replace(/^www\./, ''); } catch { return null; } })();
+const BOT_UA = /bot|crawl|spider|slurp|facebookexternalhit|whatsapp|preview|curl|wget|headless/i;
+// Tiny per-IP limiter for the visit beacon (best effort, in memory).
+const beaconHits = new Map();
+function beaconAllowed(ip) {
+  const now = Date.now(), w = 60000;
+  if (beaconHits.size > 20000) beaconHits.clear();
+  const r = beaconHits.get(ip) || { c: 0, t: now };
+  if (now - r.t > w) { r.c = 0; r.t = now; }
+  r.c += 1; beaconHits.set(ip, r);
+  return r.c <= 60;
+}
 import { randomBytes } from 'crypto';
 
 export const storeRouter = Router();
@@ -79,6 +94,25 @@ async function storeRatings(businessId) {
   )).rows.map(S.review);
   return { rating: { avg: agg.avg != null ? Number(agg.avg) : null, count: Number(agg.n) }, latestReviews: latest };
 }
+
+// POST /api/store/:slug/visit — storefront page-view beacon for traffic sources.
+// Body: { page, referrer, utm_source, utm_medium, utm_campaign, sid }. Always 204.
+storeRouter.post(
+  '/:slug/visit',
+  wrap(async (req, res) => {
+    res.status(204).end();
+    try {
+      if (BOT_UA.test(req.get('user-agent') || '') || !beaconAllowed(req.ip || '')) return;
+      const st = (await query('SELECT business_id FROM stores WHERE slug = $1', [req.params.slug])).rows[0];
+      if (!st) return;
+      const b = req.body || {};
+      const c = classify({ referrer: b.referrer, utmSource: b.utm_source, utmMedium: b.utm_medium, utmCampaign: b.utm_campaign, ownHost: OWN_HOST });
+      if (!c) return; // internal navigation, not a new visit
+      const page = ['home', 'product', 'cart', 'order', 'policy'].includes(b.page) ? b.page : 'home';
+      await recordVisit(st.business_id, { ...c, page, sessionId: /^[a-z0-9]{8,40}$/i.test(String(b.sid || '')) ? String(b.sid) : null });
+    } catch (e) { console.warn('[visit]', e.message); }
+  })
+);
 
 // GET /api/store/:slug/product/:id/reviews — published reviews for one product.
 storeRouter.get(
@@ -246,6 +280,10 @@ storeRouter.post(
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(body.email || ''))) throw badRequest('Enter your email address to pay by card. OnePay sends your receipt there.');
     }
 
+    // First-touch attribution captured by the storefront (source of the visit that led here).
+    const at = body.attribution || {};
+    const attr = classify({ referrer: at.referrer, utmSource: at.utm_source, utmMedium: at.utm_medium, utmCampaign: at.utm_campaign, ownHost: OWN_HOST }) || { source: 'direct' };
+
     const order = await withTransaction(async (client) => {
       // Apply a coupon if one was sent and is valid (re-checked server-side).
       let discount = 0;
@@ -297,6 +335,7 @@ storeRouter.post(
         }
       }
       await client.query('INSERT INTO order_status_history (order_id, status) VALUES ($1, $2)', [created.id, 'PENDING']);
+      await client.query('UPDATE orders SET source=$2, medium=$3, campaign=$4 WHERE id=$1', [created.id, attr.source, attr.medium, attr.campaign]);
       if (card) {
         await client.query(`UPDATE orders SET payment_status='PENDING' WHERE id=$1`, [created.id]);
         created.gatewayTx = (await client.query(

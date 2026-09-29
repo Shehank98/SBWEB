@@ -55,14 +55,28 @@
         open = o; o.history = o.history || [{ s: 'PENDING', t: o.date }];
         K.$('#dt').innerHTML = '#' + o.id + ' ' + K.badge('order', o.status);
         var n = next(o.status), phone = o.phone.replace(/\s/g, ''), wa = '94' + phone.replace(/^0/, '');
-        K.$('#db').innerHTML = '<dl class="dl"><dt>Customer</dt><dd>' + K.esc(o.customer) + '</dd><dt>Phone</dt><dd><a class="kd-link" href="tel:' + phone + '">' + K.esc(o.phone) + '</a></dd><dt>Deliver to</dt><dd>' + K.esc(o.address ? o.address + ', ' + o.city : o.city) + '</dd><dt>Payment</dt><dd>' + K.esc(o.payment) + (o.paymentStatus ? ' ' + K.badge('paystat', o.paymentStatus) : '') + '</dd>' + (o.refundNote ? '<dt>Refund</dt><dd>' + K.esc(o.refundNote) + '</dd>' : '') + '<dt>Placed</dt><dd>' + K.fmtDate(o.date) + '</dd>' + (o.note ? '<dt>Note</dt><dd>' + K.esc(o.note) + '</dd>' : '') + '</dl>' +
+        K.$('#db').innerHTML = '<dl class="dl"><dt>Customer</dt><dd>' + K.esc(o.customer) + '</dd><dt>Phone</dt><dd><a class="kd-link" href="tel:' + phone + '">' + K.esc(o.phone) + '</a></dd><dt>Deliver to</dt><dd>' + K.esc(o.address ? o.address + ', ' + o.city : o.city) + '</dd><dt>Payment</dt><dd>' + K.esc(o.payment) + (o.paymentStatus ? ' ' + K.badge('paystat', o.paymentStatus) : '') + '</dd>' + (o.refundNote ? '<dt>Refund</dt><dd>' + K.esc(o.refundNote) + '</dd>' : '') + (o.tracking ? '<dt>Shipped with</dt><dd>' + K.esc(o.tracking.courier) + ' · <strong>' + K.esc(o.tracking.number) + '</strong>' + (o.tracking.url ? ' · <a class="kd-link" href="' + K.esc(o.tracking.url) + '" target="_blank" rel="noopener">track</a>' : '') + '</dd>' : '') + (o.source ? '<dt>Came from</dt><dd>' + K.esc(o.source) + '</dd>' : '') + '<dt>Placed</dt><dd>' + K.fmtDate(o.date) + '</dd>' + (o.note ? '<dt>Note</dt><dd>' + K.esc(o.note) + '</dd>' : '') + '</dl>' +
           '<div><h3 class="label" style="margin-bottom:8px">Items</h3><ul class="list">' + o.items.map(function (i) { return '<li><span>' + i.qty + ' &times; ' + K.esc(i.name) + '</span><span class="price-sm">' + K.rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul><div class="totals" style="margin-top:8px"><div><span>Subtotal</span><span class="price-sm">' + K.rs(o.subtotal) + '</span></div><div><span>Delivery</span><span class="price-sm">' + (o.delivery ? K.rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span class="price">' + K.rs(o.total) + '</span></div></div></div>' +
           '<div><h3 class="label" style="margin-bottom:8px">History</h3><ul class="timeline">' + o.history.slice().reverse().map(function (h) { return '<li><time>' + K.fmtDate(h.t) + '</time><span>' + K.orderLabel(h.s) + (h.reason ? ': ' + K.esc(h.reason) : '') + '</span></li>'; }).join('') + '</ul></div>' +
-          '<div class="stack" style="gap:12px">' + (n ? '<button class="kd-btn kd-btn--primary kd-btn--block" data-act="next">' + NEXT_LABEL[n] + '</button>' : '') +
+          shipBlock(o) +
+          '<div class="stack" style="gap:12px">' + (n && n !== 'SHIPPED' ? '<button class="kd-btn kd-btn--primary kd-btn--block" data-act="next">' + NEXT_LABEL[n] + '</button>' : '') +
           '<a class="kd-btn kd-btn--secondary kd-btn--block" target="_blank" rel="noopener" href="https://wa.me/' + wa + '?text=' + encodeURIComponent('Hello ' + o.customer.split(' ')[0] + ', this is ' + storeName + ' about your order ' + o.id + '.') + '">Message customer on WhatsApp</a>' +
           (o.status !== 'DELIVERED' && o.status !== 'CANCELLED' && o.status !== 'REFUNDED' ? '<button class="kd-btn kd-btn--ghost kd-btn--block" style="color:var(--danger)" data-act="cancel">Cancel order</button>' : '') +
           (o.status !== 'REFUNDED' && (o.paymentStatus === 'PAID' || o.status === 'DELIVERED' || o.status === 'CANCELLED') ? '<button class="kd-btn kd-btn--ghost kd-btn--block" data-act="refund">Mark as refunded</button>' + (o.paymentStatus === 'PAID' ? '<p class="kd-help">Refund card payments from your OnePay dashboard first (full or partial), then record it here.</p>' : '') : '') + '</div>';
         var d = K.$('#drawer'); if (!d.open) d.showModal(); rows();
+      }
+      // Courier + tracking number. Shown once the order is confirmed; saving marks it
+      // shipped and emails the buyer the tracking details.
+      var COURIERS = ['Domex', 'Pronto Lanka', 'Koombiyo', 'Prompt Xpress', 'Citypak', 'Grasshoppers', 'Sri Lanka Post', 'Own delivery'];
+      function shipBlock(o) {
+        if (['CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED'].indexOf(o.status) < 0) return '';
+        var t = o.tracking || {}, again = o.status === 'SHIPPED';
+        return '<form class="ship-form" id="shipForm" novalidate><h3 class="label">' + (again ? 'Tracking details' : 'Mark as shipped') + '</h3>' +
+          '<div class="kd-field"><label class="kd-label" for="shCourier">Courier</label><input class="kd-input" id="shCourier" list="couriers" value="' + K.esc(t.courier || '') + '" placeholder="e.g. Domex" autocomplete="off"><datalist id="couriers">' + COURIERS.map(function (c) { return '<option value="' + c + '">'; }).join('') + '</datalist></div>' +
+          '<div class="kd-field"><label class="kd-label" for="shNo">Tracking number</label><input class="kd-input" id="shNo" value="' + K.esc(t.number || '') + '" autocomplete="off" autocapitalize="characters"></div>' +
+          '<div class="kd-field"><label class="kd-label" for="shUrl">Tracking link <span class="muted">(optional)</span></label><input class="kd-input" id="shUrl" type="url" inputmode="url" value="' + K.esc(t.url || '') + '" placeholder="https://"></div>' +
+          '<button class="kd-btn kd-btn--primary kd-btn--block" type="submit">' + (again ? 'Update tracking' : 'Mark as shipped') + '</button>' +
+          '<p class="kd-help">' + (o.email || o.hasEmail ? 'The buyer gets an email with the tracking details.' : 'The buyer did not give an email. Send the tracking number on WhatsApp.') + ' It also shows on their order page.</p></form>';
       }
       function applyStatus(o, s, reason) { o.status = s; o.history = o.history || [{ s: 'PENDING', t: o.date }]; o.history.push({ s: s, t: D.today, reason: reason }); tabs(); rows(); drawer(o); K.toast('Order #' + o.id + ' is now ' + K.orderLabel(s).toLowerCase()); }
       function setStatus(o, s, reason) {
@@ -75,6 +89,19 @@
       K.$('#close').addEventListener('click', function () { K.$('#drawer').close(); });
       K.$('#drawer').addEventListener('close', function () { open = null; rows(); });
       K.$('#drawer').addEventListener('click', function (e) { if (e.target === this) this.close(); });
+      K.$('#db').addEventListener('submit', function (e) {
+        if (e.target.id !== 'shipForm' || !open) return;
+        e.preventDefault();
+        var o = open, body = { courier: K.$('#shCourier').value.trim(), trackingNumber: K.$('#shNo').value.trim(), trackingUrl: K.$('#shUrl').value.trim() };
+        if (!body.courier || !body.trackingNumber) { K.toast('Add the courier and tracking number.'); return; }
+        if (!API) { o.tracking = { courier: body.courier, number: body.trackingNumber, url: body.trackingUrl }; applyStatus(o, 'SHIPPED'); return; }
+        var restore = K.btnLoading(K.$('#shipForm button[type=submit]'), 'Saving…');
+        KadeApi.shipOrder(o.id, body).then(function (r) {
+          o.tracking = { courier: r.tracking.courier, number: r.tracking.number, url: r.tracking.url };
+          if (o.status !== r.status) applyStatus(o, r.status, body.courier + ' ' + body.trackingNumber); else drawer(o);
+          K.toast(r.emailed ? 'Saved. Tracking emailed to the buyer.' : 'Saved.');
+        }).catch(function (ex) { restore(); K.toast(ex.message); });
+      });
       K.$('#db').addEventListener('click', function (e) {
         var b = e.target.closest('[data-act]'); if (!b || !open) return;
         var o = open;

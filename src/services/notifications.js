@@ -155,6 +155,37 @@ export const templates = {
     data: { heading: 'Payment received', business: business.name, plan: r.plan, amount: r.amount, reference: r.reference, transactionId: r.transactionId, paidOn: r.paidOn, validUntil: r.validUntil, method: 'Card (OnePay)', planUrl: dashUrl('subscription') },
   }),
 
+  // Weekly seller summary (Monday morning).
+  weeklySummary: (shop, d) => {
+    const rs = (n) => `Rs. ${Math.round(n).toLocaleString('en-US')}`;
+    const lines = [
+      `${shop.name}: your week ${d.periodStart} to ${d.periodEnd}`,
+      `Sales: ${rs(d.revenue)} from ${d.orders} order${d.orders === 1 ? '' : 's'}${d.revenueChangePct != null ? ` (${d.revenueChangePct >= 0 ? '+' : ''}${d.revenueChangePct}% vs the week before)` : ''}`,
+      d.topProducts.length ? `Top products: ${d.topProducts.map((p) => `${p.name} (${p.units})`).join(', ')}` : 'No products sold this week.',
+      d.trafficSources.length ? `Where visitors came from: ${d.trafficSources.map((t) => `${t.source} ${t.sessions}`).join(', ')}` : 'No store visits recorded this week. Share your store link!',
+    ];
+    return {
+      type: 'WEEKLY_SUMMARY',
+      subject: `Your week at ${shop.name}: ${rs(d.revenue)} from ${d.orders} order${d.orders === 1 ? '' : 's'}`,
+      message: lines.join('\n'),
+      data: { heading: 'Your weekly summary', business: shop.name, ...d, storeUrl: shop.slug ? storeUrl(shop.slug) : '', reportsUrl: dashUrl('reports'), settingsUrl: dashUrl('settings#weekly') },
+    };
+  },
+  // Sent to the CUSTOMER when the shop adds courier tracking and marks it shipped.
+  orderShippedTracking: (shop, order, items) => ({
+    type: 'ORDER_SHIPPED',
+    subject: `Your ${shop.name} order ${order.code} is on the way`,
+    message: `Good news. Your ${shop.name} order ${order.code} has shipped with ${order.courier_name}. Tracking number: ${order.tracking_number}.${order.tracking_url ? ' Track it: ' + order.tracking_url : ''}`,
+    data: {
+      ...orderEmailData(shop, order, items),
+      heading: 'Your order is on the way',
+      intro: `Your order from ${shop.name} has shipped with ${order.courier_name}.`,
+      courier: order.courier_name,
+      trackingNumber: order.tracking_number,
+      trackingUrl: order.tracking_url || '',
+      statusUrl: shop.slug ? `${BASE}/store/order?s=${encodeURIComponent(shop.slug)}&o=${encodeURIComponent(order.code)}&k=${order.public_token}` : '',
+    },
+  }),
   // Card-paid shop orders.
   orderPaidOwner: (shop, order, tx) => ({
     type: 'ORDER_PAID',

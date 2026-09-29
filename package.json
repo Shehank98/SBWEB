@@ -15,6 +15,7 @@
     "db:seed": "node src/db/seed.js",
     "db:purge-demo": "node src/db/purge-demo.js",
     "job:subscriptions": "node src/jobs/subscriptions.js",
+    "job:weekly": "node src/jobs/weekly.js",
     "test": "node --test --test-concurrency=1 test/*.test.js"
   },
   "dependencies": {

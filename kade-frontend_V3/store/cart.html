@@ -315,7 +315,7 @@
             customer: f.fn.trim(), phone: '0' + clean(f.ph).replace(/^(\+94|94|0)/, ''), whatsapp: st.waSame ? '' : f.wa, email: f.em || '',
             address: f.ad.trim() + (f.lm && !pick ? ' (near ' + f.lm.trim() + ')' : ''), city: pick ? 'Pickup' : f.ct, district: pick ? '' : f.ds,
             delivery: pick ? 'Pickup' : 'Delivery', payment: payName(st.pay), paymentMethod: st.pay, note: f.nt || '',
-            coupon: st.promo ? st.promo.code : '', acceptTerms: !!f.agree,
+            coupon: st.promo ? st.promo.code : '', acceptTerms: !!f.agree, attribution: SF.attribution() || {},
             items: ls.map(function (l) { return { pid: l.p.id, qty: l.i.qty, variant: lineLabel(l.i) }; })
           };
           function finish(res) {
