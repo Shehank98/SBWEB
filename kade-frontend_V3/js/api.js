@@ -97,6 +97,9 @@
     getStore(slug) { return req('GET', '/api/store/' + encodeURIComponent(slug)); },
     getStoreProduct(slug, id) { return req('GET', '/api/store/' + encodeURIComponent(slug) + '/product/' + id); },
     placeOrder(slug, order) { return req('POST', '/api/store/' + encodeURIComponent(slug) + '/orders', order); },
+    productReviews(slug, id) { return req('GET', '/api/store/' + encodeURIComponent(slug) + '/product/' + encodeURIComponent(id) + '/reviews'); },
+    orderStatus(slug, code, k) { return req('GET', '/api/store/' + encodeURIComponent(slug) + '/orders/' + encodeURIComponent(code) + '?k=' + encodeURIComponent(k)); },
+    submitReviews(slug, code, k, reviews) { return req('POST', '/api/store/' + encodeURIComponent(slug) + '/orders/' + encodeURIComponent(code) + '/reviews?k=' + encodeURIComponent(k), { reviews: reviews }); },
     applyCoupon(slug, code, subtotal) { return req('POST', '/api/store/' + encodeURIComponent(slug) + '/coupon', { code: code, subtotal: subtotal }); },
 
     // ---- Owner dashboard (token required) ----

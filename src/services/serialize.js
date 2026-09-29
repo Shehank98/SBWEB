@@ -52,7 +52,37 @@ export function product(row) {
     status: row.status,
   };
   if (row.sale_price != null) out.sale = row.sale_price;
+  if (row.review_count != null) { out.rating = Number(row.avg_rating); out.reviews = Number(row.review_count); }
   return out;
+}
+
+// Public review: first name + last initial only.
+export function review(row) {
+  const parts = String(row.customer_name || 'Buyer').trim().split(/\s+/);
+  const who = parts[0] + (parts.length > 1 ? ' ' + parts[parts.length - 1][0].toUpperCase() + '.' : '');
+  return { rating: row.rating, body: row.body || '', name: who, product: row.product_name, date: iso(row.created_at) };
+}
+
+// The buyer's view of their own order (status page).
+export function buyerOrder(row, items, history, reviewedSet) {
+  const reviewed = reviewedSet || new Set();
+  return {
+    code: row.code,
+    date: iso(row.created_at),
+    status: row.status,
+    history: (history || []).map((h) => ({ status: h.status, at: h.created_at })),
+    customer: row.customer_name,
+    items: (items || []).map((i) => ({ productId: i.product_id, name: i.name, qty: i.qty, price: i.price, reviewed: i.product_id ? reviewed.has(i.product_id) : true })),
+    subtotal: row.subtotal,
+    discount: row.discount || 0,
+    delivery: row.delivery_fee,
+    total: row.total,
+    payment: row.payment_method,
+    method: row.delivery_method,
+    address: row.address || '',
+    city: row.city || '',
+    district: row.district || '',
+  };
 }
 
 export function order(row, items) {

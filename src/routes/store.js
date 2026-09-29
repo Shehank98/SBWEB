@@ -8,6 +8,7 @@ import { evalCoupon } from '../services/coupons.js';
 import { LIVE_STATUSES } from '../services/plan.js';
 
 export const storeRouter = Router();
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Statuses in which the storefront is visible to customers (includes TRIAL; a
 // TRIAL_EXPIRED shop is locked for buyers until the seller pays).
@@ -40,9 +41,97 @@ storeRouter.get(
       return res.json({ store, products: [], available: false });
     }
     const products = (
-      await query(`SELECT *, $2::text AS store_slug FROM products WHERE business_id=$1 AND status='ACTIVE' ORDER BY created_at DESC`, [st.biz_id, st.slug])
+      await query(
+        `SELECT p.*, $2::text AS store_slug, r.avg_rating, r.review_count
+           FROM products p
+           LEFT JOIN (SELECT product_id, ROUND(AVG(rating)::numeric, 1) avg_rating, COUNT(*) review_count
+                        FROM product_reviews WHERE business_id = $1 AND status = 'PUBLISHED' GROUP BY product_id) r
+             ON r.product_id = p.id
+          WHERE p.business_id=$1 AND p.status='ACTIVE' ORDER BY p.created_at DESC`,
+        [st.biz_id, st.slug]
+      )
     ).rows.map(S.product);
+    Object.assign(store, await storeRatings(st.biz_id));
     res.json({ store, products, available: true });
+  })
+);
+
+// Store-level rating summary + the latest few reviews for the "What buyers say" strip.
+async function storeRatings(businessId) {
+  const agg = (await query(
+    `SELECT ROUND(AVG(rating)::numeric, 1) avg, COUNT(*) n FROM product_reviews WHERE business_id = $1 AND status = 'PUBLISHED'`,
+    [businessId]
+  )).rows[0];
+  const latest = (await query(
+    `SELECT rating, body, customer_name, product_name, created_at FROM product_reviews
+      WHERE business_id = $1 AND status = 'PUBLISHED' AND COALESCE(body, '') <> '' ORDER BY created_at DESC LIMIT 6`,
+    [businessId]
+  )).rows.map(S.review);
+  return { rating: { avg: agg.avg != null ? Number(agg.avg) : null, count: Number(agg.n) }, latestReviews: latest };
+}
+
+// GET /api/store/:slug/product/:id/reviews — published reviews for one product.
+storeRouter.get(
+  '/:slug/product/:id/reviews',
+  wrap(async (req, res) => {
+    const st = await loadStore(req.params.slug);
+    if (!LIVE.has(st.business_status) || !UUID_RE.test(req.params.id)) throw notFound('Product not found.');
+    const { rows } = await query(
+      `SELECT rating, body, customer_name, product_name, created_at FROM product_reviews
+        WHERE business_id = $1 AND product_id = $2 AND status = 'PUBLISHED' ORDER BY created_at DESC LIMIT 50`,
+      [st.biz_id, req.params.id]
+    );
+    res.json({ reviews: rows.map(S.review) });
+  })
+);
+
+// ---- Buyer order status page (no account: the private token from the order link) ----
+async function loadBuyerOrder(req) {
+  const st = await loadStore(req.params.slug);
+  const token = String(req.query.k || (req.body && req.body.k) || '');
+  if (!/^[a-f0-9]{16,64}$/.test(token)) throw notFound('Order not found.');
+  const order = (await query('SELECT * FROM orders WHERE business_id = $1 AND code = $2 AND public_token = $3', [st.biz_id, req.params.code, token])).rows[0];
+  if (!order) throw notFound('Order not found.');
+  return { st, order };
+}
+
+// GET /api/store/:slug/orders/:code?k=<token>
+storeRouter.get(
+  '/:slug/orders/:code',
+  wrap(async (req, res) => {
+    const { st, order } = await loadBuyerOrder(req);
+    const items = (await query('SELECT * FROM order_items WHERE order_id = $1', [order.id])).rows;
+    const history = (await query('SELECT status, created_at FROM order_status_history WHERE order_id = $1 ORDER BY created_at', [order.id])).rows;
+    const reviewed = new Set((await query('SELECT product_id FROM product_reviews WHERE order_id = $1', [order.id])).rows.map((r) => r.product_id));
+    res.json({ order: S.buyerOrder(order, items, history, reviewed), store: { name: st.name, slug: st.slug, phone: st.phone || '', whatsapp: st.whatsapp || '' } });
+  })
+);
+
+// POST /api/store/:slug/orders/:code/reviews?k=<token>  { reviews: [{ productId, rating, body }] }
+// Only for delivered orders; one review per product per order (later posts are ignored).
+storeRouter.post(
+  '/:slug/orders/:code/reviews',
+  wrap(async (req, res) => {
+    const { st, order } = await loadBuyerOrder(req);
+    if (order.status !== 'DELIVERED') throw badRequest('You can review your order once it has been delivered.');
+    const list = Array.isArray(req.body && req.body.reviews) ? req.body.reviews.slice(0, 50) : [];
+    if (!list.length) throw badRequest('Add a star rating first.');
+    const items = (await query('SELECT product_id, name FROM order_items WHERE order_id = $1 AND product_id IS NOT NULL', [order.id])).rows;
+    const byId = new Map(items.map((i) => [i.product_id, i.name]));
+    let saved = 0;
+    for (const r of list) {
+      const rating = Math.round(Number(r.rating));
+      if (!byId.has(r.productId) || !(rating >= 1 && rating <= 5)) continue;
+      const body = r.body ? String(r.body).trim().slice(0, 1000) : null;
+      const ins = await query(
+        `INSERT INTO product_reviews (business_id, product_id, order_id, product_name, rating, body, customer_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (order_id, product_id) DO NOTHING RETURNING id`,
+        [st.biz_id, r.productId, order.id, byId.get(r.productId).split(' (')[0], rating, body, order.customer_name]
+      );
+      saved += ins.rowCount;
+    }
+    if (!saved) throw badRequest('These products are already reviewed, or the rating is missing.');
+    res.status(201).json({ ok: true, saved });
   })
 );
 
@@ -175,6 +264,12 @@ storeRouter.post(
       return created;
     });
 
-    res.status(201).json({ order: S.order(order, lines), code: order.code });
+    res.status(201).json({
+      order: S.order(order, lines),
+      code: order.code,
+      // Private link to the buyer's order status page (tracking, reviews).
+      token: order.public_token,
+      statusUrl: `/store/order?s=${encodeURIComponent(st.slug)}&o=${encodeURIComponent(order.code)}&k=${order.public_token}`,
+    });
   })
 );

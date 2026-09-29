@@ -104,7 +104,7 @@ app.get(/\.html$/i, (req, res, next) => {
 // shared link shows the shop, not a generic page. Registered before the static
 // middleware so they take precedence over the raw files. The page's own JS still
 // renders the body. Pretty URL /store/<slug> also resolves the storefront here.
-const RESERVED_STORE = new Set(['index', 'product', 'cart']);
+const RESERVED_STORE = new Set(['index', 'product', 'cart', 'order', 'policy']);
 app.get('/store/product', (req, res, next) => serveProductPage(req, res, next));
 app.get(['/store', '/store/index'], (req, res, next) => serveStorePage(req, res, next, req.query.s));
 app.get('/store/:slug', (req, res, next) => {
