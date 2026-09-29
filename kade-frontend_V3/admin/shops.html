@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shops | Sidadiya admin</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+        <div class="page-head"><div><h1>Shops</h1><p>Every shop, its plan, trial and verification.</p></div></div>
+        <form class="shop-search" id="searchForm" role="search">
+          <label class="visually-hidden" for="q">Search shops</label>
+          <input class="kd-input" id="q" type="search" placeholder="Search name, owner, email or link" autocomplete="off" enterkeyhint="search">
+        </form>
+        <div class="settings-nav" id="filters" role="group" aria-label="Filter shops"></div>
+        <p class="muted" id="count" role="status" aria-live="polite" style="margin-bottom:8px"></p>
+        <section class="kd-card" aria-label="Shops">
+          <div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Shop</th><th scope="col">Owner</th><th scope="col">Plan</th><th scope="col">Status</th><th scope="col" class="kd-num">Days left</th><th scope="col">Created</th><th scope="col">Verification</th><th scope="col" class="kd-num">Orders</th></tr></thead><tbody id="rows"></tbody></table></div>
+        </section>
+        <nav class="pager" id="pager" aria-label="Pages"></nav>
+      </main>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade, $ = function (id) { return document.getElementById(id); };
+      if (!K.guard('admin')) return;
+      K.shell('admin', 'shops');
+      var qs = new URLSearchParams(location.search);
+      var st = { q: qs.get('q') || '', filter: qs.get('filter') || '', page: +(qs.get('page') || 1), pageSize: 20 };
+      var FILTERS = [['', 'All', 'all_shops'], ['trial', 'On trial', 'trial'], ['active', 'Active', 'active'], ['expired', 'Expired / paused', 'expired'], ['verified', 'Verified', 'verified'], ['pending_verification', 'To verify', 'pending_verification']];
+      var VER = { NOT_SUBMITTED: ['neutral', 'Not submitted'], PENDING: ['warning', 'Pending'], VERIFIED: ['success', 'Verified'], REJECTED: ['danger', 'Rejected'] };
+      K.verBadge = function (v) { var b = VER[v] || ['neutral', v]; return '<span class="kd-badge kd-badge--' + b[0] + '">' + b[1] + '</span>'; };
+      $('q').value = st.q;
+
+      function days(s) {
+        if (s.daysLeft == null) return '<span class="muted">-</span>';
+        var tone = s.daysLeft < 0 ? 'danger' : (s.daysLeft <= 4 ? 'warning' : '');
+        return '<span class="' + (tone ? 'days days--' + tone : 'days') + '">' + (s.daysLeft < 0 ? Math.abs(s.daysLeft) + ' ago' : s.daysLeft) + '</span>' + (s.onTrial ? '<br><small class="muted">trial</small>' : '');
+      }
+      function load() {
+        var u = new URLSearchParams();
+        if (st.q) u.set('q', st.q); if (st.filter) u.set('filter', st.filter); if (st.page > 1) u.set('page', st.page);
+        history.replaceState(null, '', location.pathname + (u.toString() ? '?' + u : ''));
+        $('rows').innerHTML = '<tr><td colspan="8">' + K.spinner() + '</td></tr>';
+        KadeApi.adminShops({ q: st.q, filter: st.filter, page: st.page, pageSize: st.pageSize }).then(function (r) {
+          $('filters').innerHTML = FILTERS.map(function (f) { return '<a href="#" data-f="' + f[0] + '"' + (f[0] === st.filter ? ' aria-current="true"' : '') + '>' + f[1] + ' <span class="muted">' + (r.counts[f[2]] || 0) + '</span></a>'; }).join('');
+          $('count').textContent = r.total + ' shop' + (r.total === 1 ? '' : 's') + (st.q ? ' matching "' + st.q + '"' : '');
+          $('rows').innerHTML = r.shops.map(function (s) {
+            return '<tr><td><a class="kd-link" href="shop?id=' + s.id + '"><strong>' + K.esc(s.name) + '</strong></a><br><small class="muted">/' + K.esc(s.slug || '') + '</small></td>' +
+              '<td>' + K.esc(s.owner) + '<br><small class="muted">' + K.esc(s.ownerEmail) + '</small></td>' +
+              '<td>' + K.esc(s.plan || '-') + '</td><td>' + K.badge('sub', s.status) + '</td><td class="kd-num">' + days(s) + '</td>' +
+              '<td>' + K.fmtDate(String(s.created).slice(0, 10)) + '</td><td>' + K.verBadge(s.verification) + '</td><td class="kd-num">' + s.orders + '</td></tr>';
+          }).join('') || '<tr><td colspan="8" class="muted" style="padding:16px">No shops match.</td></tr>';
+          var pages = r.pages, p = r.page, links = [];
+          if (pages > 1) {
+            links.push('<button class="kd-btn kd-btn--secondary kd-btn--sm" data-p="' + (p - 1) + '"' + (p <= 1 ? ' disabled' : '') + '>← Previous</button>');
+            links.push('<span class="muted">Page ' + p + ' of ' + pages + '</span>');
+            links.push('<button class="kd-btn kd-btn--secondary kd-btn--sm" data-p="' + (p + 1) + '"' + (p >= pages ? ' disabled' : '') + '>Next →</button>');
+          }
+          $('pager').innerHTML = links.join('');
+        }).catch(function (ex) { $('rows').innerHTML = '<tr><td colspan="8">' + K.esc(ex.message) + '</td></tr>'; });
+      }
+      var t;
+      $('q').addEventListener('input', function () { clearTimeout(t); var v = this.value.trim(); t = setTimeout(function () { st.q = v; st.page = 1; load(); }, 300); });
+      $('searchForm').addEventListener('submit', function (e) { e.preventDefault(); st.q = $('q').value.trim(); st.page = 1; load(); });
+      $('filters').addEventListener('click', function (e) { var a = e.target.closest('[data-f]'); if (!a) return; e.preventDefault(); st.filter = a.getAttribute('data-f'); st.page = 1; load(); });
+      $('pager').addEventListener('click', function (e) { var b = e.target.closest('[data-p]'); if (!b || b.disabled) return; st.page = +b.getAttribute('data-p'); load(); window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      load();
+    })();
+  </script>
+</body>
+</html>

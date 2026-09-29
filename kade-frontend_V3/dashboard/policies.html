@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Policies | Sidadiya dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+        <div class="page-head"><div><h1>Policies &amp; compliance</h1><p>Five pages every card-accepting store needs. They show in your store footer and at checkout.</p></div></div>
+
+        <section class="kd-card panel" aria-labelledby="h-check" style="margin-bottom:var(--space-4)">
+          <div class="row row--between"><h2 id="h-check">Compliance checklist</h2><span id="score" class="kd-badge kd-badge--neutral"></span></div>
+          <div class="kd-meter" style="margin:12px 0" role="progressbar" aria-valuemin="0" aria-valuemax="5" id="meter"><span></span></div>
+          <ul class="checklist" id="checklist"></ul>
+          <p class="muted" style="font-size:14px;margin-top:12px">Card payments stay off until all 5 are done. OnePay checks these pages on your live store before your application goes to the bank.</p>
+        </section>
+
+        <section class="kd-card panel" id="contact" aria-labelledby="h-contact" style="margin-bottom:var(--space-4)">
+          <h2 id="h-contact">Contact details</h2>
+          <p class="muted" style="margin-bottom:12px">Shown on your Contact page and store footer. Use a physical address where you run your business. A P.O. Box is not accepted.</p>
+          <form id="contactForm" class="form-grid form-grid--2" novalidate>
+            <div class="kd-field"><label class="kd-label" for="cEmail">Business email</label><input class="kd-input" id="cEmail" type="email" autocomplete="email" inputmode="email"></div>
+            <div class="kd-field"><label class="kd-label" for="cPhone">Phone number</label><input class="kd-input" id="cPhone" type="tel" inputmode="tel" placeholder="077 123 4567"></div>
+            <div class="kd-field span-2"><label class="kd-label" for="cAddress">Physical address</label><textarea class="kd-input" id="cAddress" rows="2" placeholder="No. 24, Dalada Veediya, Kandy"></textarea></div>
+            <div class="span-2"><button class="kd-btn kd-btn--primary" type="submit">Save contact details</button></div>
+          </form>
+        </section>
+
+        <section class="kd-card panel" aria-labelledby="h-rules" style="margin-bottom:var(--space-4)">
+          <h2 id="h-rules">Returns and refunds</h2>
+          <p class="muted" style="margin-bottom:12px">These values fill in your policy templates.</p>
+          <form id="rulesForm" class="form-grid form-grid--2" novalidate>
+            <div class="kd-field"><label class="kd-label" for="rDays">Return window (days)</label><input class="kd-input" id="rDays" type="number" min="1" max="90" inputmode="numeric"></div>
+            <div class="kd-field"><label class="kd-label" for="fDays">Time to request a refund (days)</label><input class="kd-input" id="fDays" type="number" min="1" max="90" inputmode="numeric"></div>
+            <div class="kd-field span-2"><label class="kd-label" for="rShip">Who pays return shipping?</label>
+              <select class="kd-select" id="rShip"><option value="buyer">The buyer (unless the item is faulty)</option><option value="seller_if_faulty">We pay when it is faulty or wrong, buyer pays otherwise</option><option value="seller">We always pay</option></select></div>
+            <div class="span-2"><button class="kd-btn kd-btn--secondary" type="submit">Save and update templates</button></div>
+          </form>
+        </section>
+
+        <section aria-labelledby="h-pol"><h2 class="heading" id="h-pol" style="margin-bottom:12px">Your policy pages</h2><div id="policies" class="stack"></div></section>
+      </main>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/demo.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/md.js"></script>
+  <script>
+    (function () {
+      var K = Kade, $ = function (id) { return document.getElementById(id); };
+      if (!K.guard('owner', 'policies')) return;
+      K.shell('dashboard', 'policies');
+      var data = null;
+
+      function paintChecklist(c) {
+        $('score').textContent = c.doneCount + ' of 5 done';
+        $('score').className = 'kd-badge kd-badge--' + (c.complete ? 'success' : 'warning');
+        $('meter').setAttribute('aria-valuenow', c.doneCount);
+        $('meter').className = 'kd-meter' + (c.complete ? '' : ' kd-meter--warning');
+        K.$('span', $('meter')).style.width = (c.doneCount / 5 * 100) + '%';
+        $('checklist').innerHTML = c.items.map(function (i) {
+          return '<li class="' + (i.done ? 'is-done' : '') + '"><span class="checklist__mark" aria-hidden="true">' + (i.done ? '✓' : '') + '</span><a href="#' + (i.key === 'contact' ? 'contact' : 'pol-' + i.key) + '"><strong>' + K.esc(i.label) + '</strong><small>' + K.esc(i.hint) + '</small></a><span class="visually-hidden">' + (i.done ? 'Done' : 'Not done') + '</span></li>';
+        }).join('');
+      }
+      function fieldErr(input, msg) {
+        var f = input.closest('.kd-field'), o = f.querySelector('.kd-error'); if (o) o.remove();
+        f.classList.toggle('kd-field--error', !!msg); input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+        if (msg) { var e = document.createElement('span'); e.className = 'kd-error'; e.textContent = msg; f.appendChild(e); }
+      }
+
+      function policyCard(p) {
+        var live = '/store/policy?s=' + encodeURIComponent(data.slug) + '&p=' + p.key;
+        return '<details class="kd-card pol" id="pol-' + p.key + '"' + (p.confirmedAt ? '' : ' open') + '><summary><span><strong>' + K.esc(p.title) + '</strong><small>' + (p.isCustom ? 'Your own text' : 'Sidadiya template, filled with your details') + '</small></span>' +
+          (p.confirmedAt ? '<span class="kd-badge kd-badge--success">Published</span>' : '<span class="kd-badge kd-badge--warning">Needs review</span>') + '</summary>' +
+          '<div class="pol__body"><div class="kd-tabs" role="tablist"><button type="button" class="kd-tab" role="tab" aria-selected="true" data-tab="edit">Edit</button><button type="button" class="kd-tab" role="tab" aria-selected="false" data-tab="preview">Preview</button></div>' +
+          '<label class="visually-hidden" for="t-' + p.key + '">' + K.esc(p.title) + ' text</label><textarea class="kd-input pol__text" id="t-' + p.key + '" rows="14">' + K.esc(p.content) + '</textarea>' +
+          '<div class="pol__preview doc-preview" hidden></div>' +
+          '<p class="kd-help">Use "## " for headings and "- " for bullet points. Keep the sections card networks look for.</p>' +
+          '<div class="row" style="flex-wrap:wrap;gap:8px"><button type="button" class="kd-btn kd-btn--primary" data-save="' + p.key + '">' + (p.confirmedAt ? 'Save changes' : 'Save and publish') + '</button>' +
+          (p.isCustom ? '<button type="button" class="kd-btn kd-btn--ghost" data-reset="' + p.key + '">Reset to template</button>' : '') +
+          '<a class="kd-btn kd-btn--ghost" href="' + live + '" target="_blank" rel="noopener">View on store</a></div></div></details>';
+      }
+      function paintPolicies() { $('policies').innerHTML = data.policies.map(policyCard).join(''); }
+
+      function load() {
+        return KadeApi.policies().then(function (r) {
+          data = r;
+          paintChecklist(r.compliance);
+          $('cEmail').value = r.contact.email; $('cPhone').value = r.contact.phone; $('cAddress').value = r.contact.address;
+          $('rDays').value = r.settings.returnDays; $('fDays').value = r.settings.refundDays; $('rShip').value = r.settings.returnShipping;
+          paintPolicies();
+        });
+      }
+
+      $('contactForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        [$('cEmail'), $('cPhone'), $('cAddress')].forEach(function (i) { fieldErr(i, ''); });
+        var restore = K.btnLoading(K.$('button[type=submit]', this), 'Saving…');
+        KadeApi.saveContact({ email: $('cEmail').value, phone: $('cPhone').value, address: $('cAddress').value }).then(function (r) {
+          restore(); paintChecklist(r.compliance); K.toast('Contact details saved'); return load();
+        }).catch(function (ex) {
+          restore();
+          var f = ex.details && ex.details.fields || {};
+          if (f.email) fieldErr($('cEmail'), f.email); if (f.phone) fieldErr($('cPhone'), f.phone); if (f.address) fieldErr($('cAddress'), f.address);
+          if (!Object.keys(f).length) K.toast(ex.message);
+        });
+      });
+      $('rulesForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        KadeApi.savePolicySettings({ returnDays: Number($('rDays').value), refundDays: Number($('fDays').value), returnShipping: $('rShip').value })
+          .then(function () { K.toast('Saved. Template text updated.'); return load(); }).catch(function (ex) { K.toast(ex.message); });
+      });
+      $('policies').addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        var card = b.closest('.pol');
+        if (b.hasAttribute('data-tab')) {
+          var prev = b.getAttribute('data-tab') === 'preview';
+          K.$$('[data-tab]', card).forEach(function (t) { t.setAttribute('aria-selected', String(t === b)); });
+          K.$('.pol__text', card).hidden = prev; var pv = K.$('.pol__preview', card); pv.hidden = !prev;
+          if (prev) pv.innerHTML = KadeMd(K.$('.pol__text', card).value);
+        } else if (b.hasAttribute('data-save')) {
+          var k = b.getAttribute('data-save'), restore = K.btnLoading(b, 'Saving…');
+          KadeApi.savePolicy(k, K.$('.pol__text', card).value, true).then(function (r) { restore(); paintChecklist(r.compliance); K.toast('Published'); return load(); })
+            .catch(function (ex) { restore(); K.toast(ex.message); });
+        } else if (b.hasAttribute('data-reset')) {
+          K.confirm({ title: 'Reset to the template?', body: 'Your own text is replaced with the Sidadiya template. You then need to review and publish it again.', confirmLabel: 'Reset' }).then(function (ok) {
+            if (ok) KadeApi.resetPolicy(b.getAttribute('data-reset')).then(function (r) { paintChecklist(r.compliance); return load(); });
+          });
+        }
+      });
+
+      if (window.KadeApi && KadeApi.enabled) { K.loading($('policies'), 'Loading…'); load().catch(function (ex) { $('policies').innerHTML = '<p class="muted">' + K.esc(ex.message) + '</p>'; }); }
+      else $('policies').innerHTML = '<p class="muted">Sign in to edit your policies.</p>';
+    })();
+  </script>
+</body>
+</html>

@@ -4,7 +4,7 @@ import { query } from '../db/pool.js';
 import { authenticate, requireBusiness, requirePermission } from '../middleware/auth.js';
 import { wrap, badRequest, notFound, forbidden } from '../utils/http.js';
 import { saveUpload } from '../services/uploads.js';
-import { currentPlan, cap } from '../services/plan.js';
+import { currentPlan, cap, paywall } from '../services/plan.js';
 import * as S from '../services/serialize.js';
 
 // Hard ceiling on files accepted per request (multer needs a finite bound even when
@@ -48,7 +48,8 @@ function keptImages(body, existingImages) {
   return keep.filter((u) => allowed.has(u));
 }
 
-productsRouter.use(authenticate, requireBusiness, requirePermission('products'));
+// paywall([]) = nothing on the catalogue API is open while the shop is locked.
+productsRouter.use(authenticate, requireBusiness, requirePermission('products'), paywall([]));
 
 // The business_id ALWAYS comes from the token, never the request body — this is the
 // line that keeps one tenant from touching another's catalogue.

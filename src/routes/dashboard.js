@@ -2,20 +2,48 @@ import { Router } from 'express';
 import multer from 'multer';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate, requireBusiness, requireOwner, requirePermission } from '../middleware/auth.js';
-import { wrap, badRequest, notFound, conflict, forbidden } from '../utils/http.js';
-import { saveUpload, SLIP_TYPES } from '../services/uploads.js';
+import { wrap, badRequest, notFound, conflict, forbidden, HttpError } from '../utils/http.js';
+import { saveUpload, savePrivate, SLIP_TYPES } from '../services/uploads.js';
+import { config } from '../config.js';
+import { startSubscriptionCheckout } from '../services/cardPayments.js';
+import { platformCreds } from '../services/onepay.js';
+import { listGateways, saveGateway, cardAvailability, gatewayUrls } from '../services/gateways.js';
+import { onepayGuide } from '../services/onepayGuide.js';
+import { trafficSources } from '../services/traffic.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
-import { currentPlan, cap } from '../services/plan.js';
+import { currentPlan, cap, businessAccess, assertFeature, paywall, trialInfo } from '../services/plan.js';
+import { getSetting } from '../services/settings.js';
+import { POLICY_KINDS, TEMPLATES, loadPolicies, compliance, validateContact } from '../services/policies.js';
 import * as S from '../services/serialize.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 export const dashboardRouter = Router();
 
 dashboardRouter.use(authenticate, requireBusiness);
+// Payment wall: once a trial expires (or a paid plan lapses into SUSPENDED) only the
+// endpoints needed to understand the problem and pay stay open. Nothing is deleted.
+export const PAYWALL_ALLOW = [
+  ['GET', /^\/access$/],
+  ['GET', /^\/badges$/],
+  ['*', /^\/subscription(\/|$)/],
+  ['GET', /^\/store$/],
+  ['DELETE', /^\/account$/],
+];
+dashboardRouter.use(paywall(PAYWALL_ALLOW));
 const bid = (req) => req.user.business_id;
 
-const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+// ---- Access state: plan, feature flags, trial countdown, payment-wall lock ----
+dashboardRouter.get(
+  '/access',
+  wrap(async (req, res) => {
+    const a = await businessAccess(bid(req));
+    if (!a) throw notFound('Business not found.');
+    res.json(a);
+  })
+);
+
+const ORDER_FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'READY_TO_SHIP', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'];
 
 // ---- Badge counts for the sidebar/tab navigation (cheap, called on every page) ----
 dashboardRouter.get(
@@ -73,17 +101,9 @@ dashboardRouter.get(
   requirePermission('reports'),
   wrap(async (req, res) => {
     const b = bid(req);
-    const plan = (
-      await query(
-        `SELECT pl.id, pl.name FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
-          WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
-        [b]
-      )
-    ).rows[0];
-    const planId = plan ? plan.id : null;
-    if (planId === 'starter' || !planId) {
-      throw badRequest('Reports are available on the Business and Pro plans.');
-    }
+    const plan = await currentPlan(b);
+    await assertFeature(b, 'reports', 'Reports are available on the Business and Pro plans.');
+    const advanced = !!(plan.feature_flags && plan.feature_flags.advanced_reports);
 
     // Optional date range (YYYY-MM-DD). Applies to every order-based metric below;
     // stock counts are always "now". `to` is treated as an inclusive day.
@@ -204,8 +224,8 @@ dashboardRouter.get(
       categories,
       payments,
     };
-    // Advanced customer insights are Pro-only.
-    if (planId === 'pro') {
+    // Advanced customer insights are gated by the plan's advanced_reports flag (Pro by default).
+    if (advanced) {
       report.cities = (
         await query(
           `SELECT COALESCE(NULLIF(city,''),'Unknown') city, COUNT(*) n
@@ -266,7 +286,11 @@ dashboardRouter.get(
   requirePermission('orders'),
   wrap(async (req, res) => {
     const b = bid(req);
-    const { rows } = await query(`SELECT * FROM orders WHERE business_id=$1 ORDER BY created_at DESC`, [b]);
+    const { rows } = await query(
+      `SELECT o.*, s.slug AS business_slug FROM orders o LEFT JOIN stores s ON s.business_id = o.business_id
+        WHERE o.business_id=$1 ORDER BY o.created_at DESC`,
+      [b]
+    );
     const ids = rows.map((r) => r.id);
     let itemsByOrder = {};
     if (ids.length) {
@@ -287,11 +311,18 @@ dashboardRouter.put(
     if (!ORDER_FLOW.includes(status)) throw badRequest('Unknown order status.');
     const order = (await query('SELECT * FROM orders WHERE business_id=$1 AND code=$2', [b, req.params.code])).rows[0];
     if (!order) throw notFound('Order not found.');
+    // "Refunded": the refund itself is made in the seller's OnePay dashboard (or by
+    // bank transfer); here the seller records it with a note.
+    const note = req.body && req.body.note ? String(req.body.note).trim().slice(0, 500) : null;
+    if (status === 'REFUNDED' && !note) throw badRequest('Add a note about the refund (amount, how and when it was refunded).');
     await withTransaction(async (client) => {
       await client.query('UPDATE orders SET status=$3 WHERE business_id=$1 AND code=$2', [b, req.params.code, status]);
+      if (status === 'REFUNDED') {
+        await client.query(`UPDATE orders SET refund_note=$2, refunded_at=now(), payment_status=CASE WHEN payment_status='PAID' THEN 'REFUNDED' ELSE payment_status END WHERE id=$1`, [order.id, note]);
+      }
       await client.query(
-        'INSERT INTO order_status_history (order_id, status, changed_by) VALUES ($1,$2,$3)',
-        [order.id, status, req.user.sub]
+        'INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)',
+        [order.id, status, req.user.sub, note]
       );
       // Email the customer only at the two milestones that matter to them:
       // when the shop confirms the order and when it ships. Other status changes
@@ -315,6 +346,72 @@ dashboardRouter.put(
   })
 );
 
+// ---- Mark as shipped with courier + tracking number; emails the buyer ----
+dashboardRouter.put(
+  '/orders/:code/ship',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const courier = String((req.body && req.body.courier) || '').trim().slice(0, 60);
+    const number = String((req.body && req.body.trackingNumber) || '').trim().slice(0, 80);
+    let url = String((req.body && req.body.trackingUrl) || '').trim().slice(0, 300);
+    if (!courier) throw badRequest('Choose or type the courier name.');
+    if (!number) throw badRequest('Enter the tracking number.');
+    if (url && !/^https:\/\/[^\s]+$/i.test(url)) throw badRequest('The tracking link must start with https://');
+    const order = (await query('SELECT * FROM orders WHERE business_id=$1 AND code=$2', [b, req.params.code])).rows[0];
+    if (!order) throw notFound('Order not found.');
+    if (['CANCELLED', 'REFUNDED'].includes(order.status)) throw badRequest('This order is cancelled.');
+    const updated = await withTransaction(async (client) => {
+      const o = (await client.query(
+        `UPDATE orders SET courier_name=$2, tracking_number=$3, tracking_url=$4, shipped_at=COALESCE(shipped_at, now()),
+                status = CASE WHEN status = 'DELIVERED' THEN status ELSE 'SHIPPED' END
+          WHERE id=$1 RETURNING *`,
+        [order.id, courier, number, url || null]
+      )).rows[0];
+      if (order.status !== o.status) {
+        await client.query('INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)', [o.id, o.status, req.user.sub, `${courier} ${number}`]);
+      }
+      if (o.customer_email) {
+        const shop = (await client.query('SELECT s.name, s.slug, s.phone, s.whatsapp, s.address FROM stores s WHERE s.business_id=$1', [b])).rows[0];
+        const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [o.id])).rows;
+        // New tracking number = new email; saving the same one twice sends once.
+        await queueNotification({ businessId: b, recipient: o.customer_email, dedupeKey: `SHIPPED_TRACK:${o.id}:${number}`, ...templates.orderShippedTracking(shop, o, items) }, client);
+      }
+      return o;
+    });
+    res.json({ ok: true, status: updated.status, emailed: !!updated.customer_email, tracking: { courier, number, url: url || '' } });
+  })
+);
+
+// ---- Seller preferences: weekly summary on/off (+ channels for later) ----
+dashboardRouter.get(
+  '/preferences',
+  requireOwner,
+  wrap(async (req, res) => {
+    const s = (await query('SELECT weekly_summary_enabled, digest_channels FROM stores WHERE business_id=$1', [bid(req)])).rows[0] || {};
+    res.json({ weeklySummary: s.weekly_summary_enabled !== false, channels: s.digest_channels || { email: true } });
+  })
+);
+dashboardRouter.put(
+  '/preferences',
+  requireOwner,
+  wrap(async (req, res) => {
+    const on = !!(req.body && req.body.weeklySummary);
+    await query(`UPDATE stores SET weekly_summary_enabled=$2 WHERE business_id=$1`, [bid(req), on]);
+    res.json({ ok: true, weeklySummary: on });
+  })
+);
+
+// ---- Traffic sources for the overview (last N days) ----
+dashboardRouter.get(
+  '/traffic',
+  wrap(async (req, res) => {
+    const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
+    const to = new Date(), from = new Date(Date.now() - days * 86400000);
+    res.json({ days, sources: await trafficSources(bid(req), from, to, 8) });
+  })
+);
+
 // ---- Subscription view (owner-facing) ----
 dashboardRouter.get(
   '/subscription',
@@ -329,20 +426,46 @@ dashboardRouter.get(
         [b]
       )
     ).rows[0];
-    const biz = (await query('SELECT status FROM businesses WHERE id=$1', [b])).rows[0];
+    const biz = (await query('SELECT status, trial_started_at, trial_ends_at, preferred_plan_id FROM businesses WHERE id=$1', [b])).rows[0];
     const payments = (
-      await query(`SELECT * FROM payments WHERE business_id=$1 ORDER BY submitted_at DESC`, [b])
+      await query(
+        `SELECT p.*, pl.name plan_name FROM payments p LEFT JOIN plans pl ON pl.id = p.plan_id
+          WHERE p.business_id=$1 ORDER BY p.submitted_at DESC`,
+        [b]
+      )
     ).rows.map((p) => ({
-      id: p.id, amount: p.amount, method: p.method, ref: p.reference || '',
+      id: p.id, amount: p.amount, method: p.method, ref: p.reference || '', plan: p.plan_name || '',
       status: p.status, submitted: p.submitted_at.toISOString().slice(0, 10), reason: p.reason || undefined,
+      paidOn: p.reviewed_at ? p.reviewed_at.toISOString().slice(0, 10) : null,
     }));
+    const trial = biz ? trialInfo(biz) : null;
+    const onTrial = !!(sub && sub.status === 'TRIAL');
     res.json({
       status: biz ? biz.status : null,
       plan: sub ? { id: sub.plan_id, name: sub.plan_name, price: sub.price, durationDays: sub.duration_days, maxProducts: sub.max_products, features: sub.features } : null,
+      onTrial,
+      trial,
       startDate: sub && sub.start_date ? sub.start_date.toISOString().slice(0, 10) : null,
       expiryDate: sub && sub.expiry_date ? sub.expiry_date.toISOString().slice(0, 10) : null,
+      // Next renewal: the paid period's end. During a trial the first payment is due when the trial ends.
+      renewalDate: sub && sub.expiry_date ? sub.expiry_date.toISOString().slice(0, 10) : null,
+      preferredPlanId: biz ? biz.preferred_plan_id : null,
+      bankAccounts: await getSetting('platform_bank_accounts', []),
+      cardPayments: { enabled: !!platformCreds(), mode: platformCreds() ? platformCreds().mode : null },
       payments,
     });
+  })
+);
+
+// ---- Pay the platform subscription by card (OnePay, the platform's own account) ----
+// Returns the OnePay page to send the seller to (same window). Activation happens
+// only after the payment is verified (webhook or return page).
+dashboardRouter.post(
+  '/subscription/onepay',
+  requireOwner,
+  wrap(async (req, res) => {
+    const out = await startSubscriptionCheckout(bid(req), String((req.body && req.body.planId) || ''));
+    res.status(201).json(out);
   })
 );
 
@@ -356,7 +479,7 @@ dashboardRouter.post(
     const sub = (await query('SELECT * FROM subscriptions WHERE business_id=$1 ORDER BY created_at DESC LIMIT 1', [b])).rows[0];
     const planId = (req.body && req.body.planId) || (sub ? sub.plan_id : null);
     if (!planId) throw badRequest('Choose a plan to renew.');
-    const plan = (await query('SELECT * FROM plans WHERE id=$1', [planId])).rows[0];
+    const plan = (await query("SELECT * FROM plans WHERE id=$1 AND status='ACTIVE'", [planId])).rows[0];
     if (!plan) throw badRequest('Unknown plan.');
     let slipUrl = null;
     if (req.file) slipUrl = await saveUpload(req.file, 'slips', { allow: SLIP_TYPES });
@@ -544,6 +667,196 @@ dashboardRouter.post(
   })
 );
 
+// ---- Payment gateways (seller's own OnePay / PayHere accounts) ----
+dashboardRouter.get(
+  '/gateways',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    res.json({ gateways: await listGateways(b), card: await cardAvailability(b), urls: gatewayUrls(), guide: await onepayGuide() });
+  })
+);
+
+dashboardRouter.put(
+  '/gateways/:provider',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    try {
+      await saveGateway(b, req.params.provider, req.body || {});
+    } catch (e) {
+      if (e.status) throw new HttpError(e.status, e.message);
+      throw e;
+    }
+    res.json({ gateways: await listGateways(b), card: await cardAvailability(b) });
+  })
+);
+
+// ---- Seller verification: ID copy + address proof, stored PRIVATELY ----
+dashboardRouter.get(
+  '/verification',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const biz = (await query('SELECT verification_status, verification_reason, verification_submitted_at, verification_reviewed_at FROM businesses WHERE id=$1', [b])).rows[0];
+    const docs = (await query('SELECT kind, filename, uploaded_at FROM verification_documents WHERE business_id=$1', [b])).rows;
+    res.json({
+      status: biz.verification_status,
+      reason: biz.verification_status === 'REJECTED' ? biz.verification_reason : null,
+      submittedAt: biz.verification_submitted_at,
+      reviewedAt: biz.verification_reviewed_at,
+      // File names only. Sellers never get a link back: the documents stay private.
+      documents: docs.map((d) => ({ kind: d.kind, filename: d.filename, uploadedAt: d.uploaded_at })),
+    });
+  })
+);
+
+dashboardRouter.post(
+  '/verification',
+  requireOwner,
+  upload.fields([{ name: 'idDoc', maxCount: 1 }, { name: 'addressDoc', maxCount: 1 }]),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const f = (k) => (req.files && req.files[k] && req.files[k][0]) || null;
+    const biz = (await query('SELECT id, name, verification_status FROM businesses WHERE id=$1', [b])).rows[0];
+    if (biz.verification_status === 'VERIFIED') throw badRequest('Your business is already verified.');
+    const have = new Set((await query('SELECT kind FROM verification_documents WHERE business_id=$1', [b])).rows.map((r) => r.kind));
+    // On a resubmission after a rejection, both documents must be uploaded again.
+    const needBoth = biz.verification_status === 'REJECTED';
+    if ((!f('idDoc') && (needBoth || !have.has('id'))) || (!f('addressDoc') && (needBoth || !have.has('address')))) {
+      throw badRequest('Upload both your ID copy and your address proof.');
+    }
+    for (const [field, kind] of [['idDoc', 'id'], ['addressDoc', 'address']]) {
+      const file = f(field);
+      if (!file) continue;
+      const key = await savePrivate(file, b, kind);
+      await query(
+        `INSERT INTO verification_documents (business_id, kind, storage_key, filename, content_type, size_bytes, uploaded_at)
+         VALUES ($1,$2,$3,$4,$5,$6, now())
+         ON CONFLICT (business_id, kind) DO UPDATE SET storage_key=EXCLUDED.storage_key, filename=EXCLUDED.filename,
+           content_type=EXCLUDED.content_type, size_bytes=EXCLUDED.size_bytes, uploaded_at=now()`,
+        [b, kind, key, String(file.originalname || kind).slice(0, 120), file.mimetype, file.size]
+      );
+    }
+    await query(
+      `UPDATE businesses SET verification_status='PENDING', verification_reason=NULL, verification_submitted_at=now() WHERE id=$1`,
+      [b]
+    );
+    await queueNotification({ businessId: b, recipient: config.admin.email, dedupeKey: `VERIFY_SUBMITTED:${b}:${Date.now()}`, ...templates.verificationSubmitted(biz) });
+    res.status(201).json({ ok: true, status: 'PENDING' });
+  })
+);
+
+// ---- Policies & compliance (card network / OnePay requirements) ----
+dashboardRouter.get(
+  '/compliance',
+  wrap(async (req, res) => res.json(await compliance(bid(req))))
+);
+
+dashboardRouter.get(
+  '/policies',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const { policies, store, biz } = await loadPolicies(b);
+    res.json({
+      policies: POLICY_KINDS.map((k) => policies[k]),
+      settings: { returnDays: store.return_days, refundDays: store.refund_days, returnShipping: store.return_shipping },
+      contact: { email: store.contact_email || biz.email || '', phone: store.phone || '', address: store.address || '' },
+      compliance: await compliance(b),
+      slug: store.slug,
+    });
+  })
+);
+
+// Save (and optionally publish) a policy. Text identical to the template stays
+// template-backed, so it keeps following shop name/contact changes.
+dashboardRouter.put(
+  '/policies/:kind',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const kind = req.params.kind;
+    if (!POLICY_KINDS.includes(kind)) throw notFound('Unknown policy.');
+    const body = req.body || {};
+    const { ctx } = await loadPolicies(b);
+    const text = body.content != null ? String(body.content).replace(/\r\n/g, '\n').trim() : null;
+    if (text != null && text.length < 80) throw badRequest('This policy looks too short. Keep the key sections so buyers and OnePay can review it.');
+    if (text != null && text.length > 20000) throw badRequest('This policy is too long (max 20,000 characters).');
+    const isCustom = text != null && text !== TEMPLATES[kind](ctx).trim();
+    await query(
+      `UPDATE store_policies SET content = $3, is_custom = $4, updated_at = now(),
+              confirmed_at = CASE WHEN $5 THEN now() ELSE confirmed_at END
+        WHERE business_id = $1 AND kind = $2`,
+      [b, kind, isCustom ? text : null, isCustom, !!body.publish]
+    );
+    res.json({ ok: true, compliance: await compliance(b) });
+  })
+);
+
+dashboardRouter.post(
+  '/policies/:kind/reset',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    if (!POLICY_KINDS.includes(req.params.kind)) throw notFound('Unknown policy.');
+    await query(`UPDATE store_policies SET content = NULL, is_custom = false, confirmed_at = NULL, updated_at = now() WHERE business_id = $1 AND kind = $2`, [b, req.params.kind]);
+    res.json({ ok: true, compliance: await compliance(b) });
+  })
+);
+
+dashboardRouter.put(
+  '/policy-settings',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const s = req.body || {};
+    const days = (v, name) => { const n = Number(v); if (!Number.isInteger(n) || n < 1 || n > 90) throw badRequest(`${name} must be 1 to 90 days.`); return n; };
+    const ship = ['buyer', 'seller', 'seller_if_faulty'].includes(s.returnShipping) ? s.returnShipping : 'buyer';
+    await query('UPDATE stores SET return_days = $2, refund_days = $3, return_shipping = $4 WHERE business_id = $1',
+      [b, days(s.returnDays ?? 14, 'Return window'), days(s.refundDays ?? 7, 'Refund request window'), ship]);
+    res.json({ ok: true });
+  })
+);
+
+// Contact Details (compliance item 5): business email, physical address (no P.O. Box), phone.
+dashboardRouter.put(
+  '/contact',
+  requireOwner,
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const c = { email: String(req.body?.email || '').trim(), phone: String(req.body?.phone || '').trim(), address: String(req.body?.address || '').trim() };
+    const errors = validateContact(c);
+    if (Object.keys(errors).length) throw badRequest(Object.values(errors)[0], { fields: errors });
+    await query('UPDATE stores SET contact_email = $2, phone = $3, address = $4 WHERE business_id = $1', [b, c.email.slice(0, 120), c.phone.slice(0, 30), c.address.slice(0, 300)]);
+    res.json({ ok: true, compliance: await compliance(b) });
+  })
+);
+
+// ---- Store cover photo (owner): the wide banner at the top of the storefront. ----
+dashboardRouter.post(
+  '/store/cover',
+  requireOwner,
+  upload.single('cover'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    if (!req.file) throw badRequest('Choose an image to upload.');
+    const store = (await query('SELECT slug FROM stores WHERE business_id=$1', [b])).rows[0];
+    if (!store) throw notFound('Store not found.');
+    const url = await saveUpload(req.file, `covers/${store.slug}`);
+    await query('UPDATE stores SET cover_url=$2 WHERE business_id=$1', [b, url]);
+    res.json({ cover: url });
+  })
+);
+dashboardRouter.delete(
+  '/store/cover',
+  requireOwner,
+  wrap(async (req, res) => {
+    await query('UPDATE stores SET cover_url=NULL WHERE business_id=$1', [bid(req)]);
+    res.json({ ok: true });
+  })
+);
+
 // ---- Remove the store logo (owner). ----
 dashboardRouter.delete(
   '/store/logo',
@@ -573,15 +886,8 @@ dashboardRouter.delete(
 );
 
 // ---- Coupons (Business/Pro plans) ----
-async function requireCouponsPlan(businessId) {
-  const plan = (
-    await query(
-      `SELECT pl.id FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
-        WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
-      [businessId]
-    )
-  ).rows[0];
-  if (!plan || plan.id === 'starter') throw badRequest('Coupons are available on the Business and Pro plans.');
+function requireCouponsPlan(businessId) {
+  return assertFeature(businessId, 'coupons', 'Coupons are available on the Business and Pro plans.');
 }
 
 function parseCoupon(body) {
@@ -661,15 +967,8 @@ dashboardRouter.delete(
 
 // ---- Staff accounts (Pro plan, owner only) ----
 const STAFF_SECTIONS = ['orders', 'products', 'reports', 'coupons'];
-async function requireProPlan(businessId) {
-  const plan = (
-    await query(
-      `SELECT pl.id FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id
-        WHERE s.business_id = $1 ORDER BY s.created_at DESC LIMIT 1`,
-      [businessId]
-    )
-  ).rows[0];
-  if (!plan || plan.id !== 'pro') throw badRequest('Staff accounts are a Pro feature.');
+function requireProPlan(businessId) {
+  return assertFeature(businessId, 'staff', 'Staff accounts are a Pro feature.');
 }
 function cleanPerms(input) {
   const arr = Array.isArray(input) ? input : [];

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <title>Product</title>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/storefront.css">
+</head>
+<body>
+  <a class="sf-skip" href="#main">Skip to product</a>
+  <div id="sf-header"></div>
+  <main id="main" class="wrap" tabindex="-1">
+    <div class="pdp" style="padding-top:16px"><div class="pdp-media skeleton"></div><div class="pdp-info"><div class="skeleton" style="height:120px"></div></div></div>
+  </main>
+  <div id="sf-footer"></div>
+  <div class="bar" id="buybar" hidden>
+    <div class="bar-in"><div class="sum"><small id="bb-l">Total</small><b id="bb-t">Rs 0</b></div><button class="btn btn-accent" type="button" id="bb-add">Add to cart</button></div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/store.js"></script>
+  <script>
+    (function () {
+      var K = Kade, $ = function (id) { return document.getElementById(id); };
+      SF.load(function (s, products) {
+        var id = new URLSearchParams(location.search).get('p');
+        var p = products.filter(function (x) { return x.id === id; })[0];
+        var main = $('main');
+        if (!p) { main.innerHTML = '<div class="empty"><div class="big">🧐</div><h1>We could not find that product</h1><a class="btn btn-primary" href="' + SF.homeUrl(s.slug) + '">See all products</a></div>'; return; }
+        document.title = p.name + ' | ' + s.name;
+        var hasVar = !!(p.variants && p.variants.length);
+        var groups = hasVar ? [] : Object.keys(p.options || {}), chosen = {}, vSel = null, qty = 1;
+        var pageUrl = SF.abs(SF.pUrl(p)), d = s.delivery || {};
+        var imgs = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
+
+        function curStock() { return hasVar ? (vSel ? vSel.stock : null) : p.stock; }
+        function curLow() { return hasVar ? (vSel ? vSel.lowAt : 0) : p.lowAt; }
+        function curPrice() { return hasVar ? (vSel ? (vSel.sale != null ? vSel.sale : vSel.price) : K.fromPrice(p)) : K.priceOf(p); }
+        function selLabel() { return hasVar ? (vSel ? vSel.label : '') : groups.map(function (g) { return g + ': ' + (chosen[g] || '-'); }).join(', '); }
+        function priceMarkup() {
+          if (hasVar && !vSel) return '<p class="price"><small>From</small> ' + SF.rs(K.fromPrice(p)) + '</p>';
+          if (hasVar) return '<p class="price">' + SF.rs(curPrice()) + (vSel.sale != null ? ' <s>' + SF.rs(vSel.price) + '</s><span class="off">' + Math.round((1 - vSel.sale / vSel.price) * 100) + '% off</span>' : '') + '</p>';
+          return SF.priceHtml(p);
+        }
+        function badge() { return hasVar && !vSel ? '<span class="badge" style="background:#EFEBE4">Choose an option</span>' : SF.stockBadge(curStock(), curLow()); }
+        function waMsg() {
+          var out = hasVar ? (vSel && vSel.stock <= 0) : p.stock <= 0;
+          return out ? 'Hello ' + s.name + ', is "' + p.name + '" coming back in stock?\n' + pageUrl
+            : 'Hello ' + s.name + ', I would like to order:\n\n' + p.name + (selLabel() ? '\n' + selLabel() : '') + '\nQuantity: ' + qty + '\nTotal: ' + SF.rs(curPrice() * qty) + '\n\n' + pageUrl;
+        }
+
+        var media = '<div><div class="pdp-media">' + (imgs.length ? '<img id="pdp-main" src="' + K.esc(imgs[0]) + '" alt="' + K.esc(p.name) + '" fetchpriority="high" decoding="async">' : '<div class="ph">' + K.esc(K.initials(p.name)) + '</div>') +
+          (p.sale ? '<span class="tag">SALE</span>' : '') + '<button class="heart" type="button" id="wish" aria-pressed="' + SF.wish.has(p.id) + '" aria-label="Save to wishlist">' + SF.ic('heart') + '</button></div>' +
+          (imgs.length > 1 ? '<div class="thumbs" role="group" aria-label="Product photos">' + imgs.map(function (u, i) { return '<button type="button" data-src="' + K.esc(u) + '" aria-current="' + (i === 0) + '" aria-label="Show photo ' + (i + 1) + '">' + SF.img(u, '') + '</button>'; }).join('') + '</div>' : '') + '</div>';
+
+        var picker = hasVar
+          ? '<div role="group" aria-labelledby="vg"><span class="lbl" id="vg">Choose an option</span><div class="opt-row">' + p.variants.map(function (v, i) { var pr = v.sale != null ? v.sale : v.price, oos = v.stock <= 0; return '<button type="button" class="chip chip--plain" data-vi="' + i + '" aria-pressed="false"' + (oos ? ' disabled' : '') + '>' + K.esc(v.label) + '&nbsp;<small>' + SF.rs(pr) + (oos ? ' · sold out' : '') + '</small></button>'; }).join('') + '</div></div>'
+          : groups.map(function (g, gi) { return '<div role="group" aria-labelledby="og-' + gi + '"><span class="lbl" id="og-' + gi + '">' + K.esc(g) + '</span><div class="opt-row">' + p.options[g].map(function (v) { return '<button type="button" class="chip chip--plain" aria-pressed="false" data-g="' + K.esc(g) + '" data-v="' + K.esc(v) + '">' + K.esc(v) + '</button>'; }).join('') + '</div></div>'; }).join('');
+
+        var pol = {}; (s.policies || []).forEach(function (x) { pol[x.key] = '/store/policy?s=' + encodeURIComponent(s.slug) + '&p=' + x.key; });
+        var trust = [];
+        if (s.payments && s.payments.cod) trust.push(SF.ic('cash', 'ic-sm') + 'Cash on delivery available');
+        if (s.payments && s.payments.card) trust.push(SF.ic('card', 'ic-sm') + 'Pay securely by card');
+        if (pol['return']) trust.push(SF.ic('ret', 'ic-sm') + '<a href="' + pol['return'] + '">' + (s.returnDays ? s.returnDays + '-day returns' : 'Return policy') + '</a>' + (pol.refund ? ' · <a href="' + pol.refund + '">Refunds</a>' : ''));
+        if (s.verified) trust.push(SF.ic('shield', 'ic-sm') + 'Business verified by Sidadiya');
+
+        main.innerHTML =
+          '<nav class="crumbs" aria-label="Breadcrumb"><a href="' + SF.homeUrl(s.slug) + '">' + SF.ic('back', 'ic-sm') + 'All products</a>' + (p.category ? '<span aria-hidden="true">/</span><span>' + K.esc(p.category) + '</span>' : '') + '</nav>' +
+          '<div class="pdp">' + media +
+          '<div class="pdp-info"><div style="display:grid;gap:8px">' + (p.category ? '<p class="eyebrow">' + K.esc(p.category) + '</p>' : '') + '<h1>' + K.esc(p.name) + '</h1>' +
+            (p.reviews ? '<a href="#reviews" style="width:max-content">' + SF.stars(p.rating, p.reviews) + '</a>' : '') +
+            '<div id="price">' + priceMarkup() + '</div><div id="stock">' + badge() + '</div>' +
+            '<p class="sold-by">Sold by <a href="' + SF.homeUrl(s.slug) + '">' + K.esc(s.name) + '</a>' + SF.seal(s, true) + '</p></div>' +
+          (p.desc ? '<p class="desc">' + K.esc(p.desc) + '</p>' : '') + picker +
+          '<p class="err" id="optErr" role="alert" hidden></p>' +
+          '<div><span class="lbl" id="qlabel">Quantity</span><div class="qty" role="group" aria-labelledby="qlabel"><button type="button" id="minus" aria-label="Decrease quantity">−</button><output id="qty" aria-live="polite">1</output><button type="button" id="plus" aria-label="Increase quantity">+</button></div></div>' +
+          '<div class="cta-stack"><button class="btn btn-accent btn-block" type="button" id="add">Add to cart</button>' +
+            (s.whatsapp ? '<a class="btn btn-wa btn-block" id="waOrder" target="_blank" rel="noopener" href="#">' + SF.WA + 'Order on WhatsApp</a>' : '') + '</div>' +
+          '<div class="deliv">' + SF.ic('truck') + '<div><b>' + (d.fee ? SF.rs(d.fee) + ' islandwide delivery' : 'Free delivery') + '</b>' + (d.freeAbove > 0 ? '<br>Free above ' + SF.rs(d.freeAbove) : '') + (d.pickup ? '<br>Free pickup' + (s.city ? ' in ' + K.esc(s.city) : '') : '') + '</div></div>' +
+          (trust.length ? '<ul class="mini-trust">' + trust.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul>' : '') +
+          '<div><span class="lbl">Share with a friend</span><div class="share-row"><a class="btn btn-soft btn-sm" id="shWa" target="_blank" rel="noopener">WhatsApp</a><a class="btn btn-soft btn-sm" id="shFb" target="_blank" rel="noopener">Facebook</a><button class="btn btn-soft btn-sm" type="button" id="copy">' + SF.ic('copy', 'ic-sm') + 'Copy link</button></div></div>' +
+          '</div></div>' +
+          '<section id="reviews" aria-labelledby="rv-h" style="padding-bottom:24px" hidden><h2 class="section-title" id="rv-h">Reviews</h2><div class="panel review-list" id="rvList"></div></section>' +
+          '<section aria-labelledby="more" style="padding-bottom:32px"><h2 class="section-title" id="more">You may also like</h2><div class="grid" id="related"></div></section>';
+
+        function refresh() {
+          $('price').innerHTML = priceMarkup(); $('stock').innerHTML = badge();
+          var out = hasVar ? (vSel && vSel.stock <= 0) : p.stock <= 0;
+          [$('add'), $('bb-add')].forEach(function (b) { b.disabled = !!out; b.textContent = out ? 'Sold out' : 'Add to cart'; });
+          sync();
+        }
+        function sync() {
+          $('qty').textContent = qty;
+          if ($('waOrder')) $('waOrder').href = K.wa(s, waMsg());
+          $('shWa').href = 'https://wa.me/?text=' + encodeURIComponent(p.name + ' at ' + s.name + ': ' + pageUrl);
+          $('shFb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl);
+          $('bb-t').textContent = SF.rs(curPrice() * qty); $('bb-l').textContent = qty > 1 ? qty + ' × ' + SF.rs(curPrice()) : 'Total';
+        }
+        function optError(msg) { var e = $('optErr'); e.hidden = false; e.textContent = msg; e.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        main.addEventListener('click', function (e) {
+          var b = e.target.closest('button'); if (!b) return;
+          if (b.hasAttribute('data-vi')) {
+            vSel = p.variants[+b.getAttribute('data-vi')]; qty = 1;
+            K.$$('[data-vi]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+            $('optErr').hidden = true; refresh();
+          } else if (b.hasAttribute('data-g')) {
+            var g = b.getAttribute('data-g'); chosen[g] = b.getAttribute('data-v');
+            K.$$('[data-g="' + CSS.escape(g) + '"]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+            $('optErr').hidden = true; sync();
+          } else if (b.hasAttribute('data-src')) {
+            $('pdp-main').src = b.getAttribute('data-src');
+            K.$$('.thumbs button').forEach(function (x) { x.setAttribute('aria-current', String(x === b)); });
+          } else if (b.id === 'wish') {
+            var on = SF.wish.toggle(p.id); b.setAttribute('aria-pressed', String(on)); SF.bump(b); SF.toast(on ? 'Saved to your wishlist' : 'Removed from your wishlist');
+          } else if (b.hasAttribute('data-add')) {
+            K.cart.add(s.slug, { pid: b.getAttribute('data-add'), opts: {}, qty: 1 }); SF.updateCart(); SF.toast('Added to your cart'); SF.bump($('cc'));
+          }
+        });
+        $('minus').addEventListener('click', function () { if (qty > 1) { qty--; sync(); } });
+        $('plus').addEventListener('click', function () {
+          var max = curStock(); if (max == null) return optError('Choose an option first.');
+          if (qty < Math.min(max, 20)) { qty++; sync(); } else SF.toast('That is all we have in stock');
+        });
+        function add() {
+          if (hasVar) {
+            if (!vSel) return optError('Please choose an option first.');
+            if (vSel.stock <= 0) return SF.toast('That option is sold out');
+            K.cart.add(s.slug, { pid: p.id, variant: vSel.label, qty: qty });
+          } else {
+            var missing = groups.filter(function (g) { return !chosen[g]; });
+            if (missing.length) return optError('Please choose a ' + missing.map(function (m) { return m.toLowerCase(); }).join(' and ') + ' first.');
+            K.cart.add(s.slug, { pid: p.id, opts: JSON.parse(JSON.stringify(chosen)), qty: qty });
+          }
+          SF.updateCart(); SF.toast('Added to your cart'); SF.bump($('cc')); SF.bump($('add')); SF.bump($('bb-add'));
+        }
+        $('add').addEventListener('click', add); $('bb-add').addEventListener('click', add);
+        $('copy').addEventListener('click', function () {
+          if (navigator.clipboard) navigator.clipboard.writeText(pageUrl).then(function () { SF.toast('Link copied'); }, function () { SF.toast('Copy the link from the address bar'); });
+          else SF.toast('Copy the link from the address bar');
+        });
+        var rel = products.filter(function (x) { return x.id !== p.id && SF.stockOf(x) > 0; })
+          .sort(function (a, b) { return (b.category === p.category) - (a.category === p.category); }).slice(0, 4);
+        if (rel.length) $('related').innerHTML = rel.map(SF.card).join(''); else $('related').parentNode.hidden = true;
+        $('related').addEventListener('click', function (e) { var w = e.target.closest('[data-wish]'); if (w) { var on = SF.wish.toggle(w.getAttribute('data-wish')); w.setAttribute('aria-pressed', String(on)); } });
+
+        // Reviews for this product (verified buyers only).
+        if (p.reviews && window.KadeApi && KadeApi.enabled) {
+          KadeApi.productReviews(s.slug, p.id).then(function (r) {
+            if (!r.reviews.length) return;
+            $('reviews').hidden = false;
+            $('rv-h').innerHTML = 'Reviews ' + SF.stars(p.rating, p.reviews);
+            $('rvList').innerHTML = r.reviews.map(function (v) {
+              return '<div class="review"><span class="stars">' + '★★★★★'.slice(0, v.rating) + '<span style="color:#d6cfc2">' + '★★★★★'.slice(v.rating) + '</span></span>' + (v.body ? '<p>' + K.esc(v.body) + '</p>' : '') + '<small>' + K.esc(v.name) + ' · Verified buyer · ' + K.fmtDate(v.date) + '</small></div>';
+            }).join('');
+          }).catch(function () {});
+        }
+        $('buybar').hidden = false; document.body.classList.add('has-bar');
+        refresh();
+      }, { cartBar: false });
+    })();
+  </script>
+</body>
+</html>

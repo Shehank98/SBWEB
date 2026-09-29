@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <title>Your order</title>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/storefront.css">
+</head>
+<body>
+  <a class="sf-skip" href="#main">Skip to your order</a>
+  <div id="sf-header"></div>
+  <main id="main" class="wrap" tabindex="-1"><div class="thanks"><div class="skeleton" style="height:240px"></div></div></main>
+  <div id="sf-footer"></div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="../js/store.js"></script>
+  <script>
+    (function () {
+      var K = Kade, rs = SF.rs, ic = SF.ic;
+      var q = new URLSearchParams(location.search), code = q.get('o'), key = q.get('k');
+      var LABEL = { PENDING: 'Placed', CONFIRMED: 'Confirmed', PROCESSING: 'Being prepared', READY_TO_SHIP: 'Ready to ship', SHIPPED: 'On the way', DELIVERED: 'Delivered', CANCELLED: 'Cancelled', REFUNDED: 'Refunded' };
+      function tracker(status) {
+        var NAMES = ['Placed', 'Confirmed', 'Shipped', 'Delivered'];
+        var at = { PENDING: 0, CONFIRMED: 1, PROCESSING: 1, READY_TO_SHIP: 1, SHIPPED: 2, DELIVERED: 3 }[status];
+        if (at == null) return '';
+        return '<ol class="tracker" aria-label="Order progress">' + NAMES.map(function (n, i) { return '<li class="' + (i <= at ? 'on' : '') + '"' + (i === at ? ' aria-current="step"' : '') + '><span class="dot">' + (i <= at ? '✓' : i + 1) + '</span>' + n + '</li>'; }).join('') + '</ol>';
+      }
+      SF.load(function (s) {
+        var main = document.getElementById('main');
+        if (!code || !key || !(window.KadeApi && KadeApi.enabled)) { main.innerHTML = '<div class="empty"><h1>Order link not valid</h1><p style="color:var(--sf-muted)">Open the link from your order email or ask the shop to send it again.</p></div>'; return; }
+        function load() {
+          KadeApi.orderStatus(s.slug, code, key).then(function (r) { paint(r.order); }).catch(function () {
+            main.innerHTML = '<div class="empty"><div class="big">🔎</div><h1>We could not find that order</h1><p style="color:var(--sf-muted)">Check the link from your order email, or contact the shop.</p></div>';
+          });
+        }
+        function paint(o) {
+          document.title = 'Order ' + o.code + ' | ' + s.name;
+          var st = o.status, cancelled = st === 'CANCELLED' || st === 'REFUNDED';
+          var toReview = st === 'DELIVERED' ? o.items.filter(function (i) { return i.productId && !i.reviewed; }) : [];
+          var ship = o.tracking && (o.tracking.number || o.tracking.courier)
+            ? '<div class="shipbox">' + ic('truck') + '<span>Shipped with <b style="font-size:16px">' + K.esc(o.tracking.courier || 'courier') + '</b>' + (o.tracking.shippedAt ? ' on ' + K.fmtDate(String(o.tracking.shippedAt).slice(0, 10)) : '') + '</span>' +
+              (o.tracking.number ? '<span>Tracking number</span><b>' + K.esc(o.tracking.number) + '</b><button type="button" class="btn btn-soft btn-sm" data-copy="' + K.esc(o.tracking.number) + '">' + ic('copy', 'ic-sm') + 'Copy tracking number</button>' : '') +
+              (o.tracking.url ? '<a class="btn btn-primary btn-sm" href="' + K.esc(o.tracking.url) + '" target="_blank" rel="noopener">Track with ' + K.esc(o.tracking.courier || 'the courier') + '</a>' : '') + '</div>'
+            : '';
+          var back = q.get('payment'), banner = '';
+          if (o.paymentStatus === 'PAID') banner = '';
+          else if (back === 'failed' || o.paymentStatus === 'FAILED') banner = '<div class="info" style="background:#FEE4E2;color:var(--sf-danger)">' + ic('info') + '<p>Your card payment did not go through, so this order was cancelled. Nothing was charged. You can order again and choose another payment method.</p></div>';
+          else if (back === 'pending' || o.paymentStatus === 'PENDING') banner = '<div class="info">' + ic('clock') + '<p>We are waiting for OnePay to confirm your card payment. This page updates when it does.</p></div>';
+          main.innerHTML = '<div class="thanks">' + banner +
+            '<p class="eyebrow">Order ' + K.esc(o.code) + ' · ' + K.fmtDate(o.date) + '</p>' +
+            '<h1>' + (cancelled ? 'This order was ' + LABEL[st].toLowerCase() : (st === 'DELIVERED' ? 'Delivered. Enjoy! 🎉' : LABEL[st] || st)) + '</h1>' +
+            (o.paymentStatus === 'PAID' ? '<p><span class="badge b-ok">' + ic('check', 'ic-sm') + 'Paid by card</span></p>' : '') +
+            tracker(st) + ship +
+            (toReview.length ? '<section class="panel" aria-labelledby="rv-h"><h2 id="rv-h">How was your order?</h2><p style="color:var(--sf-muted);font-size:14px;margin:-6px 0 8px">Your review helps other buyers and the shop. Only your first name and last initial are shown.</p><form id="rvForm" class="review-list">' +
+              toReview.map(function (i, n) {
+                return '<div class="review" data-pid="' + K.esc(i.productId) + '"><p style="font-weight:650">' + K.esc(i.name) + '</p><div class="star-input" role="radiogroup" aria-label="Rating for ' + K.esc(i.name) + '">' +
+                  [1, 2, 3, 4, 5].map(function (v) { return '<button type="button" data-star="' + v + '" aria-label="' + v + ' star' + (v > 1 ? 's' : '') + '" aria-pressed="false">★</button>'; }).join('') + '</div>' +
+                  '<label class="vh" for="rvb' + n + '">Comment</label><textarea class="input" id="rvb' + n + '" rows="2" maxlength="1000" placeholder="What did you like? (optional)"></textarea></div>';
+              }).join('') + '<p class="err" id="rvErr" hidden></p><button class="btn btn-primary btn-block" type="submit">Post review</button></form></section>' : '') +
+            '<section class="panel"><h2>Order summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li><span class="mini-img"><span class="ph">' + K.esc(K.initials(i.name)) + '</span><b>' + i.qty + '</b></span><span class="mini-n">' + K.esc(i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
+              '<div class="rows" style="margin-bottom:10px"><div><span>Subtotal</span><span>' + rs(o.subtotal) + '</span></div>' + (o.discount ? '<div class="disc"><span>Discount</span><span>− ' + rs(o.discount) + '</span></div>' : '') +
+              '<div><span>' + (o.method === 'Pickup' ? 'Pickup' : 'Delivery') + '</span><span' + (o.delivery ? '' : ' class="free"') + '>' + (o.delivery ? rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span>' + rs(o.total) + '</span></div></div>' +
+              '<p class="hint-t" style="display:flex;gap:8px">' + ic('pin', 'ic-sm') + K.esc(o.method === 'Pickup' ? 'Pickup at ' + (s.address || s.name) : [o.address, o.city, o.district].filter(Boolean).join(', ')) + ' · ' + K.esc(o.payment || '') + '</p></section>' +
+            (s.whatsapp ? '<a class="btn btn-wa btn-block" target="_blank" rel="noopener" href="' + K.wa(s, 'Hello ' + s.name + ', I have a question about my order ' + o.code + '.') + '">' + SF.WA + 'Ask the shop on WhatsApp</a>' : '') +
+            '<a class="btn btn-ghost" href="' + SF.homeUrl(s.slug) + '">Continue shopping</a></div>';
+          wire(o);
+        }
+        function wire(o) {
+          if (!main.dataset.wired) {
+            main.dataset.wired = '1';
+            main.addEventListener('click', function (e) {
+            var c = e.target.closest('[data-copy]'); if (c && navigator.clipboard) navigator.clipboard.writeText(c.getAttribute('data-copy')).then(function () { SF.toast('Tracking number copied'); });
+            var b = e.target.closest('[data-star]'); if (!b) return;
+            var v = +b.getAttribute('data-star'), box = b.parentNode;
+            box.setAttribute('data-value', v);
+            K.$$('button', box).forEach(function (x) { var n = +x.getAttribute('data-star'); x.classList.toggle('on', n <= v); x.setAttribute('aria-pressed', String(n === v)); });
+          });
+          }
+          var f = document.getElementById('rvForm'); if (!f) return;
+          f.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var list = K.$$('.review', f).map(function (r) { return { productId: r.getAttribute('data-pid'), rating: +(K.$('.star-input', r).getAttribute('data-value') || 0), body: K.$('textarea', r).value }; }).filter(function (x) { return x.rating; });
+            var err = document.getElementById('rvErr');
+            if (!list.length) { err.hidden = false; err.textContent = 'Tap the stars to rate at least one product.'; return; }
+            var btn = K.$('button[type=submit]', f); btn.disabled = true; btn.textContent = 'Posting…';
+            KadeApi.submitReviews(s.slug, code, key, list).then(function () { SF.toast('Thank you for your review!'); load(); })
+              .catch(function (ex) { btn.disabled = false; btn.textContent = 'Post review'; err.hidden = false; err.textContent = ex.message; });
+          });
+        }
+        load();
+      });
+    })();
+  </script>
+</body>
+</html>
