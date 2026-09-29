@@ -125,6 +125,18 @@
       input.dispatchEvent(new Event('change', { bubbles: true }));
       render();
     }
+    // opts.crop (e.g. KadeCrop.LOGO): every newly picked image goes through the
+    // cropper first; listeners on the input only ever see the cropped file.
+    // Cancelling keeps whatever was there before.
+    if (opts.crop && window.KadeCrop) {
+      var accepted = null;
+      input.addEventListener('change', function (e) {
+        var f = input.files && input.files[0];
+        if (!f || f === accepted || KadeCrop.isCropped(f)) { accepted = f || null; return; }
+        e.stopImmediatePropagation();
+        KadeCrop.open(f, opts.crop).then(function (out) { setFile(out || accepted); });
+      }, true);
+    }
     zone.addEventListener('click', function () { input.click(); });
     zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
     input.addEventListener('change', render);
@@ -286,7 +298,10 @@
     users: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17 20a5.5 5.5 0 0 0-3-4.9"/>',
     upload: '<path d="M12 15V4m0 0L8 8m4-4l4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
     file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
-    shield: '<path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z"/><path d="m9 12 2 2 4-4"/>'
+    shield: '<path d="M12 21s7-3.5 7-9V5l-7-2.5L5 5v7c0 5.5 7 9 7 9z"/><path d="m9 12 2 2 4-4"/>',
+    external: '<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+    logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
+    panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>'
   };
   K.icon = function (n) { return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICON[n] + '</svg>'; };
 
@@ -316,7 +331,7 @@
           ownerOnly && ['settings', 'Store settings', 'gear']
         ].filter(Boolean);
     var nav = items.map(function (i) {
-      return '<a href="' + i[0] + '"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span>' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
+      return '<a href="' + i[0] + '" title="' + i[1] + '"' + (i[0] === active ? ' aria-current="page"' : '') + '>' + K.icon(i[2]) + '<span class="nav__label">' + i[1] + '</span>' + (i[3] ? '<span class="count" aria-label="' + i[3] + ' waiting">' + i[3] + '</span>' : '') + '</a>';
     }).join('');
 
     // In API mode the counts above are 0 at render time; fetch the real pending
@@ -343,8 +358,8 @@
     var ctx = kind === 'admin' ? 'Platform admin' : ((sess && sess.storeName) ? sess.storeName : 'ABC Fashion');
     var mySlug = (sess && sess.slug) ? sess.slug : 'abc-fashion';
     var foot = kind === 'admin'
-      ? '<a class="kd-link" href="../login" id="logout">Log out</a>'
-      : '<a class="kd-link" href="../store/index?s=' + K.esc(mySlug) + '" target="_blank" rel="noopener">View my store</a><a class="kd-link" href="../login" id="logout">Log out</a>';
+      ? '<a class="kd-link" href="../login" id="logout" title="Log out">' + K.icon('logout') + '<span class="nav__label">Log out</span></a>'
+      : '<a class="kd-link" href="../store/index?s=' + K.esc(mySlug) + '" target="_blank" rel="noopener" title="View my store">' + K.icon('external') + '<span class="nav__label">View my store</span></a><a class="kd-link" href="../login" id="logout" title="Log out">' + K.icon('logout') + '<span class="nav__label">Log out</span></a>';
     var sb = K.$('#sidebar');
     sb.innerHTML = '<div class="sidebar__brand"><a class="wordmark" href="../index">Sidadiya</a><span class="sidebar__ctx">' + (kind === 'admin' ? 'Admin panel' : 'Owner dashboard') + '</span></div>' +
       '<nav class="nav" aria-label="Main">' + nav + '</nav><div class="sidebar__foot">' + foot + '</div>';
@@ -371,9 +386,31 @@
     labelTables();
     if (window.MutationObserver && K.$('.app')) new MutationObserver(labelTables).observe(K.$('.app'), { childList: true, subtree: true });
 
-    var btn = K.$('.menu-btn'), scrim = null;
-    function close() { sb.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); if (scrim) { scrim.remove(); scrim = null; } }
+    var btn = K.$('.menu-btn'), scrim = null, root = document.documentElement;
+    // Desktop (900px+): the same button collapses the sidebar to an icon rail and
+    // back; the choice is remembered. Phones: it opens the sidebar as a drawer.
+    var desk = window.matchMedia ? matchMedia('(min-width: 900px)') : { matches: false };
+    function paintBtn() {
+      if (desk.matches) {
+        var col = root.classList.contains('sb-collapsed');
+        btn.innerHTML = K.icon('panel');
+        btn.setAttribute('aria-label', col ? 'Expand sidebar' : 'Collapse sidebar');
+        btn.setAttribute('title', col ? 'Expand sidebar' : 'Collapse sidebar');
+        btn.setAttribute('aria-expanded', col ? 'false' : 'true');
+      } else {
+        btn.innerHTML = K.icon('menu'); btn.removeAttribute('title');
+        btn.setAttribute('aria-label', 'Open menu'); btn.setAttribute('aria-expanded', sb.classList.contains('open') ? 'true' : 'false');
+      }
+    }
+    function close() { sb.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); if (scrim) { scrim.remove(); scrim = null; } paintBtn(); }
+    if (desk.addEventListener) desk.addEventListener('change', function () { close(); });
+    paintBtn();
     btn.addEventListener('click', function () {
+      if (desk.matches) {
+        var col = root.classList.toggle('sb-collapsed');
+        try { localStorage.setItem('kade-sidebar', col ? 'collapsed' : 'expanded'); } catch (e) { /* ignore */ }
+        return paintBtn();
+      }
       if (sb.classList.contains('open')) return close();
       sb.classList.add('open'); btn.setAttribute('aria-expanded', 'true');
       scrim = document.createElement('div'); scrim.className = 'scrim'; scrim.addEventListener('click', close); document.body.appendChild(scrim);
