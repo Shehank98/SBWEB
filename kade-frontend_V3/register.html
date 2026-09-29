@@ -62,8 +62,8 @@
           <section data-step="2" class="stack-lg" aria-labelledby="s2" hidden>
             <h2 class="heading" id="s2">Logo and cover photo</h2>
             <p class="muted" style="margin-top:-8px">Both are optional. You can add or change them later in Store settings.</p>
-            <div class="kd-field"><label class="kd-label" for="logo">Logo <span class="muted">(square works best)</span></label><input class="kd-input" id="logo" type="file" accept="image/png,image/jpeg,image/webp"></div>
-            <div class="kd-field"><label class="kd-label" for="cover">Cover photo <span class="muted">(wide, like 1600 × 600)</span></label><input class="kd-input" id="cover" type="file" accept="image/png,image/jpeg,image/webp"></div>
+            <div class="kd-field"><label class="kd-label" for="logo">Logo <span class="muted">(you can crop it)</span></label><input class="kd-input" id="logo" type="file" accept="image/png,image/jpeg,image/webp"></div>
+            <div class="kd-field"><label class="kd-label" for="cover">Cover photo <span class="muted">(wide, you can crop it)</span></label><input class="kd-input" id="cover" type="file" accept="image/png,image/jpeg,image/webp"></div>
             <p class="kd-help">Tip: a photo of your products, your workshop or your shop front makes buyers trust you faster.</p>
           </section>
 
@@ -112,6 +112,7 @@
   <script src="js/api.js"></script>
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/crop.js"></script>
   <script>
     (function () {
       var K = Kade, D = KadeData;
@@ -185,8 +186,8 @@
       });
 
       /* ---------- Logo + cover ---------- */
-      var logoZone = K.dropzone($('logo'), { title: 'Add your logo', hint: 'PNG or JPG, up to 8MB', aria: 'Upload your logo' });
-      var coverZone = K.dropzone($('cover'), { title: 'Add a cover photo', hint: 'Wide photo, PNG or JPG, up to 8MB', aria: 'Upload a cover photo' });
+      var logoZone = K.dropzone($('logo'), { title: 'Add your logo', hint: 'PNG or JPG, up to 8MB', aria: 'Upload your logo', crop: KadeCrop.LOGO });
+      var coverZone = K.dropzone($('cover'), { title: 'Add a cover photo', hint: 'Wide photo, PNG or JPG, up to 8MB', aria: 'Upload a cover photo', crop: KadeCrop.COVER });
       function fileUrl(zone, key) { var f = zone.file(); if (st[key + 'File'] !== f) { if (st[key]) URL.revokeObjectURL(st[key]); st[key] = f ? URL.createObjectURL(f) : null; st[key + 'File'] = f; } }
       $('logo').addEventListener('change', function () { fileUrl(logoZone, 'logo'); render(); });
       $('cover').addEventListener('change', function () { fileUrl(coverZone, 'cover'); render(); });

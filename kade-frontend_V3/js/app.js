@@ -125,6 +125,18 @@
       input.dispatchEvent(new Event('change', { bubbles: true }));
       render();
     }
+    // opts.crop (e.g. KadeCrop.LOGO): every newly picked image goes through the
+    // cropper first; listeners on the input only ever see the cropped file.
+    // Cancelling keeps whatever was there before.
+    if (opts.crop && window.KadeCrop) {
+      var accepted = null;
+      input.addEventListener('change', function (e) {
+        var f = input.files && input.files[0];
+        if (!f || f === accepted || KadeCrop.isCropped(f)) { accepted = f || null; return; }
+        e.stopImmediatePropagation();
+        KadeCrop.open(f, opts.crop).then(function (out) { setFile(out || accepted); });
+      }, true);
+    }
     zone.addEventListener('click', function () { input.click(); });
     zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
     input.addEventListener('change', render);

@@ -29,7 +29,6 @@
           <button class="btn btn-soft" type="button" id="shareStore"></button>
         </div>
       </div>
-      <ul class="trust" id="trust" aria-label="Why shop with us"></ul>
     </div>
   </section>
 
@@ -67,7 +66,7 @@
       $('qClear').innerHTML = SF.ic('x');
       K.$('.search').insertAdjacentHTML('afterbegin', SF.ic('search'));
       $('sortBtn').insertAdjacentHTML('afterbegin', SF.ic('sort'));
-      $('storeWa').innerHTML = SF.WA + 'Chat';
+      $('storeWa').textContent = 'WhatsApp';
       $('shareStore').innerHTML = SF.ic('share') + 'Share';
 
       SF.load(function (s, list) {
@@ -90,16 +89,6 @@
           else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { SF.toast('Store link copied'); });
           else SF.toast(url);
         });
-
-        // Trust strip from the shop's real settings.
-        var d = s.delivery || {}, pays = s.payments || {}, T = [];
-        if (pays.card) T.push(['card', 'Card payments', 'Secure, via OnePay']);
-        if (pays.cod) T.push(['cash', 'Cash on delivery', 'Pay when it arrives']);
-        T.push(['truck', d.pickup && !d.fee ? 'Free pickup' : 'Islandwide delivery', d.freeAbove > 0 ? SF.rs(d.fee) + ', free over ' + SF.rs(d.freeAbove) : (d.fee ? SF.rs(d.fee) + ' delivery' : 'Free delivery')]);
-        if (pays.bank) T.push(['bank', 'Bank transfer', 'Share slip on WhatsApp']);
-        if (s.returnDays) T.push(['ret', s.returnDays + '-day returns', 'See our return policy']);
-        else if (d.pickup) T.push(['store', 'Store pickup', s.city ? 'In ' + s.city : 'Collect in person']);
-        $('trust').innerHTML = T.slice(0, 4).map(function (t) { return '<li><span class="ti">' + SF.ic(t[0]) + '</span><div><b>' + K.esc(t[1]) + '</b><span>' + K.esc(t[2]) + '</span></div></li>'; }).join('');
 
         // "What buyers say" rating callout.
         if (r.count && (s.latestReviews || []).length) {

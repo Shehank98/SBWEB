@@ -222,11 +222,6 @@
           var promo = st.promo
             ? '<div class="promo-on"><span>🏷️ <b>' + K.esc(st.promo.code) + '</b> · ' + rs(m.disc) + ' off</span><button type="button" class="link danger" data-act="promo-rm">Remove</button></div>'
             : '<div class="promo"><label for="promo">Promo code</label><div class="promo-row"><input class="input" id="promo" placeholder="Enter code" autocomplete="off"' + (st.promoErr ? ' aria-invalid="true" aria-describedby="promo-err"' : '') + '><button type="button" class="btn btn-soft" data-act="promo">Apply</button></div>' + (st.promoErr ? '<p class="err" id="promo-err">' + K.esc(st.promoErr) + '</p>' : '') + '</div>';
-          var assure = [];
-          if (pays.card) assure.push(ic('lock', 'ic-sm') + 'Card payments secured by OnePay');
-          if (pays.cod) assure.push(ic('cash', 'ic-sm') + 'Cash on delivery available');
-          if (S.verified) assure.push(ic('shield', 'ic-sm') + 'Verified Sri Lankan Business');
-          if (S.whatsapp) assure.push(SF.WA.replace('class="ic"', 'class="ic ic-sm"') + 'Questions? Chat with the shop on WhatsApp');
           return '<div class="panel sum-panel"><h2>Order summary</h2>' +
             (st.step !== 'cart' && ls.length ? '<ul class="mini">' + ls.map(function (l) { return '<li><span class="mini-img">' + SF.media(l.p) + '<b>' + l.i.qty + '</b></span><span class="mini-n">' + K.esc(l.p.name) + '<small>' + K.esc(optTxt(l.i)) + '</small></span><span>' + rs(K.linePrice(l.p, l.i) * l.i.qty) + '</span></li>'; }).join('') + '</ul>' : '') +
             promo +
@@ -236,8 +231,7 @@
             '<div class="grand"><span>Total</span><span>' + rs(m.total) + '</span></div></div>' +
             '<button type="button" class="btn btn-primary btn-block hide-m" data-act="next"' + (ls.length ? '' : ' disabled') + ' style="min-height:54px">' + ctaLabel() + '</button>' +
             (st.step !== 'cart' ? '<button type="button" class="btn btn-ghost btn-block hide-m" data-act="back">← Back</button>' : '') +
-            (assure.length ? '<ul class="assure">' + assure.map(function (a) { return '<li>' + a + '</li>'; }).join('') + '</ul>' : '') +
-            ((S.policies || []).length ? '<nav class="policy-links" aria-label="Store policies">' + SF.policyLinks(S) + '</nav>' : '') + '</div>';
+            '</div>';
         }
 
         /* ---------- Render ---------- */
