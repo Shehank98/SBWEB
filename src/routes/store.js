@@ -4,6 +4,7 @@ import { wrap, badRequest, notFound, HttpError } from '../utils/http.js';
 import { orderCode } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
+import { trackPath, receiptPath } from '../services/orderLinks.js';
 import { evalCoupon } from '../services/coupons.js';
 import { LIVE_STATUSES } from '../services/plan.js';
 import { POLICY_KINDS, TITLES, loadPolicies } from '../services/policies.js';
@@ -351,6 +352,15 @@ storeRouter.post(
         { businessId: st.biz_id, recipient: st.biz_email, ...templates.newOrder({ name: st.biz_name }, created) },
         client
       );
+      // Buyer email with the order summary, digital receipt and tracking link, sent
+      // on behalf of the shop. Card orders get theirs once the payment is verified.
+      if (!card && created.customer_email) {
+        const shop = { name: st.name || st.biz_name, slug: st.slug, phone: st.phone, whatsapp: st.whatsapp, address: st.address, email: st.contact_email || st.biz_email };
+        await queueNotification(
+          { businessId: st.biz_id, recipient: created.customer_email, dedupeKey: `ORDER_PLACED:${created.id}`, ...templates.orderPlaced(shop, created, lines) },
+          client
+        );
+      }
       return created;
     });
 
@@ -382,7 +392,9 @@ storeRouter.post(
       payment,
       // Private link to the buyer's order status page (tracking, reviews).
       token: order.public_token,
-      statusUrl: `/store/order?s=${encodeURIComponent(st.slug)}&o=${encodeURIComponent(order.code)}&k=${order.public_token}`,
+      statusUrl: trackPath(order),
+      trackUrl: trackPath(order),
+      receiptUrl: receiptPath(order),
     });
   })
 );

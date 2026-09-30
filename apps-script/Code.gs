@@ -11,6 +11,8 @@
  *   VERIFICATION_SUBMITTED (to the admin), VERIFICATION_APPROVED / _REJECTED,
  *   ORDER_PAID (to the owner) and ORDER_PAYMENT_RECEIPT (to the buyer) for card
  *   orders, ORDER_SHIPPED now carries courier + tracking number, WEEKLY_SUMMARY.
+ *   Also ORDER_PLACED / ORDER_PACKED / ORDER_DELIVERED / ORDER_CANCELLED to the buyer,
+ *   sent with the shop name as sender and the shop email as reply-to.
  *
  * Optional Google Sheet sync (V3): set SHEETS_SYNC_ID and run installSyncTrigger
  * once. Every hour syncSheets() rewrites three tabs from the backend:
@@ -105,13 +107,19 @@ function sendPendingEmails() {
       seen[n.id] = true;
 
       try {
-        MailApp.sendEmail({
+        // V3: buyer order emails are sent on behalf of the shop: the shop name is
+        // the sender name and replies go to the shop's email (data.fromName /
+        // data.replyTo). Everything else is sent as FROM_NAME.
+        var dd = n.data || {};
+        var mail = {
           to: n.recipient,
           subject: n.subject,
           htmlBody: renderEmail_(n),
           body: n.message || '',           // plain-text fallback
-          name: c.fromName
-        });
+          name: dd.fromName ? String(dd.fromName).slice(0, 60) : c.fromName
+        };
+        if (dd.replyTo && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dd.replyTo)) mail.replyTo = dd.replyTo;
+        MailApp.sendEmail(mail);
         mark_(c, n.id, 'sent');
         audit_(c, n, 'SENT');
         sent++;
@@ -295,8 +303,11 @@ function orderBody_(d) {
     '<h2 style="margin:8px 0 6px;font-family:' + DISPLAY + ';font-size:16px;font-weight:700;color:' + THEME.ink + ';">Order summary</h2>' +
     orderTable_(d) +
     orderFulfilment_(d) +
-    (d.statusUrl ? button_('View your order', d.statusUrl, 'brand') : '') +
-    (d.storeUrl ? button_('Visit the shop', d.storeUrl, d.statusUrl ? 'accent' : 'brand') : '');
+    // V3: public tracking page + 30-day digital receipt.
+    ((d.trackUrl || d.statusUrl) ? button_('Track your order here', d.trackUrl || d.statusUrl, 'brand') : '') +
+    (d.receiptUrl ? button_('View your receipt', d.receiptUrl, 'accent') : '') +
+    (d.receiptUrl && d.receiptExpiresOn ? '<p style="margin:4px 0 12px;font-family:' + SANS + ';font-size:12px;color:' + THEME.muted + ';">Your receipt link works until ' + esc_(d.receiptExpiresOn) + '.</p>' : '') +
+    (d.storeUrl && !d.receiptUrl ? button_('Visit the shop', d.storeUrl, (d.trackUrl || d.statusUrl) ? 'accent' : 'brand') : '');
 }
 
 // Build the per-type body; unknown types fall back to the plain message.
@@ -349,8 +360,12 @@ function renderEmail_(n) {
       break;
 
     // Customer emails, redesigned. Both share the order summary layout.
+    case 'ORDER_PLACED':      // V3: sent as soon as the buyer orders (receipt + tracking)
     case 'ORDER_CONFIRMED':
+    case 'ORDER_PACKED':      // V3
     case 'ORDER_SHIPPED':
+    case 'ORDER_DELIVERED':   // V3
+    case 'ORDER_CANCELLED':   // V3
       body = orderBody_(d);
       footer = orderFooter_(d);
       break;

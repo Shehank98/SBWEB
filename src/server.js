@@ -36,6 +36,7 @@ import { dashboardRouter } from './routes/dashboard.js';
 import { storeRouter } from './routes/store.js';
 import { notificationsRouter } from './routes/notifications.js';
 import { siteRouter } from './routes/site.js';
+import { publicRouter } from './routes/public.js';
 import { onepayRouter } from './routes/onepay.js';
 import { serveStorePage, serveProductPage } from './services/pages.js';
 
@@ -100,6 +101,8 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/store', storeRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/site', siteRouter);
+// Buyer tracking page + 30-day digital receipt (public, token-addressed).
+app.use('/api', publicRouter);
 // OnePay webhook (JSON per the spec; form-encoded accepted too) and buyer return page.
 app.use('/api/onepay', express.urlencoded({ extended: false, limit: '100kb' }), onepayRouter);
 
@@ -127,6 +130,10 @@ app.get('/store/:slug', (req, res, next) => {
   if (slug.includes('.') || RESERVED_STORE.has(slug)) return next(); // real files handled by static
   serveStorePage(req, res, next, slug);
 });
+
+// Buyer pages addressed by private tokens: never indexed or cached.
+app.get('/track/:code', (_req, res) => { res.set({ 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' }); res.sendFile(path.join(FRONTEND_DIR, 'track.html')); });
+app.get('/receipt/:token', (_req, res) => { res.set({ 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' }); res.sendFile(path.join(FRONTEND_DIR, 'receipt.html')); });
 
 // Platform legal pages: /legal/refund, /legal/privacy, /legal/return, /legal/terms, /legal/contact.
 app.get(/^\/legal\/(refund|privacy|return|terms|contact)\/?$/, (_req, res) => res.sendFile(path.join(FRONTEND_DIR, 'legal', 'index.html')));

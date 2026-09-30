@@ -324,22 +324,22 @@ dashboardRouter.put(
         'INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)',
         [order.id, status, req.user.sub, note]
       );
-      // Email the customer only at the two milestones that matter to them:
-      // when the shop confirms the order and when it ships. Other status changes
-      // stay internal. The dedupe key makes a repeated click a no-op.
-      if (order.customer_email && (status === 'CONFIRMED' || status === 'SHIPPED')) {
+      // Email the buyer a status update (on behalf of the shop) for each step on
+      // the tracking timeline. The dedupe key makes a repeated click a no-op;
+      // "Processing" and "Ready to ship" both count as Packed, so one email.
+      if (order.customer_email && status !== order.status) {
         const shop = (await client.query(
-          `SELECT COALESCE(s.name, bz.name) AS name, s.slug, s.phone, s.whatsapp, s.address
+          `SELECT COALESCE(s.name, bz.name) AS name, s.slug, s.phone, s.whatsapp, s.address, COALESCE(NULLIF(s.contact_email, ''), bz.email) AS email
              FROM businesses bz LEFT JOIN stores s ON s.business_id = bz.id
             WHERE bz.id = $1`,
           [b]
         )).rows[0] || { name: 'Your store' };
         const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [order.id])).rows;
-        const tpl = status === 'CONFIRMED' ? templates.orderConfirmed : templates.orderShipped;
-        await queueNotification(
-          { businessId: b, recipient: order.customer_email, dedupeKey: `${status}:${order.id}`, ...tpl(shop, order, items) },
-          client
-        );
+        const mail = status === 'CONFIRMED' ? templates.orderConfirmed(shop, order, items)
+          : status === 'SHIPPED' ? templates.orderShipped(shop, order, items)
+          : templates.orderStatusUpdate(shop, order, items, status);
+        const key = status === 'PROCESSING' || status === 'READY_TO_SHIP' ? 'PACKED' : status;
+        if (mail) await queueNotification({ businessId: b, recipient: order.customer_email, dedupeKey: `${key}:${order.id}`, ...mail }, client);
       }
     });
     res.json({ ok: true, status });
@@ -372,7 +372,7 @@ dashboardRouter.put(
         await client.query('INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)', [o.id, o.status, req.user.sub, `${courier} ${number}`]);
       }
       if (o.customer_email) {
-        const shop = (await client.query('SELECT s.name, s.slug, s.phone, s.whatsapp, s.address FROM stores s WHERE s.business_id=$1', [b])).rows[0];
+        const shop = (await client.query(`SELECT s.name, s.slug, s.phone, s.whatsapp, s.address, COALESCE(NULLIF(s.contact_email, ''), bz.email) AS email FROM stores s JOIN businesses bz ON bz.id = s.business_id WHERE s.business_id=$1`, [b])).rows[0];
         const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [o.id])).rows;
         // New tracking number = new email; saving the same one twice sends once.
         await queueNotification({ businessId: b, recipient: o.customer_email, dedupeKey: `SHIPPED_TRACK:${o.id}:${number}`, ...templates.orderShippedTracking(shop, o, items) }, client);

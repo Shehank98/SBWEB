@@ -449,3 +449,59 @@ textarea.input { padding: 12px 14px; min-height: 90px; resize: vertical; }
   .checkout .btn-block { width: auto; display: flex; margin-left: auto; }
   .checkout .thanks .btn-block { margin-right: auto; }
 }
+
+/* ---- Public tracking page (/track/...) ---- */
+.trk { max-width: 640px; margin: 16px auto 40px; display: grid; gap: 12px; }
+.trk .panel { margin: 0; }
+.trk h2 { font-size: 16px; margin-bottom: 12px; }
+.trk-head h1 { font-size: 22px; line-height: 1.25; }
+.trk-shop { font-size: 13px; font-weight: 700; color: var(--brand); text-transform: uppercase; letter-spacing: .5px; }
+.trk-status { display: inline-block; margin: 8px 0 6px; padding: 4px 12px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-weight: 800; font-size: 14px; }
+.trk-status.bad { background: #FEE4E2; color: var(--sf-danger); }
+.tl { list-style: none; margin: 0; padding: 0; display: grid; }
+.tl li { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding-bottom: 18px; color: var(--sf-muted); }
+.tl li:last-child { padding-bottom: 0; }
+.tl li:not(:last-child)::before { content: ""; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--sf-line); }
+.tl li.done:not(:last-child)::before { background: var(--brand); }
+.tl-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--sf-line); background: var(--sf-surface); display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+.tl .done { color: var(--sf-ink); }
+.tl .done .tl-dot { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.tl .cur .tl-dot { box-shadow: 0 0 0 5px var(--brand-soft); }
+.tl .bad .tl-dot { background: var(--sf-danger); border-color: var(--sf-danger); color: #fff; box-shadow: none; }
+.tl b { display: block; font-size: 15px; line-height: 28px; }
+.tl small { display: block; font-size: 13px; color: var(--sf-muted); margin-top: -4px; }
+.tl-extra { margin-top: 6px; font-size: 14px; background: var(--brand-soft); border-radius: 10px; padding: 8px 10px; color: var(--sf-ink); overflow-wrap: anywhere; }
+.tl-extra a { color: var(--brand); font-weight: 700; }
+.trk-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.trk .btn { min-height: 40px; font-size: 14px; padding: 0 16px; }
+@media (min-width: 960px) { .trk .btn { min-height: 36px; } }
+
+/* ---- Digital receipt (/receipt/...) ---- */
+.rcpt-wrap { max-width: 640px; margin: 16px auto 40px; display: grid; gap: 12px; }
+.rcpt { margin: 0; }
+.rcpt-head { display: flex; gap: 12px; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--sf-line); }
+.rcpt-head h1 { font-size: 20px; line-height: 1.2; }
+.rcpt-head p { font-size: 13px; color: var(--sf-muted); overflow-wrap: anywhere; }
+.rcpt-logo { width: 48px; height: 48px; flex: none; }
+.rcpt-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; padding: 14px 0; border-bottom: 1px solid var(--sf-line); }
+.rcpt-meta span { display: block; font-size: 12px; color: var(--sf-muted); text-transform: uppercase; letter-spacing: .5px; }
+.rcpt-meta b { font-size: 14px; overflow-wrap: anywhere; }
+.rcpt-pay { display: inline-block; font-style: normal; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); margin-left: 4px; }
+.rcpt-pay--paid { background: #DCFAE6; color: var(--sf-ok); }
+.rcpt-pay--refunded, .rcpt-pay--failed { background: #FEE4E2; color: var(--sf-danger); }
+.rcpt-items { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+.rcpt-items th { text-align: left; font-size: 12px; color: var(--sf-muted); font-weight: 600; padding: 6px 0; border-bottom: 1px solid var(--sf-line); }
+.rcpt-items td { padding: 8px 0; border-bottom: 1px solid var(--sf-line); vertical-align: top; }
+.rcpt-items th:nth-child(2), .rcpt-items td:nth-child(2) { text-align: center; width: 44px; }
+.rcpt-items th:last-child, .rcpt-items td:last-child { text-align: right; white-space: nowrap; }
+.rcpt-items small { display: block; color: var(--sf-muted); font-size: 12px; }
+.rcpt-rows { margin: 0; }
+.rcpt-foot { margin-top: 14px; font-size: 13px; color: var(--sf-muted); text-align: center; }
+.rcpt-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.rcpt-actions .btn { min-height: 40px; font-size: 14px; padding: 0 16px; }
+@media print {
+  .rcpt-actions, .sf-skip { display: none !important; }
+  .rcpt-wrap { margin: 0; max-width: none; }
+  .rcpt { border: 0; box-shadow: none; }
+  body { background: #fff; }
+}

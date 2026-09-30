@@ -137,7 +137,8 @@
   };
   function header(s, opts) {
     var logo = s.logo ? '<img src="' + K.esc(s.logo) + '" alt="">' : K.esc(K.initials(s.name));
-    var right = opts.checkout
+    // opts.noCart: pages outside one shop's URL (tracking, receipts) have no cart.
+    var right = opts.noCart ? '' : opts.checkout
       ? '<span class="secure">' + SF.ic('lock', 'ic-sm') + '<span>Secure checkout</span></span>'
       : '<div class="sf-top__actions"><a class="icon-btn" href="' + K.sUrl('cart') + '" id="cartBtn" aria-label="Open cart">' + SF.ic('cart') + '<span class="sf-count" id="cc" hidden>0</span></a></div>';
     return '<header class="sf-top"><div class="wrap"><a class="sf-brand" href="' + SF.homeUrl(s.slug) + '" aria-label="' + K.esc(s.name) + ' home"><span class="sf-mark">' + logo + '</span><span>' + K.esc(s.name) + '</span></a>' + right + '</div></header>';

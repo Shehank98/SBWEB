@@ -390,7 +390,7 @@
         var name = (S && S.name) || 'your shop';
         K.confirm({
           title: 'Delete ' + name + '?',
-          body: 'This permanently deletes your storefront and ALL its data — products, orders, customer details and this login. It cannot be undone.',
+          body: 'This permanently deletes your storefront and ALL its data: products, orders, customer details and this login. It cannot be undone.',
           confirmLabel: 'Continue', danger: true
         }).then(function (ok) {
           if (!ok) return;

@@ -22,7 +22,7 @@ test('placing an order returns a private status link; wrong token is 404', async
   const o = await api('POST', `/api/store/${shop.slug}/orders`, { body: orderBody(product.id) });
   assert.equal(o.status, 201, JSON.stringify(o.data));
   assert.match(o.data.token, /^[a-f0-9]{24}$/);
-  assert.match(o.data.statusUrl, /\/store\/order\?s=/);
+  assert.match(o.data.statusUrl, /^\/track\/ORD-\d+\?k=[a-f0-9]{24}$/); // public tracking page
   const ok = await api('GET', `/api/store/${shop.slug}/orders/${o.data.code}?k=${o.data.token}`);
   assert.equal(ok.status, 200);
   assert.equal(ok.data.order.status, 'PENDING');
