@@ -4,6 +4,7 @@
 // into the HTML <head> before sending it. The page's own JS still renders the body.
 
 import fs from 'fs';
+import { versionAssets } from './assetVersion.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { query } from '../db/pool.js';
@@ -17,7 +18,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const fileCache = {};
 function readPage(file) {
-  if (!fileCache[file]) fileCache[file] = fs.readFileSync(path.join(STORE_DIR, file), 'utf8');
+  if (!fileCache[file]) fileCache[file] = versionAssets(fs.readFileSync(path.join(STORE_DIR, file), 'utf8'));
   return fileCache[file];
 }
 function esc(s) {
