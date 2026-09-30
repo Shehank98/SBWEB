@@ -316,6 +316,14 @@
   };
 
   /* ---------- App shell (owner dashboard and admin) ---------- */
+  K.maintBanner = function (m) {
+    var el = K.$('#maint-banner'), main = K.$('#main');
+    if (!m) { if (el) el.remove(); return; }
+    if (!main) return;
+    if (!el) { el = document.createElement('div'); el.id = 'maint-banner'; el.className = 'maint-banner'; el.setAttribute('role', 'status'); main.insertBefore(el, main.firstChild); }
+    el.innerHTML = '<span aria-hidden="true">🚧</span><span><strong>Maintenance mode is on.</strong> Buyers and sellers see the "shop is closed" page. Admins can still use everything.</span><a class="kd-link" href="settings#maintenance">Turn off</a>';
+  };
+
   K.shell = function (kind, active) {
     var api = !!(window.KadeApi && KadeApi.enabled);
     var sess = api && KadeApi.currentUser ? KadeApi.currentUser() : null;
@@ -386,6 +394,8 @@
     document.body.appendChild(tabbar);
     loadBadges();
     if (kind !== 'admin' && api) K.loadAccess(active);
+    // Admins keep working during maintenance: a banner reminds them it is on.
+    if (kind === 'admin' && api && KadeApi.siteStatus) KadeApi.siteStatus().then(function (r) { K.maintBanner(r.maintenance); }).catch(function () {});
     /* Tables become cards on phones: copy each column heading onto its cell */
     function labelTables() {
       K.$$('.app .kd-table').forEach(function (t) {

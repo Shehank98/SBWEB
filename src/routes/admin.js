@@ -575,6 +575,17 @@ export const SETTINGS_SCHEMA = {
     if (!Number.isInteger(n) || n < 1 || n > 90) throw badRequest('Trial length must be 1 to 90 days.');
     return n;
   },
+  // Maintenance mode: on/off, a short note for visitors and an optional "back by" time.
+  maintenance: (v) => {
+    if (!v || typeof v !== 'object') throw badRequest('Maintenance must be an object.');
+    let until = cleanStr(v.until, 40);
+    if (until) {
+      const d = new Date(until);
+      if (Number.isNaN(d.getTime())) throw badRequest('Enter a valid "back by" time.');
+      until = d.toISOString();
+    }
+    return { on: v.on === true, message: cleanStr(v.message, 300), until: until || null, changedAt: new Date().toISOString() };
+  },
   platform_bank_accounts: (v) => {
     if (!Array.isArray(v)) throw badRequest('Bank accounts must be a list.');
     return v.slice(0, 5).map((a) => ({ bank: cleanStr(a.bank, 60), holder: cleanStr(a.holder, 80), accountNo: cleanStr(a.accountNo, 40), branch: cleanStr(a.branch, 60) }))

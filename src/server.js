@@ -39,7 +39,9 @@ import { siteRouter } from './routes/site.js';
 import { publicRouter } from './routes/public.js';
 import { onepayRouter } from './routes/onepay.js';
 import { serveStorePage, serveProductPage } from './services/pages.js';
-import { sendVersioned, htmlFileFor } from './services/assetVersion.js';
+import { sendVersioned, htmlFileFor, ASSET_VERSION } from './services/assetVersion.js';
+import fs from 'fs';
+import { maintenanceGate } from './services/maintenance.js';
 
 const app = express();
 // Behind Railway's proxy: trust it so req.ip reflects the real client (used by the
@@ -61,6 +63,9 @@ app.use(
   })
 );
 app.use(express.json({ limit: '1mb' }));
+
+// Maintenance mode: an admin switch that shows the "shop is closed" page to everyone else.
+app.use(maintenanceGate(FRONTEND_DIR));
 
 // Serve locally-stored uploads (product photos / payment slips) when UPLOAD_DRIVER=local.
 app.use('/uploads', express.static(UPLOAD_DIR));
@@ -135,6 +140,12 @@ app.get('/store/:slug', (req, res, next) => {
 // Buyer pages addressed by private tokens: never indexed or cached.
 app.get('/track/:code', (_req, res) => { res.set({ 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' }); sendVersioned(res, path.join(FRONTEND_DIR, 'track.html')); });
 app.get('/receipt/:token', (_req, res) => { res.set({ 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' }); sendVersioned(res, path.join(FRONTEND_DIR, 'receipt.html')); });
+
+// Service worker (offline / server-down fallback page). Tagged with the deploy
+// version so browsers pick up a new "closed" page after every deploy.
+const SW_SRC = fs.readFileSync(path.join(FRONTEND_DIR, 'sw.js'), 'utf8').replace('__VERSION__', ASSET_VERSION);
+app.get('/sw.js', (_req, res) => { res.set({ 'Cache-Control': 'no-cache', 'Content-Type': 'text/javascript; charset=utf-8' }); res.send(SW_SRC); });
+app.get('/closed', (_req, res) => { res.set({ 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-cache' }); sendVersioned(res, path.join(FRONTEND_DIR, 'closed.html')); });
 
 // Platform legal pages: /legal/refund, /legal/privacy, /legal/return, /legal/terms, /legal/contact.
 app.get(/^\/legal\/(refund|privacy|return|terms|contact)\/?$/, (_req, res) => sendVersioned(res, path.join(FRONTEND_DIR, 'legal', 'index.html')));

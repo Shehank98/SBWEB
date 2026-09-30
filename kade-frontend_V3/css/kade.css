@@ -1000,3 +1000,9 @@ body.has-cartbar { padding-bottom: 84px; }
 .rangebar__custom .kd-input--sm { min-width: 0; width: auto; flex: 1 1 130px; }
 @media (max-width: 560px) { .rangebar__custom .kd-btn { flex: 1 1 100%; } }
 .pay-bank__t { flex: 1 1 auto; min-width: 0; }
+
+/* Admin: maintenance mode reminder + settings card */
+.maint-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--warning-soft); color: var(--warning); border: 1px solid var(--warning); border-radius: var(--radius-md, 12px); padding: 10px 14px; margin-bottom: var(--space-4); font-size: 14px; }
+.maint-banner span:nth-child(2) { flex: 1 1 220px; }
+.maint-card.is-on { border-color: var(--warning); box-shadow: 0 0 0 3px var(--warning-soft); }
+.maint-preview { display: flex; gap: 8px; flex-wrap: wrap; }
