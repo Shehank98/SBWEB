@@ -54,7 +54,8 @@
 
       function upsell() {
         K.$('#sub').textContent = 'Upgrade to unlock coupons.';
-        body.innerHTML = '<section class="kd-card panel" style="text-align:center;max-width:560px;margin:24px auto"><h2 class="heading">Coupons are a Business feature</h2><p class="muted" style="margin-top:8px">Upgrade to <strong>Business</strong> or <strong>Pro</strong> to create discount codes your customers apply at checkout.</p><div class="row" style="justify-content:center;margin-top:16px"><a class="kd-btn kd-btn--primary" href="subscription">See plans</a></div></section>';
+        // Blurred preview with sample codes (not this shop's data) and an upgrade button.
+        body.innerHTML = '<section class="kd-card" style="padding:16px">' + K.lockTeaser({ sample: '<div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Code</th><th scope="col">Discount</th><th scope="col">Minimum order</th><th scope="col">Used</th><th scope="col">Status</th></tr></thead><tbody><tr><td>AVURUDU10</td><td>10% off</td><td>Rs. 3,000</td><td>42</td><td><span class="kd-badge kd-badge--success">Active</span></td></tr><tr><td>FREESHIP</td><td>Rs. 350 off</td><td>Rs. 5,000</td><td>27</td><td><span class="kd-badge kd-badge--success">Active</span></td></tr><tr><td>WELCOME15</td><td>15% off</td><td>None</td><td>18</td><td><span class="kd-badge kd-badge--success">Active</span></td></tr><tr><td>FLASH500</td><td>Rs. 500 off</td><td>Rs. 4,000</td><td>9</td><td><span class="kd-badge kd-badge--neutral">Expired</span></td></tr></tbody></table></div>', title: 'Run offers with coupon codes', text: 'Create discount codes like AVURUDU10 that buyers apply at checkout. Available on the Business and Pro plans.', cta: 'Upgrade to Business' }) + '</section>';
       }
       function discountText(c) { return c.type === 'percent' ? c.value + '% off' : K.rs(c.value) + ' off'; }
       function render() {

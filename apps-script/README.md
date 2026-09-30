@@ -86,6 +86,33 @@ from the URL (`docs.google.com/spreadsheets/d/<THIS_PART>/edit`), and set it as
 recipient, subject and outcome. The backend also records the send: the row's
 `status` becomes `SENT` with a `sent_at` timestamp, and `attempts` counts retries.
 
+## Instant emails (send within seconds)
+
+Google only allows a time trigger every **1 minute** at the fastest, and checking every
+10 seconds from the script would use up the free daily run-time quota. So the backend
+**wakes the script** the moment an email is queued, and the 1 minute trigger is the
+safety net:
+
+1. In the script editor: **Deploy > New deployment > Select type: Web app**.
+   Execute as: **Me**. Who has access: **Anyone**. Click **Deploy** and copy the
+   **Web app URL** (ends in `/exec`).
+2. On Railway, add the variable `APPS_SCRIPT_URL` = that URL, and redeploy.
+3. Run **installTrigger** once (it now runs every minute).
+
+The web app only sends when the request carries the right `NOTIFY_TOKEN`, so the
+public URL cannot be misused. After changing `Code.gs` later: **Deploy > Manage
+deployments > edit (pencil) > Version: New version > Deploy** (the URL stays the same).
+
+## Emails not arriving? Run testConnection
+
+Select **testConnection** and click **Run**, then open the Execution log. It checks,
+in plain words: the token, whether `API_BASE` is your live site, how many emails are
+waiting, your Gmail quota, and whether the trigger is installed.
+
+Which emails go out (kept short on purpose): order placed (buyer and seller),
+order confirmed (buyer), order shipped with the tracking number (buyer). Packed,
+delivered and cancelled show on the buyer's tracking page instead.
+
 ## Upgrading an existing deployment to V3
 
 The script is backward compatible: the same 3 outbox endpoints, the same trigger,

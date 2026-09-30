@@ -5,6 +5,7 @@ import { orderCode } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
 import { trackPath, receiptPath } from '../services/orderLinks.js';
+import { saveBuyerReviews } from '../services/reviews.js';
 import { evalCoupon } from '../services/coupons.js';
 import { LIVE_STATUSES } from '../services/plan.js';
 import { POLICY_KINDS, TITLES, loadPolicies } from '../services/policies.js';
@@ -74,7 +75,10 @@ storeRouter.get(
         [st.biz_id, st.slug]
       )
     ).rows.map(S.product);
-    Object.assign(store, await storeRatings(st.biz_id));
+    // Ratings and reviews show only where a Sidadiya admin has enabled reviews.
+    store.reviewsEnabled = !!st.reviews_enabled;
+    if (st.reviews_enabled) Object.assign(store, await storeRatings(st.biz_id));
+    else { store.rating = { avg: null, count: 0 }; store.latestReviews = []; products.forEach((p) => { delete p.rating; delete p.reviews; }); }
     // Card payments show at checkout only when the shop's gateway is on AND compliant.
     store.payments.card = (await cardAvailability(st.biz_id)).available;
     store.returnDays = st.return_days;
@@ -125,6 +129,7 @@ storeRouter.get(
   wrap(async (req, res) => {
     const st = await loadStore(req.params.slug);
     if (!LIVE.has(st.business_status) || !UUID_RE.test(req.params.id)) throw notFound('Product not found.');
+    if (!st.reviews_enabled) return res.json({ reviews: [] });
     const { rows } = await query(
       `SELECT rating, body, customer_name, product_name, created_at FROM product_reviews
         WHERE business_id = $1 AND product_id = $2 AND status = 'PUBLISHED' ORDER BY created_at DESC LIMIT 50`,
@@ -149,7 +154,7 @@ storeRouter.get(
   '/:slug/orders/:code',
   wrap(async (req, res) => {
     const { st, order } = await loadBuyerOrder(req);
-    const items = (await query('SELECT * FROM order_items WHERE order_id = $1', [order.id])).rows;
+    const items = (await query('SELECT oi.*, COALESCE(pr.image_url, pr.images->>0) AS image FROM order_items oi LEFT JOIN products pr ON pr.id = oi.product_id WHERE oi.order_id = $1 ORDER BY oi.id', [order.id])).rows;
     const history = (await query('SELECT status, created_at FROM order_status_history WHERE order_id = $1 ORDER BY created_at', [order.id])).rows;
     const reviewed = new Set((await query('SELECT product_id FROM product_reviews WHERE order_id = $1', [order.id])).rows.map((r) => r.product_id));
     res.json({ order: S.buyerOrder(order, items, history, reviewed), store: { name: st.name, slug: st.slug, phone: st.phone || '', whatsapp: st.whatsapp || '' } });
@@ -162,24 +167,7 @@ storeRouter.post(
   '/:slug/orders/:code/reviews',
   wrap(async (req, res) => {
     const { st, order } = await loadBuyerOrder(req);
-    if (order.status !== 'DELIVERED') throw badRequest('You can review your order once it has been delivered.');
-    const list = Array.isArray(req.body && req.body.reviews) ? req.body.reviews.slice(0, 50) : [];
-    if (!list.length) throw badRequest('Add a star rating first.');
-    const items = (await query('SELECT product_id, name FROM order_items WHERE order_id = $1 AND product_id IS NOT NULL', [order.id])).rows;
-    const byId = new Map(items.map((i) => [i.product_id, i.name]));
-    let saved = 0;
-    for (const r of list) {
-      const rating = Math.round(Number(r.rating));
-      if (!byId.has(r.productId) || !(rating >= 1 && rating <= 5)) continue;
-      const body = r.body ? String(r.body).trim().slice(0, 1000) : null;
-      const ins = await query(
-        `INSERT INTO product_reviews (business_id, product_id, order_id, product_name, rating, body, customer_name)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (order_id, product_id) DO NOTHING RETURNING id`,
-        [st.biz_id, r.productId, order.id, byId.get(r.productId).split(' (')[0], rating, body, order.customer_name]
-      );
-      saved += ins.rowCount;
-    }
-    if (!saved) throw badRequest('These products are already reviewed, or the rating is missing.');
+    const saved = await saveBuyerReviews(st.biz_id, order, req.body && req.body.reviews);
     res.status(201).json({ ok: true, saved });
   })
 );
@@ -266,7 +254,7 @@ storeRouter.post(
         price = p.sale_price != null ? p.sale_price : p.price;
       }
       const suffix = label ? ` (${label})` : '';
-      lines.push({ product_id: p.id, name: p.name + suffix, qty, price, variantLabel: variants.length ? label : null });
+      lines.push({ product_id: p.id, name: p.name + suffix, qty, price, variantLabel: variants.length ? label : null, image: p.image_url || (Array.isArray(p.images) && p.images[0]) || null });
       subtotal += price * qty;
     }
 
@@ -352,7 +340,10 @@ storeRouter.post(
       // Notify the store owner of the new order. The customer is not emailed at
       // placement: they receive a branded email only when the shop confirms the
       // order and again when it ships (see the order-status handler).
-      await queueNotification(
+      // The seller is told once: now for cash / bank transfer, and for card orders
+      // when the payment is verified (ORDER_PAID), so an abandoned card checkout
+      // never emails anyone.
+      if (!card) await queueNotification(
         { businessId: st.biz_id, recipient: st.biz_email, ...templates.newOrder({ name: st.biz_name }, created) },
         client
       );

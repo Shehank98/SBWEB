@@ -23,7 +23,27 @@ export async function queueNotification({ businessId = null, type, recipient, su
      RETURNING *`,
     [businessId, type, recipient, subject, message, JSON.stringify(data || {}), dedupeKey]
   );
+  if (rows[0]) pingMailer();
   return rows[0] || null;
+}
+
+// Instant sending: tell the Google Apps Script web app (APPS_SCRIPT_URL) that mail
+// is waiting, so it sends within seconds instead of on its next 1 minute run. The
+// ping waits 2 s (the order's transaction commits first, and a burst of emails
+// becomes one ping). Best effort: a failed ping is caught by the 1 minute trigger.
+let pingTimer = null;
+function pingMailer() {
+  const url = process.env.APPS_SCRIPT_URL;
+  if (!url || pingTimer) return;
+  pingTimer = setTimeout(() => {
+    pingTimer = null;
+    const token = process.env.NOTIFY_TOKEN || config.jwtSecret;
+    const u = url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+    fetch(u, { method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(30000) })
+      .then((r) => { if (!r.ok) console.warn('[mail] Apps Script ping answered', r.status); })
+      .catch((e) => console.warn('[mail] Apps Script ping failed:', e.message));
+  }, 2000);
+  if (pingTimer.unref) pingTimer.unref();
 }
 
 // Build the structured payload the Apps Script order emails render: shop name,
@@ -36,7 +56,8 @@ function orderEmailData(shop, order, items) {
     storeName: shop.name,
     orderCode: order.code,
     customer: order.customer_name,
-    items: (items || []).map((i) => ({ name: i.name, qty: i.qty, price: i.price })),
+    // Product photo for the email (absolute URL; email clients cannot load relative paths).
+    items: (items || []).map((i) => ({ name: i.name, qty: i.qty, price: i.price, image: i.image ? (/^https?:/i.test(i.image) ? i.image : BASE + i.image) : '' })),
     subtotal: order.subtotal,
     discount: order.discount || 0,
     deliveryFee: order.delivery_fee || 0,

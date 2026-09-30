@@ -33,7 +33,7 @@
       function problem(title, text, retry) {
         main.innerHTML = '<div class="trk"><div class="panel empty"><div class="big" aria-hidden="true">🔎</div><h1>' + title + '</h1><p style="color:var(--sf-muted)">' + text + '</p>' +
           (retry ? '<button type="button" class="btn btn-soft btn-sm" id="retry">Try again</button>' : '') + '</div></div>';
-        var r = document.getElementById('retry'); if (r) r.addEventListener('click', load);
+        var r = document.getElementById('retry'); if (r) r.addEventListener('click', function () { load(); });
       }
       if (!code || !/^[a-f0-9]{16,64}$/.test(key)) { problem('This tracking link is not complete', 'Open the "Track your order" button in your order email, or ask the shop to send the link again.'); return; }
 
@@ -58,26 +58,83 @@
           '<p class="trk-status' + (cancelled ? ' bad' : '') + '">' + K.esc(cur ? cur.label : 'Placed') + '</p>' +
           '<p style="color:var(--sf-muted);font-size:14px">Placed ' + when((tl[0] && tl[0].at) || o.date) + ' · ' + K.esc(o.payment || '') + '</p></section>' +
           '<section class="panel"><h2>Progress</h2>' + line + '</section>' +
-          '<section class="panel"><h2>Summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li style="grid-template-columns:minmax(0,1fr) auto"><span class="mini-n">' + K.esc(i.qty + ' × ' + i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
+          '<section class="panel"><h2>Summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li><span class="mini-img">' + (i.image ? SF.img(i.image, '', true) : '<span class="ph">' + K.esc(K.initials(i.name)) + '</span>') + '<b>' + i.qty + '</b></span><span class="mini-n">' + K.esc(i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
           '<div class="rows" style="margin-bottom:0"><div><span>Subtotal</span><span>' + rs(o.subtotal) + '</span></div>' + (o.discount ? '<div class="disc"><span>Discount</span><span>− ' + rs(o.discount) + '</span></div>' : '') +
           '<div><span>Delivery</span><span>' + (o.delivery ? rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span>' + rs(o.total) + '</span></div></div></section>' +
+          deliveredBox(r) + reviewBox(r) +
           '<div class="trk-actions">' +
           (r.receiptUrl ? '<a class="btn btn-soft btn-sm" href="' + K.esc(r.receiptUrl) + '">' + ic('list', 'ic-sm') + 'View receipt</a>' : '') +
           (s.whatsapp ? '<a class="btn btn-wa btn-sm" target="_blank" rel="noopener" href="' + K.wa(s, 'Hello ' + s.name + ', I have a question about my order ' + o.code + '.') + '">WhatsApp the shop</a>' : '') +
-          (o.status === 'DELIVERED' && r.reviewUrl ? '<a class="btn btn-primary btn-sm" href="' + K.esc(r.reviewUrl) + '">Leave a review</a>' : '') +
           (s.slug ? '<a class="btn btn-ghost btn-sm" href="/store/' + encodeURIComponent(s.slug) + '">Back to shop</a>' : '') +
           '</div></div>';
       }
-      function load() {
-        main.innerHTML = '<div class="trk"><div class="skeleton" style="height:120px"></div><div class="skeleton" style="height:280px"></div></div>';
-        fetch('/api/track/' + encodeURIComponent(code) + '?k=' + encodeURIComponent(key), { headers: { Accept: 'application/json' } })
+      /* ---------- The buyer confirms delivery, then reviews (if the shop has reviews on) ---------- */
+      function deliveredBox(r) {
+        if (!r.canConfirmDelivery) return '';
+        return '<section class="panel trk-got"><h2>Got your parcel?</h2><p style="color:var(--sf-muted);font-size:14px;margin-bottom:12px">Let ' + K.esc((r.store || {}).name || 'the shop') + ' know it arrived safely.</p>' +
+          '<button type="button" class="btn btn-primary btn-sm" data-act="delivered">I received my order</button></section>';
+      }
+      var stars = {};
+      function reviewBox(r) {
+        var o = r.order;
+        if (o.status !== 'DELIVERED' || !r.reviewsEnabled) return '';
+        var todo = o.items.filter(function (i) { return i.productId && !i.reviewed; });
+        if (!todo.length) return o.items.some(function (i) { return i.reviewed; }) ? '<section class="panel trk-rv"><h2>Thank you for your review</h2><p style="color:var(--sf-muted);font-size:14px">It helps other buyers and the shop.</p></section>' : '';
+        return '<section class="panel trk-rv" id="rvBox"><h2>How was your order?</h2><p style="color:var(--sf-muted);font-size:14px;margin-bottom:10px">Rate what you bought. Your first name is shown with your review.</p>' +
+          todo.map(function (i) {
+            return '<fieldset class="rv-item"><legend>' + K.esc(i.name) + '</legend><div class="rv-stars" role="radiogroup" aria-label="Rating for ' + K.esc(i.name) + '">' +
+              [1, 2, 3, 4, 5].map(function (n) { return '<button type="button" class="rv-star" role="radio" aria-checked="' + (stars[i.productId] === n) + '" aria-label="' + n + ' star' + (n > 1 ? 's' : '') + '" data-pid="' + K.esc(i.productId) + '" data-n="' + n + '">' + (stars[i.productId] >= n ? '★' : '☆') + '</button>'; }).join('') +
+              '</div><textarea class="input rv-text" data-pid="' + K.esc(i.productId) + '" rows="2" maxlength="1000" placeholder="What did you like? (optional)"></textarea></fieldset>';
+          }).join('') +
+          '<p class="err" id="rvErr" hidden></p><button type="button" class="btn btn-primary btn-sm" data-act="review">Send review</button></section>';
+      }
+      var busy = false, lastJson = '', editing = false;
+      main.addEventListener('focusin', function (e) { if (e.target.closest('.trk-rv')) editing = true; });
+      main.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-act], .rv-star'); if (!b || busy) return;
+        if (b.classList.contains('rv-star')) {
+          editing = true; stars[b.getAttribute('data-pid')] = +b.getAttribute('data-n');
+          K.$$('.rv-star[data-pid="' + b.getAttribute('data-pid') + '"]').forEach(function (x) { var n = +x.getAttribute('data-n'); x.textContent = n <= stars[b.getAttribute('data-pid')] ? '★' : '☆'; x.setAttribute('aria-checked', String(n === stars[b.getAttribute('data-pid')])); });
+          return;
+        }
+        var act = b.getAttribute('data-act');
+        if (act === 'delivered') {
+          if (!window.confirm('Confirm that you received this order?')) return;
+          busy = true; b.disabled = true; b.textContent = 'Saving…';
+          post('/delivered', {}).then(function () { busy = false; SF.toast('Thank you! Marked as delivered.'); load(true, true); })
+            .catch(function (m) { busy = false; b.disabled = false; b.textContent = 'I received my order'; SF.toast(m); });
+        } else if (act === 'review') {
+          var list = Object.keys(stars).map(function (pid) { var t = K.$('.rv-text[data-pid="' + pid + '"]'); return { productId: pid, rating: stars[pid], body: t ? t.value : '' }; });
+          var err = K.$('#rvErr');
+          if (!list.length) { err.hidden = false; err.textContent = 'Tap the stars to rate at least one product.'; return; }
+          busy = true; b.disabled = true; b.textContent = 'Sending…';
+          post('/reviews', { reviews: list }).then(function () { busy = false; editing = false; stars = {}; SF.toast('Thank you for your review!'); load(true, true); })
+            .catch(function (m) { busy = false; b.disabled = false; b.textContent = 'Send review'; err.hidden = false; err.textContent = m; });
+        }
+      });
+      function post(path, body) {
+        return fetch('/api/track/' + encodeURIComponent(code) + path + '?k=' + encodeURIComponent(key), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) })
+          .then(function (res) { return res.json().catch(function () { return {}; }).then(function (j) { if (!res.ok) throw (j.error || 'Something went wrong. Please try again.'); return j; }); });
+      }
+      /* Refresh every 10 seconds while the page is open, so status changes appear
+         without a reload. Paused while the buyer is writing a review or the tab is hidden. */
+      function load(silent, force) {
+        if (!silent) main.innerHTML = '<div class="trk"><div class="skeleton" style="height:120px"></div><div class="skeleton" style="height:280px"></div></div>';
+        return fetch('/api/track/' + encodeURIComponent(code) + '?k=' + encodeURIComponent(key), { headers: { Accept: 'application/json' }, cache: 'no-store' })
           .then(function (res) { if (res.status === 404) throw { notFound: true }; if (!res.ok) throw {}; return res.json(); })
-          .then(paint)
+          .then(function (r) {
+            var j = JSON.stringify(r);
+            if (silent && !force && (j === lastJson || editing)) return;
+            lastJson = j; paint(r);
+          })
           .catch(function (e) {
+            if (silent) return; // keep showing the last good view; the next tick retries
             if (e && e.notFound) problem('We could not find this order', 'Check the link in your order email. If it still does not work, contact the shop.');
             else problem('Could not load your order', 'Please check your connection and try again.', true);
           });
       }
+      setInterval(function () { if (!document.hidden && !busy) load(true); }, 10000);
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) load(true); });
       load();
     })();
   </script>

@@ -197,6 +197,7 @@
     adminShop(id) { return req('GET', '/api/admin/shops/' + id); },
     adminShopDoc(id, kind) { return req('GET', '/api/admin/shops/' + id + '/documents/' + kind); },
     adminExtendTrial(id, days) { return req('POST', '/api/admin/shops/' + id + '/extend-trial', { days: days }); },
+    adminShopReviews(id, enabled) { return req('PUT', '/api/admin/shops/' + id + '/reviews', { enabled: !!enabled }); },
     adminChangePlan(id, planId) { return req('POST', '/api/admin/shops/' + id + '/plan', { planId: planId }); },
     adminActivate(id, days, planId) { return req('POST', '/api/admin/shops/' + id + '/activate', { days: days, planId: planId }); },
     adminVerifyApprove(id) { return req('POST', '/api/admin/shops/' + id + '/verification/approve'); },

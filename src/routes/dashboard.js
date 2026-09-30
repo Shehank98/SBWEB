@@ -296,7 +296,7 @@ dashboardRouter.get(
     const ids = rows.map((r) => r.id);
     let itemsByOrder = {};
     if (ids.length) {
-      const items = (await query(`SELECT * FROM order_items WHERE order_id = ANY($1)`, [ids])).rows;
+      const items = (await query(`SELECT oi.*, COALESCE(pr.image_url, pr.images->>0) AS image FROM order_items oi LEFT JOIN products pr ON pr.id = oi.product_id WHERE oi.order_id = ANY($1) ORDER BY oi.id`, [ids])).rows;
       itemsByOrder = items.reduce((m, i) => { (m[i.order_id] = m[i.order_id] || []).push(i); return m; }, {});
     }
     res.json({ orders: rows.map((r) => S.order(r, itemsByOrder[r.id])) });
@@ -326,22 +326,20 @@ dashboardRouter.put(
         'INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)',
         [order.id, status, req.user.sub, note]
       );
-      // Email the buyer a status update (on behalf of the shop) for each step on
-      // the tracking timeline. The dedupe key makes a repeated click a no-op;
-      // "Processing" and "Ready to ship" both count as Packed, so one email.
-      if (order.customer_email && status !== order.status) {
+      // Buyer emails are kept to the ones that matter: order placed (at checkout),
+      // confirmed (here) and shipped with the tracking number (the ship form).
+      // Packed, delivered and cancelled show on the tracking page instead.
+      if (order.customer_email && status !== order.status && (status === 'CONFIRMED' || status === 'SHIPPED')) {
         const shop = (await client.query(
           `SELECT COALESCE(s.name, bz.name) AS name, s.slug, s.phone, s.whatsapp, s.address, COALESCE(NULLIF(s.contact_email, ''), bz.email) AS email
              FROM businesses bz LEFT JOIN stores s ON s.business_id = bz.id
             WHERE bz.id = $1`,
           [b]
         )).rows[0] || { name: 'Your store' };
-        const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [order.id])).rows;
-        const mail = status === 'CONFIRMED' ? templates.orderConfirmed(shop, order, items)
-          : status === 'SHIPPED' ? templates.orderShipped(shop, order, items)
-          : templates.orderStatusUpdate(shop, order, items, status);
-        const key = status === 'PROCESSING' || status === 'READY_TO_SHIP' ? 'PACKED' : status;
-        if (mail) await queueNotification({ businessId: b, recipient: order.customer_email, dedupeKey: `${key}:${order.id}`, ...mail }, client);
+        const items = (await client.query('SELECT oi.name, oi.qty, oi.price, COALESCE(pr.image_url, pr.images->>0) AS image FROM order_items oi LEFT JOIN products pr ON pr.id = oi.product_id WHERE oi.order_id=$1', [order.id])).rows;
+        const mail = status === 'CONFIRMED' ? templates.orderConfirmed(shop, order, items) : templates.orderShipped(shop, order, items);
+        // One shipped email per order, whether it comes from here or the ship form.
+        await queueNotification({ businessId: b, recipient: order.customer_email, dedupeKey: `${status}:${order.id}`, ...mail }, client);
       }
     });
     res.json({ ok: true, status });
@@ -375,9 +373,10 @@ dashboardRouter.put(
       }
       if (o.customer_email) {
         const shop = (await client.query(`SELECT s.name, s.slug, s.phone, s.whatsapp, s.address, COALESCE(NULLIF(s.contact_email, ''), bz.email) AS email FROM stores s JOIN businesses bz ON bz.id = s.business_id WHERE s.business_id=$1`, [b])).rows[0];
-        const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [o.id])).rows;
-        // New tracking number = new email; saving the same one twice sends once.
-        await queueNotification({ businessId: b, recipient: o.customer_email, dedupeKey: `SHIPPED_TRACK:${o.id}:${number}`, ...templates.orderShippedTracking(shop, o, items) }, client);
+        const items = (await client.query('SELECT oi.name, oi.qty, oi.price, COALESCE(pr.image_url, pr.images->>0) AS image FROM order_items oi LEFT JOIN products pr ON pr.id = oi.product_id WHERE oi.order_id=$1', [o.id])).rows;
+        // One shipped email per order (a corrected tracking number shows on the
+        // tracking page; it does not send a second email).
+        await queueNotification({ businessId: b, recipient: o.customer_email, dedupeKey: `SHIPPED:${o.id}`, ...templates.orderShippedTracking(shop, o, items) }, client);
       }
       return o;
     });

@@ -548,3 +548,13 @@ textarea.input { padding: 12px 14px; min-height: 90px; resize: vertical; }
   #foot-pol { display: none; } /* policies live in the bottom bar on desktop */
   .foot-bar__links { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 }
+.rcpt-item { display: flex; gap: 10px; align-items: center; }
+.rcpt-item img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; background: var(--brand-soft); }
+/* Tracking page: confirm delivery + review */
+.trk-got { border-color: var(--brand); }
+.rv-item { border: 0; padding: 10px 0; margin: 0; border-top: 1px solid var(--sf-line); display: grid; gap: 6px; }
+.rv-item legend { font-weight: 700; font-size: 14px; padding: 0; float: left; width: 100%; }
+.rv-stars { display: flex; gap: 2px; clear: both; }
+.rv-star { background: none; border: 0; font-size: 28px; line-height: 1; color: var(--accent); cursor: pointer; padding: 4px; min-width: 40px; min-height: 40px; }
+.rv-star:focus-visible { outline: 2px solid var(--brand); border-radius: 6px; }
+.rv-text { min-height: 60px; font-size: 14px; }

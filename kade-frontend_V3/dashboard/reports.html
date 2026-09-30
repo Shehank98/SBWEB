@@ -148,10 +148,9 @@
 
       function renderAdvanced(adv, R, isPro) {
         if (!isPro) {
-          adv.className = 'kd-card locked';
-          adv.innerHTML = '<div class="locked__body"><h2 id="r4">Advanced insights</h2>' +
-            '<p class="muted" style="margin-top:8px">Customer intelligence, like your top customers, repeat-customer rate, busiest days and coupon performance, is part of the <strong>Pro</strong> plan.</p>' +
-            '<div class="row" style="margin-top:12px"><a class="kd-btn kd-btn--secondary" href="subscription">Upgrade to Pro</a></div></div>';
+          // Blurred preview with sample numbers (not this shop's data) and an upgrade button.
+          adv.className = 'kd-card';
+          adv.innerHTML = '<div style="padding:16px"><h2 id="r4" style="margin-bottom:12px">Advanced insights</h2>' + K.lockTeaser({ sample: '<div class="tiles" style="margin-bottom:12px"><div class="kd-card stat"><span class="stat__label">Repeat customers</span><span class="stat__value">34%</span></div><div class="kd-card stat"><span class="stat__label">Customers</span><span class="stat__value">58</span></div><div class="kd-card stat"><span class="stat__label">Busiest day</span><span class="stat__value">Saturday</span></div></div><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Top customer</th><th scope="col">Orders</th><th scope="col">Spent</th></tr></thead><tbody><tr><td>Nadeesha Perera</td><td>6</td><td>Rs. 24,900</td></tr><tr><td>Kasun Silva</td><td>4</td><td>Rs. 18,300</td></tr><tr><td>Ayesha Fernando</td><td>3</td><td>Rs. 15,300</td></tr></tbody></table></div><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Town or city</th><th scope="col">Orders</th></tr></thead><tbody><tr><td>Galle</td><td>14</td></tr><tr><td>Colombo</td><td>11</td></tr><tr><td>Kandy</td><td>8</td></tr></tbody></table></div>', title: 'Know your best customers and towns', text: 'Top customers, repeat-customer rate, busiest days and where orders come from, town by town. Available on the Pro plan.', cta: 'Upgrade to Pro' }) + '</div>';
           return;
         }
         var rep = R.repeat || { customers: 0, repeatCustomers: 0, repeatRate: 0 };
