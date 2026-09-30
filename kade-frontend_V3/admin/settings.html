@@ -19,8 +19,22 @@
       <main class="main" id="main" tabindex="-1">
         <div class="page-head"><div><h1>Settings</h1><p>Plans, trial, payments and the text shown across Sidadiya.</p></div></div>
         <nav class="settings-nav" aria-label="Settings sections" id="snav">
-          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#payments">Payment settings</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a><a href="#marketing">Marketing</a>
+          <a href="#maintenance">Maintenance</a><a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#payments">Payment settings</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a><a href="#marketing">Marketing</a>
         </nav>
+
+        <section class="kd-card panel maint-card" id="maintenance" aria-labelledby="h-maint" style="margin-bottom:var(--space-4)">
+          <h2 id="h-maint">Maintenance mode</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">Closes Sidadiya for everyone except admins. Stores, dashboards and checkout show an animated "shop is closed" page and reopen by themselves when you switch this off. Payment callbacks and emails keep working.</p>
+          <form id="maintForm" class="stack" novalidate>
+            <label class="kd-switch"><span class="kd-check__text"><strong id="maintLabel">Off: the site is open</strong><span class="muted">Turn on before a big update or database work.</span></span><input type="checkbox" role="switch" id="maintOn"></label>
+            <div class="form-grid form-grid--2">
+              <div class="kd-field span-2"><label class="kd-label" for="maintMsg">Message for visitors <span class="muted">(optional)</span></label><textarea class="kd-input" id="maintMsg" rows="2" maxlength="300" placeholder="We are adding new features. Back in about 30 minutes."></textarea></div>
+              <div class="kd-field"><label class="kd-label" for="maintUntil">Back by <span class="muted">(optional)</span></label><input class="kd-input" id="maintUntil" type="datetime-local"><span class="kd-help">Shown as "Back by 3:30 pm".</span></div>
+            </div>
+            <div class="row" style="gap:8px;flex-wrap:wrap"><button class="kd-btn kd-btn--primary" type="submit">Save</button>
+              <span class="maint-preview"><a class="kd-btn kd-btn--ghost" href="/closed?preview=maintenance" target="_blank" rel="noopener">Preview maintenance page</a><a class="kd-btn kd-btn--ghost" href="/closed?preview=down" target="_blank" rel="noopener">Preview "server down" page</a></span></div>
+          </form>
+        </section>
 
         <section class="kd-card panel" id="plans" aria-labelledby="h-plans" style="margin-bottom:var(--space-4)">
           <h2 id="h-plans">Plans and features</h2>
@@ -203,6 +217,36 @@
         e.preventDefault();
         KadeApi.adminSaveSettings({ trial_days: Number(K.$('#trialDays').value) }).then(function () { K.toast('Trial length saved.'); }).catch(function (ex) { K.toast(ex.message); });
       });
+
+      // ---- Maintenance mode ----
+      function localInput(iso) { if (!iso) return ''; var d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
+      function paintMaint(m) {
+        m = m || {};
+        K.$('#maintOn').checked = !!m.on;
+        K.$('#maintMsg').value = m.message || '';
+        K.$('#maintUntil').value = localInput(m.until);
+        K.$('#maintLabel').textContent = m.on ? 'On: only admins can use Sidadiya' : 'Off: the site is open';
+        K.$('#maintenance').classList.toggle('is-on', !!m.on);
+        K.maintBanner(m.on ? m : null);
+      }
+      function saveMaint(on) {
+        var until = K.$('#maintUntil').value;
+        var body = { on: on, message: K.$('#maintMsg').value.trim(), until: until ? new Date(until).toISOString() : '' };
+        var restore = K.btnLoading(K.$('#maintForm [type=submit]'), 'Saving…');
+        return KadeApi.adminSaveSettings({ maintenance: body }).then(function (r) {
+          restore(); if (window.KadeAdminSettings) window.KadeAdminSettings.maintenance = r.settings.maintenance; paintMaint(r.settings.maintenance);
+          K.toast(on ? 'Maintenance mode is on. Only admins can get in.' : 'Maintenance mode is off. Sidadiya is open.');
+        }).catch(function (ex) { restore(); paintMaint(window.KadeAdminSettings && window.KadeAdminSettings.maintenance); K.toast(ex.message); });
+      }
+      K.$('#maintOn').addEventListener('change', function (e) {
+        var on = e.target.checked;
+        if (!on) { saveMaint(false); return; }
+        K.confirm({ title: 'Close Sidadiya for maintenance?', body: 'Buyers and sellers will see the "shop is closed" page until you turn this off. You and other admins can still use everything.', confirmLabel: 'Turn on', danger: true }).then(function (ok) {
+          if (ok) saveMaint(true); else e.target.checked = false;
+        });
+      });
+      K.$('#maintForm').addEventListener('submit', function (e) { e.preventDefault(); saveMaint(K.$('#maintOn').checked); });
+      document.addEventListener('admin-settings-loaded', function (e) { paintMaint(e.detail.maintenance); });
 
       // ---- Payment settings (OnePay platform keys): write-only secrets ----
       K.$('#opCb').textContent = location.origin + '/api/onepay/callback';

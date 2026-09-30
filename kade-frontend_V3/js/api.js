@@ -30,6 +30,40 @@
   function currentUser() { try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch (e) { return null; } }
   function clearSession() { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(USER_KEY); } catch (e) {} }
 
+  // ---- Connection banner: a small "shop is closed for a moment" note while the
+  // internet or the server is down. Checks /api/health until it is back. ----
+  var netTimer = null;
+  function netBanner(kind) {
+    if (typeof document === 'undefined' || !document.body) return;
+    var el = document.getElementById('kade-net');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'kade-net'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+      el.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:999px;background:#17211d;color:#fff;font:600 14px/1.3 Figtree,system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.25)';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '<span aria-hidden="true" style="font-size:18px">' + (kind === 'offline' ? '📶' : '🏪') + '</span><span>' +
+      (kind === 'offline' ? 'You are offline. The shop reopens when your internet is back.' : 'The shop is closed for a moment. Trying again…') + '</span>';
+    el.hidden = false;
+    clearInterval(netTimer);
+    netTimer = setInterval(function () {
+      if (navigator.onLine === false) return;
+      fetch(BASE + '/api/health', { cache: 'no-store' }).then(function (r) {
+        if (!r.ok) return;
+        clearInterval(netTimer);
+        el.innerHTML = '<span aria-hidden="true" style="font-size:18px">✅</span><span>We are open again.</span>';
+        setTimeout(function () { el.hidden = true; }, 2500);
+      }).catch(function () {});
+    }, 5000);
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('offline', function () { netBanner('offline'); });
+    // Service worker: shows the animated "closed" page when a page cannot load at all.
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+    }
+  }
+
   // Core fetch wrapper. Attaches the bearer token and unwraps JSON / errors.
   async function req(method, path, body, isForm) {
     var headers = {};
@@ -40,9 +74,18 @@
       if (isForm) { opts.body = body; } // FormData: let the browser set the boundary
       else { headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
     }
-    var res = await fetch(BASE + path, opts);
+    var res;
+    try { res = await fetch(BASE + path, opts); }
+    catch (e) {
+      netBanner(navigator.onLine === false ? 'offline' : 'down');
+      var ne = new Error('No connection right now. Check your internet and try again.'); ne.status = 0; ne.network = true;
+      throw ne;
+    }
     var data = null;
     try { data = await res.json(); } catch (e) { /* no body */ }
+    // Maintenance switched on by an admin: reload so the server shows the "closed" page.
+    if (res.status === 503 && data && data.maintenance && !/^\/admin(\/|$)/.test(location.pathname)) { location.reload(); }
+    else if (res.status === 502 || res.status === 503 || res.status === 504) netBanner('down');
     // Payment wall: a locked shop (trial ended / plan lapsed) gets 402 from the
     // dashboard API. Send owners to the subscription page to pay.
     if (res.status === 402 && /\/dashboard\//.test(location.pathname) && !/\/subscription/.test(location.pathname)) {
@@ -206,6 +249,7 @@
     adminUpdatePlan(id, p) { return req('PUT', '/api/admin/plans/' + encodeURIComponent(id), p); },
     adminSettings() { return req('GET', '/api/admin/settings'); },
     adminSaveSettings(s) { return req('PUT', '/api/admin/settings', s); },
+    siteStatus() { return req('GET', '/api/site/status'); },
     adminPaymentSettings() { return req('GET', '/api/admin/payment-settings'); },
     adminSavePaymentSettings(b) { return req('PUT', '/api/admin/payment-settings', b); },
     adminResetPaymentSettings() { return req('DELETE', '/api/admin/payment-settings'); },

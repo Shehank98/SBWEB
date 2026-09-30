@@ -380,3 +380,10 @@ The schema and routes are shaped so these slot in without a redesign: product
 variants table, coupons, delivery zones, analytics pages, staff accounts,
 customer accounts, reviews, custom domains, and online payments (PayHere /
 LankaQR) replacing manual slip verification.
+
+### 8.9 Maintenance mode and the "shop is closed" page
+
+- **Maintenance mode**: Admin > Settings > Maintenance. Switch it on (with an optional message and "Back by" time) and every store, dashboard and checkout shows an animated "shop is closed" page (HTTP 503). Admins, `/login`, `/admin/*`, OnePay callbacks and the email outbox keep working. Visitors' pages check every 20 seconds and reopen by themselves when you switch it off. Admin pages show a yellow reminder while it is on.
+- **Offline or server down**: `sw.js` (a small service worker) shows the same page, in "offline" or "server down" style, when a page cannot load: no internet, or Railway answering 502/503/504. It caches only that one page, never your other pages or data. It works for anyone who has opened Sidadiya at least once on that browser; a first-time visitor during an outage still sees Railway's own error page.
+- Inside an open page, a failed request shows a small "The shop is closed for a moment" note at the bottom, which clears itself when the connection is back.
+- Preview: `/closed?preview=maintenance`, `/closed?preview=down`, `/closed?preview=offline`.
