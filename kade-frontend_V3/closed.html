@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#faf7f0">
+  <title>The shop is closed for a moment | Sidadiya</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f5b4a'/%3E%3Cpath d='M7 13h18l-2-5H9z' fill='%23e8a317'/%3E%3Crect x='9' y='14' width='14' height='11' fill='%23fff'/%3E%3C/svg%3E">
+  <!-- Self-contained on purpose: this page is also the offline fallback kept by the
+       service worker (sw.js), so it must work with no network and no other files. -->
+  <style>
+    :root { --bg:#faf7f0; --card:#fff; --ink:#17211d; --muted:#4a5650; --line:#ddd5c4; --brand:#0f5b4a; --brand-soft:#d9eee5; --accent:#e8a317; --wall:#f3ead8; --wall2:#e7dcc5; --shutter:#b9c2bd; --shutter2:#9aa5a0; --danger:#b3261e; color-scheme: light; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#121916; --card:#1a2420; --ink:#eef2ee; --muted:#a7b3ac; --line:#2a3630; --brand:#52c2a2; --brand-soft:#173a30; --accent:#f2b73f; --wall:#24302b; --wall2:#1c2622; --shutter:#56635d; --shutter2:#46524c; --danger:#ff8a80; color-scheme: dark; } }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body { background: var(--bg); color: var(--ink); font: 16px/1.55 Figtree, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: grid; place-items: center; min-height: 100vh; min-height: 100dvh; padding: 24px 16px; }
+    .box { width: 100%; max-width: 520px; text-align: center; }
+    .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--brand); text-decoration: none; margin-bottom: 8px; letter-spacing: .01em; }
+    .brand i { width: 26px; height: 26px; border-radius: 8px; background: var(--brand); display: inline-grid; place-items: center; }
+    .brand i::after { content: ""; width: 12px; height: 9px; background: var(--accent); clip-path: polygon(0 100%, 15% 0, 85% 0, 100% 100%); }
+    .scene { width: 100%; max-width: 420px; margin: 0 auto; display: block; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+    .scene .hit { cursor: pointer; }
+    .scene .hit:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+    h1 { font: 700 clamp(22px, 5vw, 28px)/1.2 "Bricolage Grotesque", Figtree, system-ui, sans-serif; margin: 8px 0 8px; }
+    p { margin: 0 auto 12px; color: var(--muted); max-width: 440px; }
+    .until { display: inline-block; background: var(--brand-soft); color: var(--brand); font-weight: 600; border-radius: 999px; padding: 4px 12px; font-size: 14px; margin-bottom: 12px; }
+    .until[hidden] { display: none; }
+    .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 16px 0 8px; }
+    .btn { font: 600 15px/1 inherit; font-family: inherit; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; white-space: nowrap; }
+    .btn--primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn--primary { color: #08201a; } }
+    .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+    .btn[disabled] { opacity: .6; cursor: progress; }
+    .status { font-size: 13px; color: var(--muted); min-height: 20px; }
+    .status b { color: var(--ink); font-weight: 600; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 1px; animation: pulse 1.6s ease-in-out infinite; }
+    .hint { font-size: 12px; color: var(--muted); opacity: .8; margin-top: 4px; }
+    .knocks { font-size: 12px; color: var(--muted); min-height: 16px; }
+    @keyframes pulse { 50% { opacity: .25; } }
+
+    /* ---- scene animation ---- */
+    .awning { transform-origin: 160px 70px; animation: flap 4s ease-in-out infinite; }
+    @keyframes flap { 50% { transform: skewX(-1.5deg) scaleY(1.03); } }
+    .sign { transform-origin: 232px 120px; transition: transform .5s cubic-bezier(.3,1.6,.5,1); }
+    .sign-inner { transform-origin: 232px 150px; transition: transform .35s ease-in-out; }
+    .sign.flip .sign-inner { transform: scaleX(0); }
+    .gear { transform-box: fill-box; transform-origin: center; animation: spin 4s linear infinite; }
+    .gear.rev { animation-direction: reverse; animation-duration: 2.6s; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .wrench { transform-origin: 96px 204px; animation: tap 1.1s ease-in-out infinite; }
+    @keyframes tap { 0%,100% { transform: rotate(0); } 40% { transform: rotate(-28deg); } 55% { transform: rotate(4deg); } }
+    .spark { opacity: 0; animation: spark 1.1s ease-out infinite; }
+    .spark.s2 { animation-delay: .08s; } .spark.s3 { animation-delay: .16s; }
+    @keyframes spark { 50% { opacity: 0; } 55% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)); } }
+    .shutter { transition: transform 1.2s cubic-bezier(.5,0,.2,1); }
+    .door { transform-box: fill-box; transform-origin: center bottom; }
+    .door.knock { animation: knock .45s ease-in-out; }
+    @keyframes knock { 20%,60% { transform: translateX(-2px) rotate(-.6deg); } 40%,80% { transform: translateX(2px) rotate(.6deg); } }
+    .bubble { opacity: 0; transition: opacity .2s; }
+    .bubble.show { opacity: 1; }
+    .zzz text { animation: zz 3s ease-in-out infinite; opacity: 0; }
+    .zzz text:nth-child(2) { animation-delay: 1s; } .zzz text:nth-child(3) { animation-delay: 2s; }
+    @keyframes zz { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(10px, -22px); } }
+    .cat .tail { transform-origin: 70px 234px; animation: tail 2.4s ease-in-out infinite; }
+    @keyframes tail { 50% { transform: rotate(14deg); } }
+    .cat.awake .eyes-shut { display: none; } .cat .eyes-open { display: none; } .cat.awake .eyes-open { display: inline; }
+    .bulb { animation: flicker 3.2s steps(1) infinite; }
+    @keyframes flicker { 0%,100% { opacity: .15; } 8% { opacity: .9; } 10% { opacity: .15; } 12% { opacity: .9; } 14% { opacity: .15; } }
+    .bars rect { animation: bar 1.8s ease-in-out infinite; opacity: .2; }
+    .bars rect:nth-child(2) { animation-delay: .2s; } .bars rect:nth-child(3) { animation-delay: .4s; }
+    @keyframes bar { 30% { opacity: 1; } 60% { opacity: .2; } }
+
+    /* Which props show in which state */
+    [data-mode="maintenance"] .only-off, [data-mode="maintenance"] .only-down { display: none; }
+    [data-mode="offline"] .only-maint, [data-mode="offline"] .only-down { display: none; }
+    [data-mode="down"] .only-maint, [data-mode="down"] .only-off { display: none; }
+    [data-mode="checking"] .only-maint, [data-mode="checking"] .only-off { display: none; }
+    [data-mode="maintenance"] .shutter { transform: translateY(-38px); }
+    [data-mode="offline"] .shutter, [data-mode="down"] .shutter, [data-mode="checking"] .shutter { transform: translateY(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .spark { display: none; }
+    }
+  </style>
+</head>
+<body data-mode="checking">
+  <main class="box" id="main">
+    <a class="brand" href="/"><i aria-hidden="true"></i>Sidadiya</a>
+
+    <svg class="scene" viewBox="0 0 320 260" role="img" aria-labelledby="scene-t">
+      <title id="scene-t">A little shop with its shutter down and a Closed sign on the door</title>
+      <!-- ground and shadow -->
+      <rect x="0" y="246" width="320" height="14" fill="var(--wall2)"/>
+      <ellipse cx="160" cy="248" rx="140" ry="6" fill="var(--line)" opacity=".7"/>
+      <!-- building -->
+      <rect x="40" y="62" width="240" height="186" rx="6" fill="var(--wall)" stroke="var(--line)" stroke-width="2"/>
+      <!-- name board -->
+      <rect x="96" y="22" width="128" height="30" rx="8" fill="var(--brand)"/>
+      <text x="160" y="43" text-anchor="middle" font-size="16" font-weight="700" fill="#fff" font-family="system-ui, sans-serif" letter-spacing="2">SHOP</text>
+      <circle class="bulb only-down only-off" cx="214" cy="30" r="4" fill="var(--accent)"/>
+      <line x1="118" y1="52" x2="118" y2="62" stroke="var(--brand)" stroke-width="3"/><line x1="202" y1="52" x2="202" y2="62" stroke="var(--brand)" stroke-width="3"/>
+      <!-- striped awning -->
+      <g class="awning">
+        <rect x="34" y="62" width="252" height="10" rx="3" fill="var(--brand)"/>
+        <g id="stripes"></g>
+      </g>
+
+      <!-- window with gears (maintenance) behind a rolling shutter -->
+      <rect x="58" y="112" width="120" height="84" rx="4" fill="var(--card)" stroke="var(--line)" stroke-width="2"/>
+      <svg x="58" y="112" width="120" height="84" viewBox="0 0 120 84">
+        <g class="only-maint" fill="var(--brand)" opacity=".85">
+          <path class="gear" d="M44 24l4-8 6 2 1 9 6 3 7-5 5 5-5 7 3 6 9 1 2 6-8 4v6l8 4-2 6-9 1-3 6 5 7-5 5-7-5-6 3-1 9-6 2-4-8h-6l-4 8-6-2-1-9-6-3-7 5-5-5 5-7-3-6-9-1-2-6 8-4v-6l-8-4 2-6 9-1 3-6-5-7 5-5 7 5 6-3 1-9 6-2 4 8zM41 36a10 10 0 1 0 .1 0z" transform="translate(-8 4) scale(.7)"/>
+          <path class="gear rev" d="M86 40l3-5 4 1 1 6 4 2 5-3 3 3-3 5 2 4 6 1 1 4-5 3v4l5 3-1 4-6 1-2 4 3 5-3 3-5-3-4 2-1 6-4 1-3-5h-4l-3 5-4-1-1-6-4-2-5 3-3-3 3-5-2-4-6-1-1-4 5-3v-4l-5-3 1-4 6-1 2-4-3-5 3-3 5 3 4-2 1-6 4-1 3 5zM84 49a7 7 0 1 0 .1 0z" transform="translate(4 -4)"/>
+        </g>
+        <g class="shutter">
+          <rect x="0" y="0" width="120" height="84" fill="var(--shutter)"/>
+          <g id="slats"></g>
+          <rect x="52" y="76" width="16" height="4" rx="2" fill="var(--shutter2)"/>
+        </g>
+      </svg>
+
+      <!-- door -->
+      <g class="door hit" id="door" tabindex="0" role="button" aria-label="Knock on the door">
+        <rect x="200" y="104" width="64" height="142" rx="4" fill="var(--brand)"/>
+        <rect x="208" y="112" width="48" height="56" rx="3" fill="var(--card)" opacity=".25"/>
+        <circle cx="254" cy="182" r="4" fill="var(--accent)"/>
+      </g>
+      <!-- hanging sign: tap to flip, it leans toward your pointer -->
+      <g class="sign hit" id="sign" tabindex="0" role="button" aria-label="Flip the sign">
+        <circle cx="232" cy="120" r="2.5" fill="var(--ink)"/>
+        <path d="M232 120 L212 138 M232 120 L252 138" stroke="var(--ink)" stroke-width="1.5" fill="none"/>
+        <g class="sign-inner">
+          <rect x="202" y="136" width="60" height="28" rx="5" fill="var(--card)" stroke="var(--danger)" stroke-width="2"/>
+          <text id="signText" x="232" y="155" text-anchor="middle" font-size="12" font-weight="800" fill="var(--danger)" font-family="system-ui, sans-serif" letter-spacing="1">CLOSED</text>
+        </g>
+      </g>
+      <!-- knock bubble -->
+      <g class="bubble" id="bubble">
+        <rect x="236" y="70" width="78" height="26" rx="13" fill="var(--card)" stroke="var(--line)"/>
+        <text id="bubbleText" x="275" y="87" text-anchor="middle" font-size="11" font-weight="700" fill="var(--ink)" font-family="system-ui, sans-serif">Knock knock!</text>
+      </g>
+
+      <!-- maintenance props: cone, toolbox and a tapping wrench with sparks -->
+      <g class="only-maint">
+        <path d="M150 246 L160 208 L170 246 Z" fill="#f28c28"/><rect x="146" y="243" width="28" height="5" rx="2" fill="#f28c28"/>
+        <path d="M154 232 h12 M157 220 h6" stroke="#fff" stroke-width="4"/>
+        <rect x="64" y="222" width="48" height="24" rx="4" fill="var(--danger)"/><rect x="80" y="216" width="16" height="7" rx="3" fill="none" stroke="var(--danger)" stroke-width="3"/>
+        <g class="wrench"><path d="M96 204 L124 176" stroke="var(--muted)" stroke-width="6" stroke-linecap="round"/><circle cx="126" cy="174" r="7" fill="none" stroke="var(--muted)" stroke-width="5"/></g>
+        <circle class="spark" cx="96" cy="206" r="2" fill="var(--accent)" style="--dx:-10px;--dy:-8px"/>
+        <circle class="spark s2" cx="96" cy="206" r="1.6" fill="var(--accent)" style="--dx:8px;--dy:-12px"/>
+        <circle class="spark s3" cx="96" cy="206" r="1.4" fill="var(--accent)" style="--dx:-4px;--dy:-14px"/>
+      </g>
+
+      <!-- offline / server down props: a sleepy cat on the step and weak signal bars -->
+      <g class="cat hit only-off only-down" id="cat" tabindex="0" role="button" aria-label="Wake the cat and try again">
+        <path class="tail" d="M70 234 q-18 -2 -16 -16" stroke="var(--ink)" stroke-width="5" fill="none" stroke-linecap="round"/>
+        <ellipse cx="94" cy="236" rx="26" ry="12" fill="var(--ink)"/>
+        <circle cx="120" cy="228" r="11" fill="var(--ink)"/>
+        <path d="M112 220 l2 -9 6 6 z M122 217 l6 -6 2 9 z" fill="var(--ink)"/>
+        <path class="eyes-shut" d="M115 228 q2 2 4 0 M123 228 q2 2 4 0" stroke="var(--bg)" stroke-width="1.5" fill="none"/>
+        <g class="eyes-open"><circle cx="117" cy="227" r="2" fill="var(--accent)"/><circle cx="125" cy="227" r="2" fill="var(--accent)"/></g>
+      </g>
+      <g class="zzz only-off only-down" fill="var(--muted)" font-family="system-ui, sans-serif" font-weight="700">
+        <text x="132" y="212" font-size="10">z</text><text x="138" y="206" font-size="12">z</text><text x="145" y="200" font-size="14">Z</text>
+      </g>
+      <g class="bars only-off" fill="var(--muted)" transform="translate(284 30)">
+        <rect x="0" y="12" width="5" height="6" rx="1"/><rect x="8" y="7" width="5" height="11" rx="1"/><rect x="16" y="2" width="5" height="16" rx="1"/>
+        <path d="M-2 0 L24 20" stroke="var(--danger)" stroke-width="2.5" stroke-linecap="round"/>
+      </g>
+    </svg>
+
+    <h1 id="title">Opening the shop…</h1>
+    <p id="text">One moment while we check the doors.</p>
+    <span class="until" id="until" hidden></span>
+    <div class="actions">
+      <button type="button" class="btn btn--primary" id="retry">Try again</button>
+      <a class="btn" id="wa" href="https://wa.me/94706421998" target="_blank" rel="noopener">WhatsApp us</a>
+    </div>
+    <div class="status" id="status" aria-live="polite"></div>
+    <div class="knocks" id="knocks" aria-live="polite"></div>
+    <div class="hint">Tip: tap the sign, knock on the door or pet the cat.</div>
+  </main>
+
+  <script>
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var body = document.body, qs = new URLSearchParams(location.search);
+      var preview = qs.get('preview'); // admin preview: /closed?preview=maintenance|offline|down
+      var onClosedUrl = /^\/closed\/?$/.test(location.pathname);
+      var timer = null, delay = 8000, knocks = 0, mode = 'checking', info = window.SIDADIYA_MAINT || null;
+      try { var t = localStorage.getItem('kade-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+
+      // Draw the awning stripes and shutter slats.
+      var NS = 'http://www.w3.org/2000/svg', st = $('stripes'), sl = $('slats');
+      for (var i = 0; i < 12; i++) {
+        var p = document.createElementNS(NS, 'path'), x = 34 + i * 21;
+        p.setAttribute('d', 'M' + x + ' 72 h21 v16 a10.5 10.5 0 0 1 -21 0 z');
+        p.setAttribute('fill', i % 2 ? 'var(--card)' : 'var(--accent)');
+        st.appendChild(p);
+      }
+      for (var j = 1; j < 12; j++) {
+        var l = document.createElementNS(NS, 'rect');
+        l.setAttribute('x', 0); l.setAttribute('y', j * 7); l.setAttribute('width', 120); l.setAttribute('height', 1.5); l.setAttribute('fill', 'var(--shutter2)');
+        sl.appendChild(l);
+      }
+
+      var COPY = {
+        maintenance: { title: 'We are tidying up the shop', text: 'Sidadiya is closed for a short maintenance break. Your shop, orders and payments are safe. We will open the doors again soon.', sign: ['CLOSED', 'BACK SOON'] },
+        offline: { title: 'You are offline', text: 'The shop is still here, but your internet took a break. Check your mobile data or Wi-Fi and this page will open the shop by itself.', sign: ['CLOSED', 'NO SIGNAL'] },
+        down: { title: 'The shop is closed for a moment', text: 'Our servers are taking a short breather. Nothing is lost. We keep trying and the shop opens by itself as soon as it is back.', sign: ['CLOSED', 'BACK SOON'] },
+        checking: { title: 'Opening the shop…', text: 'One moment while we check the doors.', sign: ['CLOSED', 'ONE SEC'] }
+      };
+      var flipped = false;
+      function signText(t) { var el = $('signText'); el.textContent = t; el.setAttribute('font-size', t.length > 7 ? '8.5' : '12'); el.setAttribute('letter-spacing', t.length > 7 ? '0.5' : '1'); }
+      function setMode(m) {
+        mode = m; body.setAttribute('data-mode', m);
+        var c = COPY[m];
+        $('title').textContent = c.title;
+        $('text').textContent = (m === 'maintenance' && info && info.message) ? info.message : c.text;
+        document.title = c.title + ' | Sidadiya';
+        signText(c.sign[flipped ? 1 : 0]);
+        var u = $('until');
+        if (m === 'maintenance' && info && info.until && new Date(info.until) > new Date()) {
+          u.hidden = false;
+          u.textContent = 'Back by ' + new Date(info.until).toLocaleString('en-GB', { weekday: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
+        } else u.hidden = true;
+      }
+      function status(html) { $('status').innerHTML = html; }
+
+      function schedule(ms) {
+        clearTimeout(timer);
+        if (preview) return;
+        var left = Math.round(ms / 1000);
+        status('<span class="dot"></span>Checking again in <b>' + left + 's</b>');
+        timer = setTimeout(check, ms);
+        var tick = setInterval(function () {
+          left -= 1;
+          if (left <= 0 || mode === 'checking') return clearInterval(tick);
+          status('<span class="dot"></span>Checking again in <b>' + left + 's</b>');
+        }, 1000);
+      }
+      function reopen() {
+        status('<span class="dot"></span><b>We are open!</b> Taking you in…');
+        flipped = true; signText('OPEN'); $('signText').setAttribute('fill', 'var(--brand)');
+        setTimeout(function () { onClosedUrl ? location.replace('/') : location.reload(); }, 700);
+      }
+      function check() {
+        clearTimeout(timer);
+        if (preview) return;
+        if (navigator.onLine === false) { setMode('offline'); status('<span class="dot"></span>Waiting for your connection…'); return; }
+        $('retry').disabled = true;
+        status('<span class="dot"></span>Knocking on the server…');
+        var ctrl = window.AbortController ? new AbortController() : null;
+        var to = setTimeout(function () { if (ctrl) ctrl.abort(); }, 8000);
+        fetch('/api/site/status', { cache: 'no-store', headers: { Accept: 'application/json' }, signal: ctrl ? ctrl.signal : undefined })
+          .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+          .then(function (d) {
+            clearTimeout(to); $('retry').disabled = false;
+            if (d.contact && d.contact.whatsapp) {
+              var n = String(d.contact.whatsapp).replace(/\D/g, '').replace(/^0/, '94');
+              if (n.length >= 11) $('wa').href = 'https://wa.me/' + n;
+            }
+            if (d.maintenance) { info = d.maintenance; setMode('maintenance'); delay = 8000; schedule(20000); return; }
+            if (onClosedUrl && !preview) { setMode('checking'); status('Everything is open. <a href="/">Go to Sidadiya</a>'); return; }
+            reopen();
+          })
+          .catch(function () {
+            clearTimeout(to); $('retry').disabled = false;
+            setMode(navigator.onLine === false ? 'offline' : 'down');
+            schedule(delay); delay = Math.min(delay * 1.5, 30000);
+          });
+      }
+
+      // ---- interactions ----
+      var sign = $('sign'), scene = document.querySelector('.scene');
+      function flip() {
+        sign.classList.add('flip');
+        setTimeout(function () { flipped = !flipped; signText(COPY[mode].sign[flipped ? 1 : 0]); sign.classList.remove('flip'); }, 350);
+      }
+      sign.addEventListener('click', function (e) { e.stopPropagation(); flip(); });
+      // The sign leans toward the pointer and springs back when it leaves.
+      scene.addEventListener('pointermove', function (e) {
+        var r = scene.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 320;
+        var tilt = Math.max(-14, Math.min(14, (x - 232) / 6));
+        sign.style.transform = 'rotate(' + tilt + 'deg)';
+      });
+      scene.addEventListener('pointerleave', function () { sign.style.transform = ''; });
+
+      var bubbleT;
+      function say(text) {
+        $('bubbleText').textContent = text; $('bubble').classList.add('show');
+        clearTimeout(bubbleT); bubbleT = setTimeout(function () { $('bubble').classList.remove('show'); }, 1600);
+      }
+      var LINES = ['Knock knock!', 'Anyone there?', 'Coming soon!', 'Almost ready', 'Hold on!'];
+      $('door').addEventListener('click', function () {
+        var d = $('door'); d.classList.remove('knock'); void d.getBBox(); d.classList.add('knock');
+        knocks += 1; say(LINES[(knocks - 1) % LINES.length]);
+        $('knocks').textContent = knocks === 1 ? 'You knocked once.' : 'You knocked ' + knocks + ' times.' + (knocks >= 5 ? ' The shopkeeper heard you!' : '');
+        if (navigator.vibrate) try { navigator.vibrate(30); } catch (e) {}
+        if (knocks % 3 === 0 && mode !== 'maintenance') check();
+      });
+      $('cat').addEventListener('click', function () {
+        var c = $('cat'); c.classList.add('awake'); say('Meow! Retrying');
+        setTimeout(function () { c.classList.remove('awake'); }, 1800);
+        check();
+      });
+      ['door', 'sign', 'cat'].forEach(function (id) {
+        $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(id).dispatchEvent(new Event('click')); } });
+      });
+      $('retry').addEventListener('click', function () { delay = 8000; check(); });
+      window.addEventListener('online', function () { delay = 8000; check(); });
+      window.addEventListener('offline', function () { setMode('offline'); clearTimeout(timer); status('<span class="dot"></span>Waiting for your connection…'); });
+
+      if (preview && COPY[preview]) { setMode(preview); status('Preview of the ' + preview + ' page.'); }
+      else if (info) { setMode('maintenance'); schedule(20000); }
+      else check();
+    })();
+  </script>
+</body>
+</html>
