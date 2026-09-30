@@ -42,6 +42,7 @@
     .wb-skip ul { margin: 6px 0 0 18px; }
     @page { size: 105mm 148mm; margin: 0; }
     @media print {
+      .demo-bar { display: none !important; }
       html, body { background: #fff !important; }
       .no-print { display: none !important; }
       .wb-page { padding: 0; max-width: none; gap: 0; }
@@ -63,6 +64,7 @@
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
   <script src="../js/data.js"></script>
+  <script src="../js/demo.js"></script>
   <script src="../js/app.js"></script>
   <script>
     (function () {
@@ -86,9 +88,32 @@
           '<div class="wb-trk"><span class="wb-lbl">' + (w.courier ? K.esc(w.courier) : 'Tracking no.') + '</span><br><b>' + (w.trackingNumber ? K.esc(w.trackingNumber) : '&nbsp;') + '</b></div></div>' +
           '<div class="wb-foot"><span>' + K.esc(w.payment) + '</span><span>Sidadiya</span></div></article>';
       }
+      // Demo (no API): sample waybills from the demo orders, with a placeholder QR.
+      var API = !!(window.KadeApi && KadeApi.enabled);
+      function demoQr() {
+        var cells = '', seed = 7;
+        for (var y = 0; y < 21; y++) for (var x = 0; x < 21; x++) {
+          var finder = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13);
+          var on = finder ? (x % 6 === 0 || y % 6 === 0 || (x % 7 > 1 && x % 7 < 5 && y % 7 > 1 && y % 7 < 5) || x === 20 || y === 20) : ((seed = (seed * 9301 + 49297) % 233280) / 233280 > 0.55);
+          if (on) cells += '<rect x="' + x + '" y="' + y + '" width="1" height="1"/>';
+        }
+        return '<svg viewBox="-1 -1 23 23" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sample QR code"><rect x="-1" y="-1" width="23" height="23" fill="#fff"/><g fill="#000">' + cells + '</g></svg>';
+      }
+      function demoWaybills() {
+        var S = (KadeData.stores || {})['abc-fashion'] || { name: 'ABC Fashion' };
+        var all = K.orders();
+        var list = codes.map(function (c) {
+          var o = all.filter(function (x) { return x.id === c; })[0];
+          if (!o) return { code: c, missing: ['Order not found'] };
+          var miss = (o.status === 'CANCELLED' || o.status === 'REFUNDED') ? ['Order is cancelled'] : [];
+          var cod = /cash/i.test(o.payment || '') ? o.total : 0;
+          return { code: o.id, missing: miss, date: o.date, customer: o.customer, phone: o.phone, address: o.address || 'No. 24, Main Street', city: o.city, district: '', items: o.items, pieces: o.items.reduce(function (n, i) { return n + i.qty; }, 0), note: o.note, cod: cod, payment: o.payment, qr: demoQr() };
+        });
+        return Promise.resolve({ shop: { name: S.name, logo: S.logo, address: S.address, city: S.city, phone: S.phone }, waybills: list });
+      }
       function load() {
         grid.innerHTML = '<p class="muted">' + K.spinner() + ' Loading waybills…</p>';
-        KadeApi.waybills(codes).then(function (r) {
+        (API ? KadeApi.waybills(codes) : demoWaybills()).then(function (r) {
           ready = r.waybills.filter(function (w) { return !w.missing.length; });
           var skipped = r.waybills.filter(function (w) { return w.missing.length; });
           K.$('#skip').innerHTML = skipped.length ? '<div class="wb-skip" role="status"><strong>' + skipped.length + ' order' + (skipped.length === 1 ? ' is' : 's are') + ' not ready and will not print:</strong><ul>' +
@@ -103,7 +128,7 @@
         });
       }
       K.$('#print').addEventListener('click', function () { window.print(); });
-      window.addEventListener('afterprint', function () { if (ready.length) KadeApi.waybillsPrinted(ready.map(function (w) { return w.code; })).catch(function () {}); });
+      window.addEventListener('afterprint', function () { if (ready.length && API) KadeApi.waybillsPrinted(ready.map(function (w) { return w.code; })).catch(function () {}); });
       load();
     })();
   </script>

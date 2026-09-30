@@ -49,7 +49,9 @@
         b.disabled = !n; b.textContent = n ? 'Print ' + n + ' waybill' + (n === 1 ? '' : 's') : 'Print waybills';
         var vis = visible(); K.$('#selAll').checked = vis.length > 0 && vis.every(function (o) { return picked[o.id]; });
       }
-      function openWaybills(codes) { window.open('waybill?codes=' + encodeURIComponent(codes.join(',')), '_blank', 'noopener'); }
+      // The new tab does not inherit this tab's demo flag (noopener), so pass it on;
+      // otherwise a demo click could open the real dashboard for a saved login.
+      function openWaybills(codes) { window.open('waybill?codes=' + encodeURIComponent(codes.join(',')) + (API ? '' : '&demo=1'), '_blank', 'noopener'); }
       // Buyer-facing links for the drawer: WhatsApp message with the receipt.
       function receiptText(o) {
         var until = o.receiptExpiresAt ? new Date(o.receiptExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
