@@ -1,4 +1,4 @@
-# Sidadiya email notifications — Google Apps Script
+# Sidadiya email notifications: Google Apps Script
 
 This turns the backend's **notifications outbox** into real emails, sent from your
 Google account, styled to match the Sidadiya site (Figtree / Bricolage, brand green).
@@ -20,7 +20,7 @@ per order event) and double checked inside each run.
 | Type | When | Goes to |
 | --- | --- | --- |
 | `REGISTERED` | A business registers | Owner |
-| `APPROVED` | Admin approves a business | Owner — **includes the store link + login** |
+| `APPROVED` | Admin approves a business | Owner, **with the store link and login** |
 | `REJECTED` | Admin rejects a business | Owner (with the reason) |
 | `NEW_ORDER` | A customer places an order | Owner (with items + total) |
 | `ORDER_CONFIRMED` | Owner marks the order confirmed | Customer (full order summary) |
@@ -37,6 +37,14 @@ per order event) and double checked inside each run.
 | `VERIFICATION_SUBMITTED` | A seller uploads ID + address proof | Admin |
 | `VERIFICATION_APPROVED` / `VERIFICATION_REJECTED` | Admin reviews the documents | Owner (with reason if rejected) |
 | `WEEKLY_SUMMARY` | Every Monday morning (Sri Lanka time) | Owner: sales, orders, top products, traffic sources |
+| `ORDER_PLACED` | A buyer places a cash / bank-transfer order (with email) | Customer: summary, **digital receipt** (30 days) and **Track your order here** |
+| `ORDER_PACKED` / `ORDER_DELIVERED` / `ORDER_CANCELLED` | Seller changes the status | Customer (same receipt and tracking buttons) |
+
+**Buyer order emails are sent on behalf of the shop:** the sender name is the shop
+name and replies go to the shop's email (`data.fromName` / `data.replyTo`). Gmail
+still sends from the Google account running the script; only the display name and
+reply-to change. Visitor sources in `WEEKLY_SUMMARY` are Pro only; other plans get
+a short "Upgrade to Pro" line instead.
 
 Unknown types still fall back to a plain email with the subject and message, so an
 older script version never drops a new notification; it just sends it unstyled.

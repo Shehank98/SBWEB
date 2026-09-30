@@ -1,5 +1,6 @@
 import { query } from '../db/pool.js';
 import { config } from '../config.js';
+import { trackUrl, receiptUrl } from './orderLinks.js';
 
 const BASE = (config.publicBaseUrl || '').replace(/\/$/, '');
 const storeUrl = (slug) => `${BASE}/store/${slug}`;
@@ -49,8 +50,25 @@ function orderEmailData(shop, order, items) {
     shopWhatsapp: shop.whatsapp || '',
     shopAddress: shop.address || '',
     storeUrl: shop.slug ? storeUrl(shop.slug) : '',
+    // Sent on behalf of the shop: Apps Script uses these as the sender name and
+    // reply-to, so the buyer's reply goes straight to the shop.
+    fromName: shop.name || '',
+    replyTo: shop.email || '',
+    // Public tracking page and the 30-day digital receipt.
+    trackUrl: order.public_token ? trackUrl(order) : '',
+    receiptUrl: order.receipt_token ? receiptUrl(order) : '',
+    receiptExpiresOn: order.receipt_expires_at ? new Date(order.receipt_expires_at).toISOString().slice(0, 10) : '',
   };
 }
+
+// Buyer emails for each status the seller sets (Confirmed and Shipped keep their
+// original templates below).
+const STATUS_MAIL = {
+  PROCESSING: { type: 'ORDER_PACKED', heading: 'Your order is packed', subject: (s, o) => `Your ${s.name} order ${o.code} is packed`, intro: (s) => `${s.name} has packed your order. It will be on its way soon.` },
+  READY_TO_SHIP: { type: 'ORDER_PACKED', heading: 'Your order is packed', subject: (s, o) => `Your ${s.name} order ${o.code} is packed`, intro: (s) => `${s.name} has packed your order and it is ready to go.` },
+  DELIVERED: { type: 'ORDER_DELIVERED', heading: 'Your order was delivered', subject: (s, o) => `Your ${s.name} order ${o.code} was delivered`, intro: (s) => `Your order from ${s.name} has been delivered. We hope you love it. You can leave a review from your tracking page.` },
+  CANCELLED: { type: 'ORDER_CANCELLED', heading: 'Your order was cancelled', subject: (s, o) => `Your ${s.name} order ${o.code} was cancelled`, intro: (s) => `${s.name} has cancelled this order. If you already paid, the shop will contact you about your refund. Reply to this email to reach the shop.` },
+};
 
 // Each template returns { type, subject, message, data }. `message` is the plain-text
 // fallback; `data` carries structured fields the email template renders (links, totals).
@@ -130,6 +148,29 @@ export const templates = {
       intro: `Thanks for shopping with ${shop.name}. We have confirmed your order and started getting it ready.`,
     },
   }),
+  // Sent to the CUSTOMER as soon as a cash / bank-transfer order is placed (card
+  // orders get orderPaidBuyer once the payment is verified instead).
+  orderPlaced: (shop, order, items) => ({
+    type: 'ORDER_PLACED',
+    subject: `Thank you! Your ${shop.name} order ${order.code}`,
+    message: `Thank you for ordering from ${shop.name}. Order ${order.code}, total Rs. ${order.total}. Track your order: ${trackUrl(order)} . Your receipt (valid for 30 days): ${receiptUrl(order)}`,
+    data: {
+      ...orderEmailData(shop, order, items),
+      heading: 'Thank you for your order',
+      intro: `${shop.name} has received your order and will confirm it soon. Your digital receipt and tracking link are below.`,
+    },
+  }),
+  // Sent to the CUSTOMER when the seller moves the order to Packed, Delivered or Cancelled.
+  orderStatusUpdate: (shop, order, items, status) => {
+    const m = STATUS_MAIL[status];
+    if (!m) return null;
+    return {
+      type: m.type,
+      subject: m.subject(shop, order),
+      message: `${m.intro(shop)} Order ${order.code}. Track your order: ${trackUrl(order)}`,
+      data: { ...orderEmailData(shop, order, items), heading: m.heading, intro: m.intro(shop) },
+    };
+  },
   // Sent to the CUSTOMER when the shop marks the order shipped.
   orderShipped: (shop, order, items) => ({
     type: 'ORDER_SHIPPED',
@@ -162,13 +203,14 @@ export const templates = {
       `${shop.name}: your week ${d.periodStart} to ${d.periodEnd}`,
       `Sales: ${rs(d.revenue)} from ${d.orders} order${d.orders === 1 ? '' : 's'}${d.revenueChangePct != null ? ` (${d.revenueChangePct >= 0 ? '+' : ''}${d.revenueChangePct}% vs the week before)` : ''}`,
       d.topProducts.length ? `Top products: ${d.topProducts.map((p) => `${p.name} (${p.units})`).join(', ')}` : 'No products sold this week.',
-      d.trafficSources.length ? `Where visitors came from: ${d.trafficSources.map((t) => `${t.source} ${t.sessions}`).join(', ')}` : 'No store visits recorded this week. Share your store link!',
+      d.trafficLocked ? 'See where your visitors come from (WhatsApp, Facebook, Instagram and more) on the Pro plan.'
+        : d.trafficSources.length ? `Where visitors came from: ${d.trafficSources.map((t) => `${t.source} ${t.sessions}`).join(', ')}` : 'No store visits recorded this week. Share your store link!',
     ];
     return {
       type: 'WEEKLY_SUMMARY',
       subject: `Your week at ${shop.name}: ${rs(d.revenue)} from ${d.orders} order${d.orders === 1 ? '' : 's'}`,
       message: lines.join('\n'),
-      data: { heading: 'Your weekly summary', business: shop.name, ...d, storeUrl: shop.slug ? storeUrl(shop.slug) : '', reportsUrl: dashUrl('reports'), settingsUrl: dashUrl('settings#weekly') },
+      data: { heading: 'Your weekly summary', business: shop.name, ...d, storeUrl: shop.slug ? storeUrl(shop.slug) : '', reportsUrl: dashUrl('reports'), settingsUrl: dashUrl('settings#weekly'), planUrl: dashUrl('subscription') },
     };
   },
   // Sent to the CUSTOMER when the shop adds courier tracking and marks it shipped.
@@ -183,7 +225,7 @@ export const templates = {
       courier: order.courier_name,
       trackingNumber: order.tracking_number,
       trackingUrl: order.tracking_url || '',
-      statusUrl: shop.slug ? `${BASE}/store/order?s=${encodeURIComponent(shop.slug)}&o=${encodeURIComponent(order.code)}&k=${order.public_token}` : '',
+      statusUrl: trackUrl(order),
     },
   }),
   // Card-paid shop orders.
@@ -202,7 +244,7 @@ export const templates = {
       heading: 'Payment received',
       intro: `Thank you for paying by card. ${shop.name} will confirm your order soon.`,
       transactionId: tx.ipg_transaction_id,
-      statusUrl: shop.slug ? `${BASE}/store/order?s=${encodeURIComponent(shop.slug)}&o=${encodeURIComponent(order.code)}&k=${order.public_token}` : '',
+      statusUrl: trackUrl(order),
     },
   }),
 

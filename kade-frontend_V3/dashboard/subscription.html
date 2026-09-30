@@ -87,21 +87,37 @@
 
       function renderCurrent() {
         var s = sub || {}, p = s.plan || {}, t = s.trial;
-        var html = fact('Plan', K.esc(s.onTrial ? 'Free trial (Starter)' : (p.name || 'None'))) + fact('Status', K.badge('sub', s.status || 'ACTIVE'));
-        if (s.onTrial && t) {
-          html += fact('Trial days left', String(t.daysLeft)) + fact('Trial ends', K.fmtDate(String(t.endsAt).slice(0, 10)));
-        } else {
-          var days = s.expiryDate ? K.daysUntil(s.expiryDate) : null;
-          html += fact('Days left', days == null ? '-' : String(Math.max(0, days))) + fact('Renews on', s.renewalDate ? K.fmtDate(s.renewalDate) : '-');
-        }
-        K.$('#current').innerHTML = html;
         var trialLen = t && t.startedAt ? Math.max(1, Math.round((new Date(t.endsAt) - new Date(t.startedAt)) / 86400000)) : 14;
-        var total = s.onTrial && t ? trialLen : (p.durationDays || 30);
-        var left = s.onTrial && t ? t.daysLeft : (s.expiryDate ? Math.max(0, K.daysUntil(s.expiryDate)) : null);
-        if (left == null) { K.$('#meter').innerHTML = ''; return; }
-        var used = Math.min(total, Math.max(0, total - left)), tone = left <= 3 ? 'danger' : (left <= 7 ? 'warning' : '');
-        K.$('#meter').innerHTML = '<div class="kd-meter' + (tone ? ' kd-meter--' + tone : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + used + '" aria-label="Days used this period"><span style="width:' + (used / total * 100) + '%"></span></div>';
+        var onTrial = !!(s.onTrial && t);
+        var total = onTrial ? trialLen : (p.durationDays || 30);
+        var left = onTrial ? t.daysLeft : (s.expiryDate ? Math.max(0, K.daysUntil(s.expiryDate)) : null);
+        var endDate = onTrial ? String(t.endsAt).slice(0, 10) : (s.renewalDate || s.expiryDate);
+        var locked = s.status === 'TRIAL_EXPIRED' || s.status === 'SUSPENDED';
+        // Bar colours: normal, amber under 7 days left, red under 3.
+        var tone = left == null ? '' : left < 3 ? 'danger' : left < 7 ? 'warning' : '';
+        var used = left == null ? 0 : Math.min(total, Math.max(0, total - left));
+        var isTop = p.id === 'pro';
+        K.$('#current').innerHTML =
+          '<div class="subcard' + (tone ? ' subcard--' + tone : '') + '">' +
+          '<div class="subcard__head"><div><p class="subcard__plan">' + K.esc(onTrial ? 'Free trial' : (p.name ? p.name + ' plan' : 'No plan')) + '</p>' +
+          '<p class="muted">' + (onTrial ? 'Starter features while you try Sidadiya' : (p.price ? K.rs(p.price) + ' / month' : '')) + '</p></div>' + K.badge('sub', s.status || 'ACTIVE') + '</div>' +
+          (left == null ? '<p class="muted">No active billing period.</p>' :
+            '<p class="subcard__days"><strong>' + left + '</strong> day' + (left === 1 ? '' : 's') + ' left of ' + total + '</p>' +
+            '<div class="kd-meter' + (tone ? ' kd-meter--' + tone : '') + '" role="progressbar" aria-valuemin="0" aria-valuemax="' + total + '" aria-valuenow="' + used + '" aria-valuetext="' + left + ' of ' + total + ' days left"><span style="width:' + (used / total * 100) + '%"></span></div>' +
+            '<p class="subcard__when">' + (onTrial ? 'Trial ends on ' : 'Renews on ') + '<strong>' + (endDate ? K.fmtDate(endDate) : '-') + '</strong>' + (tone === 'danger' ? ' · <span class="subcard__warn">renew now to keep your store open</span>' : tone === 'warning' ? ' · <span class="subcard__warn">ending soon</span>' : '') + '</p>') +
+          '<div class="subcard__actions">' +
+            (onTrial || locked ? '<button type="button" class="kd-btn kd-btn--primary kd-btn--sm" data-go="upgrade">' + (locked ? 'Choose a plan' : 'Upgrade now') + '</button>'
+              : '<button type="button" class="kd-btn kd-btn--primary kd-btn--sm" data-go="renew">Renew</button>' + (isTop ? '' : '<button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" data-go="upgrade">Upgrade</button>')) +
+          '</div></div>';
+        K.$('#meter').innerHTML = '';
       }
+      K.$('#current').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-go]'); if (!b) return;
+        var want = b.getAttribute('data-go') === 'renew' && sub && sub.plan ? sub.plan.id : (sub && sub.plan && sub.plan.id === 'starter' && !sub.onTrial ? 'business' : 'pro');
+        if (b.getAttribute('data-go') === 'upgrade' && sub && sub.onTrial) want = (sub.preferredPlanId || 'business');
+        var r = K.$('#choices input[value="' + want + '"]'); if (r) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+        var sec = K.$('#s2'); if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
 
       function renderChoices() {
         var cur = sub && !sub.onTrial && sub.plan ? sub.plan.id : null;

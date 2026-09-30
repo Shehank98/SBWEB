@@ -104,9 +104,13 @@
     gateways() { return req('GET', '/api/dashboard/gateways'); },
     saveGateway(provider, body) { return req('PUT', '/api/dashboard/gateways/' + encodeURIComponent(provider), body); },
     shipOrder(code, body) { return req('PUT', '/api/dashboard/orders/' + encodeURIComponent(code) + '/ship', body); },
+    waybills(codes) { return req('GET', '/api/dashboard/waybills?codes=' + encodeURIComponent(codes.join(','))); },
+    waybillsPrinted(codes) { return req('POST', '/api/dashboard/waybills/printed', { codes: codes }); },
+    receiptShared(code) { return req('POST', '/api/dashboard/orders/' + encodeURIComponent(code) + '/receipt-share', {}); },
     preferences() { return req('GET', '/api/dashboard/preferences'); },
     savePreferences(p) { return req('PUT', '/api/dashboard/preferences', p); },
-    traffic(days) { return req('GET', '/api/dashboard/traffic?days=' + (days || 7)); },
+    // traffic(7) for the last N days, or traffic({ from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }).
+    traffic(r) { return req('GET', '/api/dashboard/traffic?' + (r && typeof r === 'object' ? 'from=' + encodeURIComponent(r.from) + '&to=' + encodeURIComponent(r.to) : 'days=' + (r || 7))); },
     setOrderStatusNote(code, status, note) { return req('PUT', '/api/dashboard/orders/' + encodeURIComponent(code) + '/status', { status: status, note: note }); },
     verification() { return req('GET', '/api/dashboard/verification'); },
     submitVerification(idFile, addressFile) { var fd = new FormData(); if (idFile) fd.append('idDoc', idFile); if (addressFile) fd.append('addressDoc', addressFile); return req('POST', '/api/dashboard/verification', fd, true); },
@@ -201,6 +205,9 @@
     adminUpdatePlan(id, p) { return req('PUT', '/api/admin/plans/' + encodeURIComponent(id), p); },
     adminSettings() { return req('GET', '/api/admin/settings'); },
     adminSaveSettings(s) { return req('PUT', '/api/admin/settings', s); },
+    adminPaymentSettings() { return req('GET', '/api/admin/payment-settings'); },
+    adminSavePaymentSettings(b) { return req('PUT', '/api/admin/payment-settings', b); },
+    adminResetPaymentSettings() { return req('DELETE', '/api/admin/payment-settings'); },
   };
 
   window.KadeApi = KadeApi;

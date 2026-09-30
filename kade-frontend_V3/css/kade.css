@@ -900,3 +900,77 @@ body.has-cartbar { padding-bottom: 84px; }
   html.sb-collapsed .nav .count { position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; padding: 0 4px; font-size: 11px; margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .app { transition: none; } }
+
+/* ---- Orders: selection, bulk waybills, waybill + receipt block ---- */
+.sel-box { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -6px 6px -6px -6px; vertical-align: middle; cursor: pointer; }
+.sel-box input, .sel-all input { width: 18px; height: 18px; accent-color: var(--brand); }
+.sel-all { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.toolbar #bulkPrint { white-space: nowrap; }
+.docs { display: grid; gap: 8px; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-raised); }
+.docs__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.docs__miss { color: var(--warning); }
+.kd-btn--wa { background: #25D366; color: #07361F; border-color: #25D366; }
+.kd-btn--wa:hover { filter: brightness(.95); }
+.kd-btn[disabled][title] { pointer-events: auto; }
+@media (max-width: 899px) { .toolbar .sel-all, .toolbar #bulkPrint { flex: 1 1 auto; } }
+
+/* ---- Subscription: current plan card with progress ---- */
+#current.facts { display: block; }
+.subcard { display: grid; gap: 10px; }
+.subcard__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.subcard__plan { font: 700 20px/26px var(--font-display); }
+.subcard__days { font-size: 15px; color: var(--ink-muted); }
+.subcard__days strong { font: 800 28px/1 var(--font-display); color: var(--ink); margin-right: 4px; }
+.subcard--warning .subcard__days strong, .subcard--warning .subcard__warn { color: var(--warning); }
+.subcard--danger .subcard__days strong, .subcard--danger .subcard__warn { color: var(--danger); }
+.subcard__when { font-size: 14px; color: var(--ink-muted); }
+.subcard__warn { font-weight: 700; }
+.subcard__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#opCb, #opRd { overflow-wrap: anywhere; word-break: break-all; }
+
+/* ---- Where visitors came from: chart + table, date range, Pro lock ---- */
+.vs-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.vs-range { display: flex; flex-wrap: wrap; gap: 6px; }
+.vs-range .kd-chip { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.vs-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.vs-custom .kd-input { width: auto; min-width: 0; flex: 1 1 130px; max-width: 170px; }
+.vs-loading { padding: 16px 0; color: var(--ink-muted); }
+.vs-body { display: grid; gap: 16px; }
+@media (min-width: 900px) { .vs-body { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 24px; } }
+.vs-chart { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.vs-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) 48px; align-items: center; gap: 10px; font-size: 13px; border-radius: 6px; padding: 2px 0; }
+.vs-row:hover .vs-bar, .vs-row:focus-visible .vs-bar { background: color-mix(in srgb, var(--brand) 80%, var(--ink)); }
+.vs-row:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.vs-lbl { font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vs-track { height: 12px; background: var(--surface-sunken); border-radius: 0 4px 4px 0; overflow: hidden; }
+.vs-bar { display: block; height: 100%; background: var(--brand); border-radius: 0 4px 4px 0; }
+.vs-val { text-align: right; font: 600 13px/1 var(--font-mono); color: var(--ink-muted); }
+.vs-tablewrap { overflow-x: auto; }
+.vs-table { width: 100%; font-size: 13px; }
+.vs-table tfoot th, .vs-table tfoot td { font-weight: 700; border-top: 1px solid var(--line); }
+/* The table is a real table on phones too (it is small), not the card layout. */
+.app .vs-table, .app .vs-table tbody, .app .vs-table tfoot { display: table-row-group; }
+.app .vs-table { display: table; }
+.app .vs-table thead { position: static; width: auto; height: auto; overflow: visible; clip: auto; display: table-header-group; }
+.app .vs-table tr { display: table-row; background: none; border: 0; padding: 0; margin: 0; }
+.app .vs-table td, .app .vs-table th { display: table-cell; padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+.app .vs-table td::before { display: none; }
+.app .vs-table .kd-num { text-align: right; }
+.app .vs-table td:first-child { display: table-cell; padding: 6px 8px; border-bottom: 1px solid var(--line); margin: 0; text-align: left; }
+.vs-lock { position: relative; min-height: 220px; }
+.vs-blur { filter: blur(6px); opacity: .6; pointer-events: none; user-select: none; }
+.vs-over { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; padding: 16px; }
+.vs-lockic { width: 44px; height: 44px; border-radius: 50%; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; }
+.vs-lockic svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.vs-over__t { font: 700 17px/1.3 var(--font-display); color: var(--ink); }
+.vs-over__s { font-size: 14px; color: var(--ink-muted); max-width: 30em; }
+
+/* ---- Settings autosave status ---- */
+.as-state { margin-left: 10px; font: 600 12px/1 var(--font-sans); color: var(--ink-muted); vertical-align: middle; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.as-state .spinner, .as-global .spinner { width: 12px; height: 12px; }
+.as-state--saved { color: var(--success); }
+.as-state--failed, .as-state--invalid { color: var(--danger); white-space: normal; }
+.as-retry { background: none; border: 0; padding: 0; font: inherit; color: var(--danger); text-decoration: underline; cursor: pointer; min-height: 24px; }
+.as-global { font: 600 13px/1 var(--font-sans); color: var(--success); align-self: center; }
+.as-global--busy { color: var(--ink-muted); }
+.as-global--bad { color: var(--danger); }

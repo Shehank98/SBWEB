@@ -4,6 +4,7 @@ import { wrap, badRequest, notFound, HttpError } from '../utils/http.js';
 import { orderCode } from '../utils/slug.js';
 import * as S from '../services/serialize.js';
 import { queueNotification, templates } from '../services/notifications.js';
+import { trackPath, receiptPath } from '../services/orderLinks.js';
 import { evalCoupon } from '../services/coupons.js';
 import { LIVE_STATUSES } from '../services/plan.js';
 import { POLICY_KINDS, TITLES, loadPolicies } from '../services/policies.js';
@@ -37,7 +38,7 @@ const LIVE = LIVE_STATUSES;
 async function loadStore(slug) {
   const row = (
     await query(
-      `SELECT st.*, b.status AS business_status, b.id AS biz_id, b.name AS biz_name, b.email AS biz_email, b.verification_status
+      `SELECT st.*, b.status AS business_status, b.id AS biz_id, b.name AS biz_name, b.email AS biz_email, b.verification_status, b.facebook, b.instagram
          FROM stores st JOIN businesses b ON b.id = st.business_id
         WHERE st.slug = $1`,
       [slug]
@@ -109,7 +110,11 @@ storeRouter.post(
       const c = classify({ referrer: b.referrer, utmSource: b.utm_source, utmMedium: b.utm_medium, utmCampaign: b.utm_campaign, ownHost: OWN_HOST });
       if (!c) return; // internal navigation, not a new visit
       const page = ['home', 'product', 'cart', 'order', 'policy'].includes(b.page) ? b.page : 'home';
-      await recordVisit(st.business_id, { ...c, page, sessionId: /^[a-z0-9]{8,40}$/i.test(String(b.sid || '')) ? String(b.sid) : null });
+      const sessionId = /^[a-z0-9]{8,40}$/i.test(String(b.sid || '')) ? String(b.sid) : null;
+      // One visit per browser session: only the first page view (the landing)
+      // is recorded, so a reload or a second external link does not double count.
+      if (sessionId && (await query('SELECT 1 FROM store_visits WHERE business_id = $1 AND session_id = $2 LIMIT 1', [st.business_id, sessionId])).rowCount) return;
+      await recordVisit(st.business_id, { ...c, page, sessionId });
     } catch (e) { console.warn('[visit]', e.message); }
   })
 );
@@ -351,6 +356,15 @@ storeRouter.post(
         { businessId: st.biz_id, recipient: st.biz_email, ...templates.newOrder({ name: st.biz_name }, created) },
         client
       );
+      // Buyer email with the order summary, digital receipt and tracking link, sent
+      // on behalf of the shop. Card orders get theirs once the payment is verified.
+      if (!card && created.customer_email) {
+        const shop = { name: st.name || st.biz_name, slug: st.slug, phone: st.phone, whatsapp: st.whatsapp, address: st.address, email: st.contact_email || st.biz_email };
+        await queueNotification(
+          { businessId: st.biz_id, recipient: created.customer_email, dedupeKey: `ORDER_PLACED:${created.id}`, ...templates.orderPlaced(shop, created, lines) },
+          client
+        );
+      }
       return created;
     });
 
@@ -382,7 +396,9 @@ storeRouter.post(
       payment,
       // Private link to the buyer's order status page (tracking, reviews).
       token: order.public_token,
-      statusUrl: `/store/order?s=${encodeURIComponent(st.slug)}&o=${encodeURIComponent(order.code)}&k=${order.public_token}`,
+      statusUrl: trackPath(order),
+      trackUrl: trackPath(order),
+      receiptUrl: receiptPath(order),
     });
   })
 );

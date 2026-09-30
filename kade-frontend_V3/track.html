@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <title>Track your order</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/storefront.css">
+</head>
+<body>
+  <a class="sf-skip" href="#main">Skip to your order</a>
+  <div id="sf-header"></div>
+  <main id="main" class="wrap" tabindex="-1">
+    <div class="trk"><div class="skeleton" style="height:120px"></div><div class="skeleton" style="height:280px"></div></div>
+  </main>
+  <div id="sf-footer"></div>
+  <script src="/js/config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/data.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    /* Public order tracking: /track/<order code>?k=<private token>. No login. */
+    (function () {
+      var K = Kade, rs = SF.rs, ic = SF.ic, main = document.getElementById('main');
+      var code = decodeURIComponent(location.pathname.replace(/^\/track\//, '').replace(/\/$/, ''));
+      var key = new URLSearchParams(location.search).get('k') || '';
+      function when(t) { if (!t) return ''; var d = new Date(t); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+      function problem(title, text, retry) {
+        main.innerHTML = '<div class="trk"><div class="panel empty"><div class="big" aria-hidden="true">🔎</div><h1>' + title + '</h1><p style="color:var(--sf-muted)">' + text + '</p>' +
+          (retry ? '<button type="button" class="btn btn-soft btn-sm" id="retry">Try again</button>' : '') + '</div></div>';
+        var r = document.getElementById('retry'); if (r) r.addEventListener('click', load);
+      }
+      if (!code || !/^[a-f0-9]{16,64}$/.test(key)) { problem('This tracking link is not complete', 'Open the "Track your order" button in your order email, or ask the shop to send the link again.'); return; }
+
+      function paint(r) {
+        var o = r.order, s = r.store || { name: 'Shop' }, tl = r.timeline || [];
+        if (r.store) SF.chrome(r.store, { noCart: true });
+        document.title = 'Order ' + o.code + ' | ' + s.name;
+        var cancelled = tl.some(function (t) { return t.key === 'CANCELLED'; });
+        var cur = tl.filter(function (t) { return t.done; }).pop() || tl[0];
+        var line = '<ol class="tl" aria-label="Order progress">' + tl.map(function (t) {
+          var isCur = t === cur, extra = '';
+          if (t.key === 'SHIPPED' && t.done && o.tracking && o.tracking.number) {
+            extra = '<div class="tl-extra">' + K.esc(o.tracking.courier || 'Courier') + ' · <b>' + K.esc(o.tracking.number) + '</b>' +
+              (o.tracking.url ? ' <a href="' + K.esc(o.tracking.url) + '" target="_blank" rel="noopener">Track parcel</a>' : '') + '</div>';
+          }
+          return '<li class="' + (t.done ? 'done' : '') + (isCur ? ' cur' : '') + (t.key === 'CANCELLED' ? ' bad' : '') + '"' + (isCur ? ' aria-current="step"' : '') + '>' +
+            '<span class="tl-dot" aria-hidden="true">' + (t.key === 'CANCELLED' ? '✕' : t.done ? '✓' : '') + '</span>' +
+            '<div><b>' + K.esc(t.label) + '</b>' + (t.at ? '<small>' + when(t.at) + '</small>' : (t.done ? '' : '<small>Not yet</small>')) + extra + '</div></li>';
+        }).join('') + '</ol>';
+        main.innerHTML = '<div class="trk">' +
+          '<section class="panel trk-head"><p class="trk-shop">' + K.esc(s.name) + '</p><h1>Order ' + K.esc(o.code) + '</h1>' +
+          '<p class="trk-status' + (cancelled ? ' bad' : '') + '">' + K.esc(cur ? cur.label : 'Placed') + '</p>' +
+          '<p style="color:var(--sf-muted);font-size:14px">Placed ' + when((tl[0] && tl[0].at) || o.date) + ' · ' + K.esc(o.payment || '') + '</p></section>' +
+          '<section class="panel"><h2>Progress</h2>' + line + '</section>' +
+          '<section class="panel"><h2>Summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li style="grid-template-columns:minmax(0,1fr) auto"><span class="mini-n">' + K.esc(i.qty + ' × ' + i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
+          '<div class="rows" style="margin-bottom:0"><div><span>Subtotal</span><span>' + rs(o.subtotal) + '</span></div>' + (o.discount ? '<div class="disc"><span>Discount</span><span>− ' + rs(o.discount) + '</span></div>' : '') +
+          '<div><span>Delivery</span><span>' + (o.delivery ? rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span>' + rs(o.total) + '</span></div></div></section>' +
+          '<div class="trk-actions">' +
+          (r.receiptUrl ? '<a class="btn btn-soft btn-sm" href="' + K.esc(r.receiptUrl) + '">' + ic('list', 'ic-sm') + 'View receipt</a>' : '') +
+          (s.whatsapp ? '<a class="btn btn-wa btn-sm" target="_blank" rel="noopener" href="' + K.wa(s, 'Hello ' + s.name + ', I have a question about my order ' + o.code + '.') + '">WhatsApp the shop</a>' : '') +
+          (o.status === 'DELIVERED' && r.reviewUrl ? '<a class="btn btn-primary btn-sm" href="' + K.esc(r.reviewUrl) + '">Leave a review</a>' : '') +
+          (s.slug ? '<a class="btn btn-ghost btn-sm" href="/store/' + encodeURIComponent(s.slug) + '">Back to shop</a>' : '') +
+          '</div></div>';
+      }
+      function load() {
+        main.innerHTML = '<div class="trk"><div class="skeleton" style="height:120px"></div><div class="skeleton" style="height:280px"></div></div>';
+        fetch('/api/track/' + encodeURIComponent(code) + '?k=' + encodeURIComponent(key), { headers: { Accept: 'application/json' } })
+          .then(function (res) { if (res.status === 404) throw { notFound: true }; if (!res.ok) throw {}; return res.json(); })
+          .then(paint)
+          .catch(function (e) {
+            if (e && e.notFound) problem('We could not find this order', 'Check the link in your order email. If it still does not work, contact the shop.');
+            else problem('Could not load your order', 'Please check your connection and try again.', true);
+          });
+      }
+      load();
+    })();
+  </script>
+</body>
+</html>

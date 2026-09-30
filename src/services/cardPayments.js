@@ -20,7 +20,7 @@ export const CALLBACK_PATH = '/api/onepay/callback';
 // payments register theirs from the seller gateway service.
 const handlers = {
   SUBSCRIPTION: {
-    creds: async () => platformCreds(),
+    creds: () => platformCreds(),
     onPaid: onSubscriptionPaid,
     onFailed: async (client, tx, status) => {
       if (tx.payment_id) await client.query(`UPDATE payments SET status=$2, reason=$3, reviewed_at=now() WHERE id=$1 AND status='PENDING'`, [tx.payment_id, status, tx.status_message || null]);
@@ -33,7 +33,7 @@ function newReference(prefix) { return `${prefix}-${Date.now().toString(36).toUp
 
 // ---- Platform subscription checkout ----------------------------------------------
 export async function startSubscriptionCheckout(businessId, planId) {
-  const creds = platformCreds();
+  const creds = await platformCreds();
   if (!creds) throw new HttpError(503, 'Card payments are not available yet. Please pay by bank transfer.');
   const plan = (await query(`SELECT * FROM plans WHERE id = $1 AND status = 'ACTIVE'`, [planId])).rows[0];
   if (!plan) throw badRequest('Choose a plan to pay for.');

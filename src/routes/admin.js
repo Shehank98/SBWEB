@@ -9,7 +9,9 @@ import { activateSubscription, extendSubscription, applyPaidPlan, extendTrial } 
 import { compliance } from '../services/policies.js';
 import { signedPrivateUrl } from '../services/uploads.js';
 import { onepayGuide } from '../services/onepayGuide.js';
-import { getSetting, setSetting } from '../services/settings.js';
+import { getSetting, setSetting, clearSettingsCache } from '../services/settings.js';
+import { storedPlatformCreds, envPlatformCreds, PLATFORM_CREDS_KEY } from '../services/onepay.js';
+import { encryptJson, mask } from '../services/secrets.js';
 
 export const adminRouter = Router();
 
@@ -602,5 +604,53 @@ adminRouter.put(
     }
     for (const [k, v] of Object.entries(saved)) await setSetting(k, v, req.user.sub);
     res.json({ ok: true, settings: saved });
+  })
+);
+
+// ---- Payment settings: Sidadiya's own OnePay account (plan subscriptions) ----
+// Secrets are write-only: the API returns masked values and never the salt/token.
+async function paymentSettingsView() {
+  const saved = await storedPlatformCreds();
+  const env = envPlatformCreds();
+  const cur = saved || env;
+  return {
+    source: saved ? 'admin' : env ? 'env' : 'none',
+    configured: !!cur,
+    appId: cur ? cur.appId : '',
+    mode: cur ? cur.mode : 'sandbox',
+    hashSaltMasked: cur ? mask(cur.salt) : '',
+    appTokenMasked: cur && cur.appToken ? mask(cur.appToken) : '',
+    updatedAt: saved ? saved.updatedAt : null,
+    envAvailable: !!env,
+  };
+}
+adminRouter.get('/payment-settings', wrap(async (_req, res) => res.json({ onepay: await paymentSettingsView() })));
+
+// PUT { appId, hashSalt?, appToken?, mode }  (blank hashSalt / appToken keeps the saved one)
+adminRouter.put(
+  '/payment-settings',
+  wrap(async (req, res) => {
+    const b = req.body || {};
+    const appId = String(b.appId || '').trim();
+    const mode = b.mode === 'live' ? 'live' : b.mode === 'sandbox' || b.mode === 'test' ? 'sandbox' : null;
+    if (!/^[A-Za-z0-9_-]{3,64}$/.test(appId)) throw badRequest('Enter the OnePay App ID (letters and numbers).');
+    if (!mode) throw badRequest('Choose test or live mode.');
+    const prev = await storedPlatformCreds();
+    const salt = String(b.hashSalt || '').trim() || (prev && prev.salt) || '';
+    const token = b.appToken === null ? '' : (String(b.appToken || '').trim() || (prev && prev.appToken) || '');
+    if (salt.length < 4 || salt.length > 256) throw badRequest('Enter the hash salt from your OnePay dashboard.');
+    if (token.length > 512) throw badRequest('The app token looks too long.');
+    await setSetting(PLATFORM_CREDS_KEY, { enc: encryptJson({ appId, salt, appToken: token, mode }), updatedAt: new Date().toISOString() }, req.user.sub);
+    res.json({ onepay: await paymentSettingsView() });
+  })
+);
+
+// DELETE: forget the saved credentials and fall back to the ONEPAY_* env vars.
+adminRouter.delete(
+  '/payment-settings',
+  wrap(async (_req, res) => {
+    await query('DELETE FROM platform_settings WHERE key = $1', [PLATFORM_CREDS_KEY]);
+    clearSettingsCache();
+    res.json({ onepay: await paymentSettingsView() });
   })
 );

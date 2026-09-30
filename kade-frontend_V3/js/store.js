@@ -137,22 +137,49 @@
   };
   function header(s, opts) {
     var logo = s.logo ? '<img src="' + K.esc(s.logo) + '" alt="">' : K.esc(K.initials(s.name));
-    var right = opts.checkout
+    // opts.noCart: pages outside one shop's URL (tracking, receipts) have no cart.
+    var right = opts.noCart ? '' : opts.checkout
       ? '<span class="secure">' + SF.ic('lock', 'ic-sm') + '<span>Secure checkout</span></span>'
       : '<div class="sf-top__actions"><a class="icon-btn" href="' + K.sUrl('cart') + '" id="cartBtn" aria-label="Open cart">' + SF.ic('cart') + '<span class="sf-count" id="cc" hidden>0</span></a></div>';
     return '<header class="sf-top"><div class="wrap"><a class="sf-brand" href="' + SF.homeUrl(s.slug) + '" aria-label="' + K.esc(s.name) + ' home"><span class="sf-mark">' + logo + '</span><span>' + K.esc(s.name) + '</span></a>' + right + '</div></header>';
   }
+  // Compact footer. Phones: one column with collapsible "Contact" and "Policies"
+  // groups, social icons in one row, slim copyright line. Desktop (960px+): up to
+  // three columns and one slim bottom bar with the copyright and policy links.
+  var SOCIAL_IC = {
+    whatsapp: '<path d="M12 3a9 9 0 0 0-7.7 13.6L3 21l4.5-1.2A9 9 0 1 0 12 3z"/><path d="M8.8 8.6c.2-.5.5-.6.8-.6h.5c.2 0 .4 0 .5.4l.7 1.6c.1.2 0 .4-.1.6l-.4.5c-.1.1-.2.3 0 .5.4.8 1.4 1.8 2.3 2.2.2.1.4.1.5 0l.6-.7c.1-.2.3-.2.5-.1l1.6.8c.2.1.3.2.3.4 0 .5-.2 1.2-.8 1.5-.6.3-1.5.4-3-.3-1.6-.7-3-2.2-3.7-3.6-.6-1.2-.5-2.1-.3-2.6z"/>',
+    facebook: '<path d="M14 8h2.5V4.5H14A3.5 3.5 0 0 0 10.5 8v2H8v3.5h2.5V21H14v-7.5h2.5L17 10h-3V8.5c0-.3.2-.5.5-.5z"/>',
+    instagram: '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="3.8"/><circle cx="17.2" cy="6.8" r=".9"/>'
+  };
+  function socialLink(kind, href, label) {
+    return '<a class="foot-soc" href="' + K.esc(href) + '" target="_blank" rel="noopener" aria-label="' + label + '"><svg viewBox="0 0 24 24" aria-hidden="true">' + SOCIAL_IC[kind] + '</svg></a>';
+  }
+  function url(v, base) { v = String(v || '').trim(); if (!v) return ''; if (/^https?:\/\//i.test(v)) return v; return base + v.replace(/^@/, ''); }
   function footer(s) {
-    var c = s.contact || {};
+    var c = s.contact || {}, so = s.social || {};
     var email = c.email || '', phone = c.phone || s.phone || '', addr = c.address || s.address || '';
-    return '<footer class="foot"><div class="wrap">' +
-      '<div class="foot-contact"><b>' + K.esc(s.name) + '</b>' + SF.seal(s, true) +
-        (addr ? '<span>' + K.esc(addr) + '</span>' : '') +
-        (phone ? '<a href="tel:' + K.esc(String(phone).replace(/\s/g, '')) + '">' + K.esc(phone) + '</a>' : '') +
-        (email ? '<a href="mailto:' + K.esc(email) + '">' + K.esc(email) + '</a>' : '') + '</div>' +
-      '<div><nav class="foot-links" aria-label="Store policies">' + SF.policyLinks(s) + '</nav>' +
-      '<a class="powered" href="/" target="_blank" rel="noopener"><span class="mark">S</span>Powered by Sidadiya. Open your own shop in minutes.</a></div>' +
-      '</div></footer>';
+    var desk = window.matchMedia && matchMedia('(min-width: 960px)').matches;
+    var soc = (s.whatsapp ? socialLink('whatsapp', K.wa(s, 'Hello ' + s.name), 'WhatsApp') : '') +
+      (so.facebook ? socialLink('facebook', url(so.facebook, 'https://facebook.com/'), 'Facebook') : '') +
+      (so.instagram ? socialLink('instagram', url(so.instagram, 'https://instagram.com/'), 'Instagram') : '');
+    var contact = (addr ? '<span>' + K.esc(addr) + '</span>' : '') +
+      (phone ? '<a href="tel:' + K.esc(String(phone).replace(/\s/g, '')) + '">' + K.esc(phone) + '</a>' : '') +
+      (email ? '<a href="mailto:' + K.esc(email) + '">' + K.esc(email) + '</a>' : '');
+    var pol = SF.policyLinks(s);
+    var group = function (id, title, body) { return body ? '<details class="foot-grp" id="' + id + '"' + (desk ? ' open' : '') + '><summary>' + title + '</summary><div class="foot-grp__in">' + body + '</div></details>' : ''; };
+    return '<footer class="foot"><div class="wrap foot-cols">' +
+      '<div class="foot-brand"><b>' + K.esc(s.name) + '</b>' + SF.seal(s, true) + (soc ? '<div class="foot-socs">' + soc + '</div>' : '') + '</div>' +
+      group('foot-contact', 'Contact', contact) +
+      group('foot-pol', 'Policies', pol ? '<nav class="foot-links" aria-label="Store policies">' + pol + '</nav>' : '') +
+      '</div><div class="foot-bar"><div class="wrap"><span>&copy; ' + new Date().getFullYear() + ' ' + K.esc(s.name) + '</span>' +
+      (pol ? '<nav class="foot-bar__links" aria-label="Store policies">' + pol + '</nav>' : '') +
+      '<a class="powered" href="/" target="_blank" rel="noopener">Powered by Sidadiya</a></div></div></footer>';
+  }
+  // Keep the footer groups open on desktop and collapsed on phones as the width changes.
+  if (window.matchMedia) {
+    var mqFoot = matchMedia('(min-width: 960px)');
+    var syncFoot = function () { K.$$('.foot-grp').forEach(function (d) { d.open = mqFoot.matches; }); };
+    if (mqFoot.addEventListener) mqFoot.addEventListener('change', syncFoot);
   }
   SF.cartBar = function () {
     if (document.getElementById('cartbar')) return;

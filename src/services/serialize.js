@@ -1,3 +1,5 @@
+import { trackPath, receiptPath, receiptExpired, toWhatsAppIntl, waybillMissing, isCod } from './orderLinks.js';
+
 // Map DB rows to the exact JSON shapes the Sidadiya frontend already consumes
 // (see kade-frontend/js/data.js). Keeping the contract identical means the
 // frontend swaps `KadeData.*` for `fetch()` with no reshaping.
@@ -32,6 +34,8 @@ export function storePublic(store, categories) {
     bank: store.bank_details || '',
     bankAccount: store.bank_account || {},
     contact: { email: store.contact_email || '', phone: store.phone || '', address: store.address || '' },
+    // Social links for the footer icons (from the business profile).
+    social: { facebook: store.facebook || '', instagram: store.instagram || '' },
     // The five compliance pages, linked from every storefront footer and the checkout.
     policies: POLICY_LINKS,
   };
@@ -125,6 +129,18 @@ export function order(row, items) {
     source: row.source || null,
     note: row.note || '',
     statusUrl: row.public_token && row.business_slug ? `/store/order?s=${encodeURIComponent(row.business_slug)}&o=${encodeURIComponent(row.code)}&k=${row.public_token}` : undefined,
+    // Public tracking page and the 30-day digital receipt (seller shares them).
+    trackUrl: row.public_token ? trackPath(row) : undefined,
+    receiptUrl: row.receipt_token ? receiptPath(row) : undefined,
+    receiptExpiresAt: row.receipt_expires_at || null,
+    receiptExpired: row.receipt_token ? receiptExpired(row) : undefined,
+    receiptSharedAt: row.receipt_shared_at || null,
+    // WhatsApp number in international form (94XXXXXXXXX), '' if not a mobile.
+    waPhone: toWhatsAppIntl(row.whatsapp || row.phone),
+    cod: isCod(row) ? row.total : 0,
+    // Empty = ready to print a waybill; otherwise the fields still missing.
+    waybillMissing: items ? waybillMissing(row, items) : undefined,
+    waybillPrintedAt: row.waybill_printed_at || null,
   };
 }
 
