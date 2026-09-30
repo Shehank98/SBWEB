@@ -14,12 +14,14 @@
     @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#121916; --card:#1a2420; --ink:#eef2ee; --muted:#a7b3ac; --line:#2a3630; --brand:#52c2a2; --brand-soft:#173a30; --accent:#f2b73f; --wall:#24302b; --wall2:#1c2622; --shutter:#56635d; --shutter2:#46524c; --danger:#ff8a80; color-scheme: dark; } }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; }
-    body { background: var(--bg); color: var(--ink); font: 16px/1.55 Figtree, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: grid; place-items: center; min-height: 100vh; min-height: 100dvh; padding: 24px 16px; }
-    .box { width: 100%; max-width: 520px; text-align: center; }
+    body { background: var(--bg); color: var(--ink); font: 16px/1.55 Figtree, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; height: 100dvh; overflow: hidden; padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom)); }
+    .box { width: 100%; max-width: 520px; max-height: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; }
+    .box > * { flex: none; }
     .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; color: var(--brand); text-decoration: none; margin-bottom: 8px; letter-spacing: .01em; }
     .brand i { width: 26px; height: 26px; border-radius: 8px; background: var(--brand); display: inline-grid; place-items: center; }
     .brand i::after { content: ""; width: 12px; height: 9px; background: var(--accent); clip-path: polygon(0 100%, 15% 0, 85% 0, 100% 100%); }
-    .scene { width: 100%; max-width: 420px; margin: 0 auto; display: block; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+    /* The scene shrinks to whatever height is left so the page never scrolls. */
+    .scene { flex: 0 1 auto; width: 100%; max-width: 420px; height: auto; max-height: 40vh; max-height: 40dvh; min-height: 0; margin: 0 auto; display: block; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
     .scene .hit { cursor: pointer; }
     .scene .hit:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
     h1 { font: 700 clamp(22px, 5vw, 28px)/1.2 "Bricolage Grotesque", Figtree, system-ui, sans-serif; margin: 8px 0 8px; }
@@ -38,6 +40,23 @@
     .hint { font-size: 12px; color: var(--muted); opacity: .8; margin-top: 4px; }
     .knocks { font-size: 12px; color: var(--muted); min-height: 16px; }
     @keyframes pulse { 50% { opacity: .25; } }
+    /* Short screens (small phones, landscape, laptops): tighter spacing, fewer extras. */
+    @media (max-height: 700px) {
+      body { font-size: 15px; line-height: 1.45; }
+      .scene { max-height: 34vh; max-height: 34dvh; }
+      h1 { font-size: clamp(19px, 4.5vw, 24px); margin: 4px 0 6px; }
+      p { margin-bottom: 8px; }
+      .until { margin-bottom: 6px; }
+      .actions { margin: 8px 0 4px; }
+      .hint { display: none; }
+    }
+    @media (max-height: 520px) {
+      .brand { display: none; }
+      .scene { max-height: 30vh; max-height: 30dvh; }
+      p { font-size: 13px; }
+      .btn { min-height: 38px; }
+      .knocks { display: none; }
+    }
 
     /* ---- scene animation ---- */
     .awning { transform-origin: 160px 70px; animation: flap 4s ease-in-out infinite; }
