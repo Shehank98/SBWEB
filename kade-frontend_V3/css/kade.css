@@ -1164,3 +1164,12 @@ body.has-cartbar { padding-bottom: 84px; }
 .od-opt span { display: flex; flex-direction: column; gap: 2px; }
 .od-opt small { color: var(--ink-muted); }
 .od-err { margin-top: 10px; }
+
+/* Admin: buyer notice preview */
+.notice-prev { background: var(--surface-sunken); border-radius: var(--radius-md, 12px); padding: 20px 16px; display: grid; justify-items: center; gap: 8px; }
+.notice-prev.is-off .notice-prev__card { opacity: .45; }
+.notice-prev__card { width: min(360px, 100%); background: var(--surface-raised); border-radius: 18px; padding: 20px 18px; text-align: center; box-shadow: var(--shadow-2); display: grid; gap: 8px; justify-items: center; }
+.notice-prev__card p { margin: 0; color: var(--ink-muted); font-size: 14px; overflow-wrap: anywhere; }
+.notice-prev__card strong { font-size: 17px; }
+.notice-prev__icon { width: 44px; height: 44px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; }
+.notice-prev__btn { width: 100%; margin-top: 6px; background: var(--brand); color: var(--on-brand); border-radius: 10px; padding: 10px; font-weight: 700; font-size: 14px; }

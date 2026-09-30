@@ -19,7 +19,7 @@
       <main class="main" id="main" tabindex="-1">
         <div class="page-head"><div><h1>Settings</h1><p>Plans, trial, payments and the text shown across Sidadiya.</p></div></div>
         <nav class="settings-nav" aria-label="Settings sections" id="snav">
-          <a href="#maintenance">Maintenance</a><a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#payments">Payment settings</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a><a href="#marketing">Marketing</a>
+          <a href="#maintenance">Maintenance</a><a href="#notice">Buyer notice</a><a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#payments">Payment settings</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a><a href="#marketing">Marketing</a>
         </nav>
 
         <section class="kd-card panel maint-card" id="maintenance" aria-labelledby="h-maint" style="margin-bottom:var(--space-4)">
@@ -33,6 +33,21 @@
             </div>
             <div class="row" style="gap:8px;flex-wrap:wrap"><button class="kd-btn kd-btn--primary" type="submit">Save</button>
               <span class="maint-preview"><a class="kd-btn kd-btn--ghost" href="/closed?preview=maintenance" target="_blank" rel="noopener">Preview maintenance page</a><a class="kd-btn kd-btn--ghost" href="/closed?preview=down" target="_blank" rel="noopener">Preview "server down" page</a></span></div>
+          </form>
+        </section>
+
+        <section class="kd-card panel" id="notice" aria-labelledby="h-notice" style="margin-bottom:var(--space-4)">
+          <h2 id="h-notice">Buyer notice</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">A popup buyers see when they open any store, explaining that each shop is responsible for its own products, delivery and refunds. After they tap the button it stays hidden on their device for 30 days, or until you change the text.</p>
+          <form id="noticeForm" class="stack" novalidate>
+            <label class="kd-switch"><span class="kd-check__text"><strong id="noticeLabel">Show the notice</strong><span class="muted">Applies to every store on Sidadiya.</span></span><input type="checkbox" role="switch" id="noticeOn"></label>
+            <div class="form-grid form-grid--2">
+              <div class="kd-field"><label class="kd-label" for="noticeTitle">Title</label><input class="kd-input" id="noticeTitle" maxlength="80"></div>
+              <div class="kd-field"><label class="kd-label" for="noticeBtn">Button text</label><input class="kd-input" id="noticeBtn" maxlength="30"></div>
+              <div class="kd-field span-2"><label class="kd-label" for="noticeMsg">Message</label><textarea class="kd-input" id="noticeMsg" rows="4" maxlength="800"></textarea><span class="kd-help">Write <code>{shop}</code> where the shop's name should appear. Start a new line for a new paragraph.</span></div>
+            </div>
+            <div class="notice-prev" aria-label="Preview" id="noticePrev"></div>
+            <div class="row" style="gap:8px;flex-wrap:wrap"><button class="kd-btn kd-btn--primary" type="submit">Save notice</button><button class="kd-btn kd-btn--ghost" type="button" id="noticeReset">Use the default text</button></div>
           </form>
         </section>
 
@@ -247,6 +262,38 @@
       });
       K.$('#maintForm').addEventListener('submit', function (e) { e.preventDefault(); saveMaint(K.$('#maintOn').checked); });
       document.addEventListener('admin-settings-loaded', function (e) { paintMaint(e.detail.maintenance); });
+
+      // ---- Buyer notice (storefront popup) ----
+      var NOTICE_DEFAULT = { title: 'Before you shop', button: 'I understand', message: '{shop} is an independent shop that uses Sidadiya to sell online.\n{shop} is responsible for its products, prices, delivery, returns and refunds. Please contact the shop directly with any questions about your order.' };
+      function noticePreview() {
+        var fill = function (t) { return K.esc(t || '').replace(/\{shop\}/g, '<b>ABC Fashion</b>'); };
+        var on = K.$('#noticeOn').checked;
+        K.$('#noticeLabel').textContent = on ? 'On: buyers see this notice' : 'Off: no notice is shown';
+        K.$('#noticePrev').classList.toggle('is-off', !on);
+        K.$('#noticePrev').innerHTML = '<div class="notice-prev__card"><div class="notice-prev__icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>' +
+          '<strong>' + fill(K.$('#noticeTitle').value || 'Before you shop') + '</strong>' +
+          K.$('#noticeMsg').value.split(/\n+/).filter(Boolean).map(function (p) { return '<p>' + fill(p) + '</p>'; }).join('') +
+          '<span class="notice-prev__btn">' + K.esc(K.$('#noticeBtn').value || 'I understand') + '</span></div><span class="kd-help">Preview with a sample shop name' + (on ? '' : ' (currently switched off)') + '.</span>';
+      }
+      function paintNotice(n) {
+        n = n || {};
+        K.$('#noticeOn').checked = n.on !== false;
+        K.$('#noticeTitle').value = n.title || NOTICE_DEFAULT.title;
+        K.$('#noticeBtn').value = n.button || NOTICE_DEFAULT.button;
+        K.$('#noticeMsg').value = n.message || NOTICE_DEFAULT.message;
+        noticePreview();
+      }
+      K.$('#noticeForm').addEventListener('input', noticePreview);
+      K.$('#noticeForm').addEventListener('change', noticePreview);
+      K.$('#noticeReset').addEventListener('click', function () { K.$('#noticeTitle').value = NOTICE_DEFAULT.title; K.$('#noticeBtn').value = NOTICE_DEFAULT.button; K.$('#noticeMsg').value = NOTICE_DEFAULT.message; noticePreview(); });
+      K.$('#noticeForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var body = { on: K.$('#noticeOn').checked, title: K.$('#noticeTitle').value.trim(), button: K.$('#noticeBtn').value.trim(), message: K.$('#noticeMsg').value.trim() };
+        var restore = K.btnLoading(K.$('#noticeForm [type=submit]'), 'Saving…');
+        KadeApi.adminSaveSettings({ buyer_notice: body }).then(function (r) { restore(); paintNotice(r.settings.buyer_notice); K.toast(body.on ? 'Buyer notice saved. Buyers see the new text on their next visit.' : 'Buyer notice switched off.'); })
+          .catch(function (ex) { restore(); K.toast(ex.message); });
+      });
+      document.addEventListener('admin-settings-loaded', function (e) { paintNotice(e.detail.buyer_notice); });
 
       // ---- Payment settings (OnePay platform keys): write-only secrets ----
       K.$('#opCb').textContent = location.origin + '/api/onepay/callback';
