@@ -38,7 +38,7 @@ const LIVE = LIVE_STATUSES;
 async function loadStore(slug) {
   const row = (
     await query(
-      `SELECT st.*, b.status AS business_status, b.id AS biz_id, b.name AS biz_name, b.email AS biz_email, b.verification_status
+      `SELECT st.*, b.status AS business_status, b.id AS biz_id, b.name AS biz_name, b.email AS biz_email, b.verification_status, b.facebook, b.instagram
          FROM stores st JOIN businesses b ON b.id = st.business_id
         WHERE st.slug = $1`,
       [slug]

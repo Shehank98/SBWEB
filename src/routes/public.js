@@ -12,7 +12,7 @@ const HEX = /^[a-f0-9]{16,64}$/;
 
 async function storeFor(businessId) {
   const st = (await query(
-    `SELECT st.*, b.name AS biz_name, b.email AS biz_email, b.verification_status
+    `SELECT st.*, b.name AS biz_name, b.email AS biz_email, b.verification_status, b.facebook, b.instagram
        FROM stores st JOIN businesses b ON b.id = st.business_id WHERE st.business_id = $1`,
     [businessId]
   )).rows[0];

@@ -34,6 +34,8 @@ export function storePublic(store, categories) {
     bank: store.bank_details || '',
     bankAccount: store.bank_account || {},
     contact: { email: store.contact_email || '', phone: store.phone || '', address: store.address || '' },
+    // Social links for the footer icons (from the business profile).
+    social: { facebook: store.facebook || '', instagram: store.instagram || '' },
     // The five compliance pages, linked from every storefront footer and the checkout.
     policies: POLICY_LINKS,
   };
