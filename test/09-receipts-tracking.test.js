@@ -63,7 +63,7 @@ test('tracking page API: token required, timeline follows status changes, one em
   assert.equal(t.status, 200);
   assert.deepEqual(t.data.timeline.filter((s) => s.done).map((s) => s.key), ['PLACED', 'CONFIRMED', 'PACKED']);
   assert.equal(t.data.order.customer, 'Kasun'); // first name only on a public page
-  assert.equal((await outbox(shop.bizId, 'ORDER_PACKED')).length, 1);
+  assert.equal((await outbox(shop.bizId, 'ORDER_PACKED')).length, 0); // packed shows on the tracking page only
   assert.equal((await outbox(shop.bizId, 'ORDER_CONFIRMED')).length, 1);
 });
 

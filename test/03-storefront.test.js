@@ -1,6 +1,6 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { api, db, registerShop } from './helpers.js';
+import { api, adminToken, db, registerShop } from './helpers.js';
 
 after(() => db.end());
 
@@ -33,6 +33,8 @@ test('placing an order returns a private status link; wrong token is 404', async
 
 test('verified-buyer reviews only after delivery, once per product, and show on the store', async () => {
   const { shop, product } = await shopWithProduct();
+  // Reviews are switched on per store by a Sidadiya admin.
+  assert.equal((await api('PUT', `/api/admin/shops/${shop.bizId}/reviews`, { token: await adminToken(), body: { enabled: true } })).status, 200);
   const o = await api('POST', `/api/store/${shop.slug}/orders`, { body: orderBody(product.id) });
   const url = `/api/store/${shop.slug}/orders/${o.data.code}/reviews?k=${o.data.token}`;
   const early = await api('POST', url, { body: { reviews: [{ productId: product.id, rating: 5, body: 'Lovely' }] } });

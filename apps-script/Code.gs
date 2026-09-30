@@ -22,7 +22,7 @@
  * The sheet is a read-only mirror: edits there are overwritten on the next sync.
  *
  * High volume design (Task 2):
- *   - A single time trigger runs sendPendingEmails every 2 minutes.
+ *   - A single time trigger runs sendPendingEmails every minute; the backend also pings the web app (doGet) the moment an email is queued, so most emails leave within seconds.
  *   - A script lock stops two runs from overlapping, so a row is never sent twice.
  *   - Before sending, the daily MailApp quota is checked. If it is low the run
  *     defers: rows stay PENDING and the next run picks them up (resume safe).
@@ -35,7 +35,7 @@
  * Setup: see README.md in this folder. In short:
  *   1. Project Settings, Script properties: add API_BASE and NOTIFY_TOKEN.
  *   2. Run sendPendingEmails once and grant permissions.
- *   3. Run installTrigger once to send every 2 minutes.
+ *   3. Run installTrigger once (every minute), deploy as a web app and set APPS_SCRIPT_URL on Railway for instant sending. Run testConnection if emails do not arrive.
  */
 
 // ---- Config (read from Script properties, with safe fallbacks) --------------
@@ -57,23 +57,24 @@ function cfg_() {
   };
 }
 
-// ---- Main entry point (run on a 2 minute time trigger) ----------------------
+// ---- Main entry point: the web app ping (instant) and a 1 minute trigger ----
 function sendPendingEmails() {
   var c = cfg_();
+  if (!c.token) { Logger.log('NOTIFY_TOKEN is not set in Script properties. Run testConnection for help.'); return { ok: false, error: 'no token' }; }
 
   // Only one run at a time. If another run holds the lock, skip quietly; the next
   // scheduled run continues from where this one left off.
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) {
     Logger.log('Another run is in progress. Skipping.');
-    return;
+    return { ok: true, busy: true };
   }
 
   try {
     var remaining = MailApp.getRemainingDailyQuota();
     if (remaining <= c.quotaFloor) {
       Logger.log('Daily quota low (%s left, floor %s). Deferring to a later run.', remaining, c.quotaFloor);
-      return;
+      return { ok: false, error: 'quota' };
     }
 
     var res = UrlFetchApp.fetch(c.apiBase + '/api/notifications/pending', {
@@ -82,8 +83,8 @@ function sendPendingEmails() {
       muteHttpExceptions: true
     });
     if (res.getResponseCode() !== 200) {
-      Logger.log('Poll failed (%s): %s', res.getResponseCode(), res.getContentText());
-      return;
+      Logger.log('Poll failed (%s): %s. Run testConnection for help.', res.getResponseCode(), res.getContentText().slice(0, 300));
+      return { ok: false, error: 'poll ' + res.getResponseCode() };
     }
     var list = (JSON.parse(res.getContentText()).notifications) || [];
     Logger.log('Pending: %s. Quota left: %s.', list.length, remaining);
@@ -131,9 +132,50 @@ function sendPendingEmails() {
       }
     }
     Logger.log('Done. sent=%s failed=%s skipped=%s', sent, failed, skipped);
+    return { ok: true, sent: sent, failed: failed, skipped: skipped };
   } finally {
     lock.releaseLock();
   }
+}
+
+// ---- Instant sending: the backend pings this web app right after it queues an
+// email (APPS_SCRIPT_URL on Railway = this web app's /exec URL). The 1 minute
+// trigger stays as the safety net if a ping is missed.
+// Deploy > New deployment > Web app: Execute as "Me", Who has access "Anyone".
+function doGet(e) { return ping_(e); }
+function doPost(e) { return ping_(e); }
+function ping_(e) {
+  var c = cfg_();
+  var given = (e && e.parameter && e.parameter.token) || '';
+  var out;
+  if (!c.token || given !== c.token) out = { ok: false, error: 'bad token' };
+  else out = sendPendingEmails() || { ok: true };
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---- Run this when emails are not arriving: it checks every setting and says
+// what is wrong in plain words (View > Execution log). ----------------------------
+function testConnection() {
+  var c = cfg_();
+  Logger.log('API_BASE: %s', c.apiBase);
+  if (!c.token) { Logger.log('PROBLEM: NOTIFY_TOKEN is empty. Add it in Project Settings > Script properties (same value as NOTIFY_TOKEN on Railway).'); return; }
+  var res;
+  try {
+    res = UrlFetchApp.fetch(c.apiBase + '/api/notifications/pending', { method: 'get', headers: { 'x-notify-token': c.token }, muteHttpExceptions: true });
+  } catch (err) {
+    Logger.log('PROBLEM: cannot reach %s (%s). Check API_BASE: it must be your live Railway URL, starting with https://', c.apiBase, err);
+    return;
+  }
+  var code = res.getResponseCode();
+  if (code === 401) { Logger.log('PROBLEM: the token was refused. NOTIFY_TOKEN here must match NOTIFY_TOKEN on Railway exactly (or JWT_SECRET if NOTIFY_TOKEN is not set there).'); return; }
+  if (code === 404) { Logger.log('PROBLEM: %s has no notifications API. API_BASE points at the wrong site, or that site runs an old version.', c.apiBase); return; }
+  if (code !== 200) { Logger.log('PROBLEM: the API answered %s: %s', code, res.getContentText().slice(0, 300)); return; }
+  var n = (JSON.parse(res.getContentText()).notifications || []).length;
+  Logger.log('OK: connected. %s email(s) waiting to be sent.', n);
+  Logger.log('Gmail quota left today: %s', MailApp.getRemainingDailyQuota());
+  var triggers = ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'sendPendingEmails'; });
+  Logger.log(triggers.length ? 'OK: the 1 minute trigger is installed.' : 'PROBLEM: no trigger. Run installTrigger once.');
+  Logger.log('Tip: run sendPendingEmails now to send what is waiting.');
 }
 
 function mark_(c, id, what) {
@@ -156,13 +198,15 @@ function audit_(c, n, outcome) {
   }
 }
 
-// ---- Install a 2 minute trigger (run once) ----------------------------------
+// ---- Install the 1 minute safety-net trigger (run once) ---------------------
 function installTrigger() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'sendPendingEmails') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('sendPendingEmails').timeBased().everyMinutes(2).create();
-  Logger.log('Trigger installed: sendPendingEmails every 2 minutes.');
+  // 1 minute is the shortest time trigger Google allows. Near-instant sending comes
+  // from the backend's web app ping (doGet / doPost above).
+  ScriptApp.newTrigger('sendPendingEmails').timeBased().everyMinutes(1).create();
+  Logger.log('Trigger installed: sendPendingEmails every minute.');
 }
 
 // =============================================================================
@@ -234,7 +278,10 @@ function kv_(k, v) {
 function orderTable_(d) {
   var rows = (d.items || []).map(function (i) {
     return '<tr>' +
-      '<td style="font-family:' + SANS + ';font-size:14px;color:' + THEME.ink + ';padding:6px 0;border-bottom:1px solid ' + THEME.line + ';">' + esc_(i.qty) + ' x ' + esc_(i.name) + '</td>' +
+      // Product photo when the item has one (https only: email clients block other URLs).
+      '<td style="font-family:' + SANS + ';font-size:14px;color:' + THEME.ink + ';padding:6px 0;border-bottom:1px solid ' + THEME.line + ';">' +
+        (/^https:\/\//.test(i.image || '') ? '<img src="' + esc_(i.image) + '" width="44" height="44" alt="" style="width:44px;height:44px;border-radius:8px;object-fit:cover;vertical-align:middle;margin-right:10px;border:0;">' : '') +
+        esc_(i.qty) + ' x ' + esc_(i.name) + '</td>' +
       '<td align="right" style="font-family:' + MONO + ';font-size:14px;color:' + THEME.ink + ';padding:6px 0;border-bottom:1px solid ' + THEME.line + ';white-space:nowrap;">' + rs_(i.qty * i.price) + '</td>' +
       '</tr>';
   }).join('');
@@ -580,7 +627,7 @@ function syncSheets() {
   info.getRange(1, 1, 1, 2).setValues([['Last synced', new Date()]]);
 }
 
-// Run once: hourly sheet sync (the 2 minute email trigger is separate).
+// Run once: hourly sheet sync (the 1 minute email trigger is separate).
 function installSyncTrigger() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'syncSheets') ScriptApp.deleteTrigger(t);

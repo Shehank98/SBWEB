@@ -974,3 +974,6 @@ body.has-cartbar { padding-bottom: 84px; }
 .as-global { font: 600 13px/1 var(--font-sans); color: var(--success); align-self: center; }
 .as-global--busy { color: var(--ink-muted); }
 .as-global--bad { color: var(--danger); }
+/* Order drawer: product photo beside each item */
+.oi { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.oi img, .oi__ph { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex: none; background: var(--brand-soft); display: grid; place-items: center; font: 700 12px/1 var(--font-sans); color: var(--brand); }

@@ -56,7 +56,7 @@ test('visits are recorded by source (bots skipped) and orders keep first-touch a
   assert.deepEqual(rows[0], { source: 'instagram', campaign: 'new-drop' });
 });
 
-test('mark as shipped: courier + tracking saved, buyer emailed once per tracking number, shown on the order page', async () => {
+test('mark as shipped: courier + tracking saved, buyer emailed once per order, shown on the order page', async () => {
   const shop = await shopWithProduct();
   const o = await api('POST', `/api/store/${shop.slug}/orders`, { body: { customer: 'Kasun Silva', phone: '0771234567', email: 'kasun@example.com', address: '1 Main St', acceptTerms: true, items: [{ pid: shop.product.id, qty: 1 }] } });
   const ship = (body) => api('PUT', `/api/dashboard/orders/${o.data.code}/ship`, { token: shop.token, body });
@@ -70,9 +70,9 @@ test('mark as shipped: courier + tracking saved, buyer emailed once per tracking
   assert.equal(mails.length, 1);
   assert.equal(mails[0].data.trackingNumber, 'DMX123456');
   assert.equal(mails[0].data.courier, 'Domex');
-  await ship({ courier: 'Pronto', trackingNumber: 'PR999' }); // corrected number: email again
+  await ship({ courier: 'Pronto', trackingNumber: 'PR999' }); // corrected number: shown on the page, no second email
   mails = await outbox(shop.bizId, 'ORDER_SHIPPED');
-  assert.equal(mails.length, 2);
+  assert.equal(mails.length, 1);
   const page = await api('GET', `/api/store/${shop.slug}/orders/${o.data.code}?k=${o.data.token}`);
   assert.deepEqual([page.data.order.tracking.courier, page.data.order.tracking.number, page.data.order.status], ['Pronto', 'PR999', 'SHIPPED']);
 });
