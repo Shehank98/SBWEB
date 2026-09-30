@@ -54,7 +54,7 @@
             : 'Hello ' + s.name + ', I would like to order:\n\n' + p.name + (selLabel() ? '\n' + selLabel() : '') + '\nQuantity: ' + qty + '\nTotal: ' + SF.rs(curPrice() * qty) + '\n\n' + pageUrl;
         }
 
-        var media = '<div><div class="pdp-media">' + (imgs.length ? '<img id="pdp-main" src="' + K.esc(imgs[0]) + '" alt="' + K.esc(p.name) + '" fetchpriority="high" decoding="async">' : '<div class="ph">' + K.esc(K.initials(p.name)) + '</div>') +
+        var media = '<div><div class="pdp-media">' + (imgs.length ? '<button type="button" class="pdp-zoom" id="zoomBtn" aria-label="Zoom photo"><img id="pdp-main" src="' + K.esc(imgs[0]) + '" alt="' + K.esc(p.name) + '" fetchpriority="high" decoding="async"></button>' : '<div class="ph">' + K.esc(K.initials(p.name)) + '</div>') +
           (p.sale ? '<span class="tag">SALE</span>' : '') + '<button class="heart" type="button" id="wish" aria-pressed="' + SF.wish.has(p.id) + '" aria-label="Save to wishlist">' + SF.ic('heart') + '</button></div>' +
           (imgs.length > 1 ? '<div class="thumbs" role="group" aria-label="Product photos">' + imgs.map(function (u, i) { return '<button type="button" data-src="' + K.esc(u) + '" aria-current="' + (i === 0) + '" aria-label="Show photo ' + (i + 1) + '">' + SF.img(u, '') + '</button>'; }).join('') + '</div>' : '') + '</div>';
 
@@ -62,12 +62,6 @@
           ? '<div role="group" aria-labelledby="vg"><span class="lbl" id="vg">Choose an option</span><div class="opt-row">' + p.variants.map(function (v, i) { var pr = v.sale != null ? v.sale : v.price, oos = v.stock <= 0; return '<button type="button" class="chip chip--plain" data-vi="' + i + '" aria-pressed="false"' + (oos ? ' disabled' : '') + '>' + K.esc(v.label) + '&nbsp;<small>' + SF.rs(pr) + (oos ? ' · sold out' : '') + '</small></button>'; }).join('') + '</div></div>'
           : groups.map(function (g, gi) { return '<div role="group" aria-labelledby="og-' + gi + '"><span class="lbl" id="og-' + gi + '">' + K.esc(g) + '</span><div class="opt-row">' + p.options[g].map(function (v) { return '<button type="button" class="chip chip--plain" aria-pressed="false" data-g="' + K.esc(g) + '" data-v="' + K.esc(v) + '">' + K.esc(v) + '</button>'; }).join('') + '</div></div>'; }).join('');
 
-        var pol = {}; (s.policies || []).forEach(function (x) { pol[x.key] = '/store/policy?s=' + encodeURIComponent(s.slug) + '&p=' + x.key; });
-        var trust = [];
-        if (s.payments && s.payments.cod) trust.push(SF.ic('cash', 'ic-sm') + 'Cash on delivery available');
-        if (s.payments && s.payments.card) trust.push(SF.ic('card', 'ic-sm') + 'Pay securely by card');
-        if (pol['return']) trust.push(SF.ic('ret', 'ic-sm') + '<a href="' + pol['return'] + '">' + (s.returnDays ? s.returnDays + '-day returns' : 'Return policy') + '</a>' + (pol.refund ? ' · <a href="' + pol.refund + '">Refunds</a>' : ''));
-        if (s.verified) trust.push(SF.ic('shield', 'ic-sm') + 'Business verified by Sidadiya');
 
         main.innerHTML =
           '<nav class="crumbs" aria-label="Breadcrumb"><a href="' + SF.homeUrl(s.slug) + '">' + SF.ic('back', 'ic-sm') + 'All products</a>' + (p.category ? '<span aria-hidden="true">/</span><span>' + K.esc(p.category) + '</span>' : '') + '</nav>' +
@@ -81,8 +75,6 @@
           '<div><span class="lbl" id="qlabel">Quantity</span><div class="qty" role="group" aria-labelledby="qlabel"><button type="button" id="minus" aria-label="Decrease quantity">−</button><output id="qty" aria-live="polite">1</output><button type="button" id="plus" aria-label="Increase quantity">+</button></div></div>' +
           '<div class="cta-stack"><button class="btn btn-accent btn-block" type="button" id="add">Add to cart</button>' +
             (s.whatsapp ? '<a class="btn btn-wa btn-block" id="waOrder" target="_blank" rel="noopener" href="#">' + SF.WA + 'Order on WhatsApp</a>' : '') + '</div>' +
-          '<div class="deliv">' + SF.ic('truck') + '<div><b>' + (d.fee ? SF.rs(d.fee) + ' islandwide delivery' : 'Free delivery') + '</b>' + (d.freeAbove > 0 ? '<br>Free above ' + SF.rs(d.freeAbove) : '') + (d.pickup ? '<br>Free pickup' + (s.city ? ' in ' + K.esc(s.city) : '') : '') + '</div></div>' +
-          (trust.length ? '<ul class="mini-trust">' + trust.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul>' : '') +
           '<div><span class="lbl">Share with a friend</span><div class="share-row"><a class="btn btn-soft btn-sm" id="shWa" target="_blank" rel="noopener">WhatsApp</a><a class="btn btn-soft btn-sm" id="shFb" target="_blank" rel="noopener">Facebook</a><button class="btn btn-soft btn-sm" type="button" id="copy">' + SF.ic('copy', 'ic-sm') + 'Copy link</button></div></div>' +
           '</div></div>' +
           '<section id="reviews" aria-labelledby="rv-h" style="padding-bottom:24px" hidden><h2 class="section-title" id="rv-h">Reviews</h2><div class="panel review-list" id="rvList"></div></section>' +
@@ -112,6 +104,8 @@
             var g = b.getAttribute('data-g'); chosen[g] = b.getAttribute('data-v');
             K.$$('[data-g="' + CSS.escape(g) + '"]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
             $('optErr').hidden = true; sync();
+          } else if (b.id === 'zoomBtn') {
+            openLightbox(Math.max(0, imgs.indexOf($('pdp-main').getAttribute('src'))));
           } else if (b.hasAttribute('data-src')) {
             $('pdp-main').src = b.getAttribute('data-src');
             K.$$('.thumbs button').forEach(function (x) { x.setAttribute('aria-current', String(x === b)); });
@@ -121,6 +115,39 @@
             K.cart.add(s.slug, { pid: b.getAttribute('data-add'), opts: {}, qty: 1 }); SF.updateCart(); SF.toast('Added to your cart'); SF.bump($('cc'));
           }
         });
+        /* ---------- Zoom lightbox: tap the photo; tap again to zoom in, swipe or arrows to move ---------- */
+        var lb = null, lbAt = 0;
+        function openLightbox(i) {
+          if (!imgs.length) return;
+          if (!lb) {
+            lb = document.createElement('dialog'); lb.className = 'lb'; lb.setAttribute('aria-label', 'Photo viewer');
+            lb.innerHTML = '<div class="lb-stage"><img alt=""></div><button type="button" class="lb-x" aria-label="Close">' + SF.ic('x') + '</button>' +
+              (imgs.length > 1 ? '<button type="button" class="lb-nav lb-prev" aria-label="Previous photo">‹</button><button type="button" class="lb-nav lb-next" aria-label="Next photo">›</button><p class="lb-count" aria-live="polite"></p>' : '');
+            document.body.appendChild(lb);
+            var stage = lb.querySelector('.lb-stage'), im = lb.querySelector('img'), x0 = null;
+            lb.addEventListener('click', function (e) {
+              if (e.target.closest('.lb-x') || e.target === lb) return lb.close();
+              if (e.target.closest('.lb-prev')) return show(lbAt - 1);
+              if (e.target.closest('.lb-next')) return show(lbAt + 1);
+              if (e.target === im) {
+                var z = !stage.classList.contains('zoom'), r = im.getBoundingClientRect();
+                im.style.transformOrigin = ((e.clientX - r.left) / r.width * 100) + '% ' + ((e.clientY - r.top) / r.height * 100) + '%';
+                stage.classList.toggle('zoom', z);
+              }
+            });
+            lb.addEventListener('keydown', function (e) { if (e.key === 'ArrowLeft') show(lbAt - 1); else if (e.key === 'ArrowRight') show(lbAt + 1); });
+            stage.addEventListener('touchstart', function (e) { x0 = e.touches.length === 1 && !stage.classList.contains('zoom') ? e.touches[0].clientX : null; }, { passive: true });
+            stage.addEventListener('touchend', function (e) { if (x0 == null) return; var dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) show(lbAt + (dx < 0 ? 1 : -1)); x0 = null; });
+          }
+          show(i); if (!lb.open) lb.showModal();
+        }
+        function show(i) {
+          lbAt = (i + imgs.length) % imgs.length;
+          var im = lb.querySelector('img'); lb.querySelector('.lb-stage').classList.remove('zoom');
+          im.src = imgs[lbAt]; im.alt = p.name + ' photo ' + (lbAt + 1);
+          var c = lb.querySelector('.lb-count'); if (c) c.textContent = (lbAt + 1) + ' / ' + imgs.length;
+        }
+
         $('minus').addEventListener('click', function () { if (qty > 1) { qty--; sync(); } });
         $('plus').addEventListener('click', function () {
           var max = curStock(); if (max == null) return optError('Choose an option first.');
