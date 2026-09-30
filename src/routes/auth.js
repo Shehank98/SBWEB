@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { setSessionCookie, clearSessionCookie } from '../services/session.js';
+import { verifyToken } from '../utils/auth.js';
 import multer from 'multer';
 import { query, withTransaction } from '../db/pool.js';
 import { hashPassword, verifyPassword, signToken } from '../utils/auth.js';
@@ -131,8 +133,10 @@ authRouter.post(
 
     // Sign the new owner straight in: the trial starts now, no approval step.
     const u = result.user;
+    const token = signToken(u);
+    setSessionCookie(req, res, token);
     res.status(201).json({
-      token: signToken(u),
+      token,
       user: {
         id: u.id, name: u.name, email: u.email, role: u.role, business_id: u.business_id,
         slug: result.store.slug, storeName: result.store.name, planId: 'starter', businessStatus: 'TRIAL', permissions: null,
@@ -173,8 +177,10 @@ authRouter.post(
       planId = sub ? sub.plan_id : null;
     }
 
+    const token = signToken(user);
+    setSessionCookie(req, res, token);
     res.json({
-      token: signToken(user),
+      token,
       user: {
         id: user.id,
         name: user.name,
@@ -190,6 +196,21 @@ authRouter.post(
     });
   })
 );
+
+// POST /api/auth/session (Bearer token): set the page cookie for a browser that
+// signed in before page protection existed, so it is not sent back to login.
+authRouter.post('/session', wrap(async (req, res) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+  if (!token) throw unauthorized();
+  let claims;
+  try { claims = verifyToken(token); } catch { throw unauthorized('Your session has expired. Please sign in again.'); }
+  setSessionCookie(req, res, token);
+  res.json({ ok: true, role: claims.role });
+}));
+
+// POST /api/auth/logout: clear the page cookie.
+authRouter.post('/logout', (req, res) => { clearSessionCookie(req, res); res.json({ ok: true }); });
 
 // GET /api/auth/me — decode the token to the current user (used by the client on load).
 authRouter.get('/me', wrap(async (req, res) => {

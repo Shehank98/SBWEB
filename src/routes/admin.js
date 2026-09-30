@@ -12,6 +12,7 @@ import { onepayGuide } from '../services/onepayGuide.js';
 import { getSetting, setSetting, clearSettingsCache } from '../services/settings.js';
 import { storedPlatformCreds, envPlatformCreds, PLATFORM_CREDS_KEY } from '../services/onepay.js';
 import { clip } from '../utils/text.js';
+import { buyerNoticeSetting } from '../services/buyerNotice.js';
 import { encryptJson, mask } from '../services/secrets.js';
 
 export const adminRouter = Router();
@@ -576,6 +577,14 @@ export const SETTINGS_SCHEMA = {
     if (!Number.isInteger(n) || n < 1 || n > 90) throw badRequest('Trial length must be 1 to 90 days.');
     return n;
   },
+  // Buyer notice shown when a buyer opens any store ({shop} = the shop's name).
+  buyer_notice: (v) => {
+    if (!v || typeof v !== 'object') throw badRequest('Buyer notice must be an object.');
+    const out = { on: v.on === true, title: cleanStr(v.title, 80) || 'Before you shop', message: String(v.message == null ? '' : v.message).trim(), button: cleanStr(v.button, 30) || 'I understand', updatedAt: new Date().toISOString() };
+    out.message = clip(out.message, 800);
+    if (out.on && !out.message) throw badRequest('Write the notice text, or switch the notice off.');
+    return out;
+  },
   // Maintenance mode: on/off, a short note for visitors and an optional "back by" time.
   maintenance: (v) => {
     if (!v || typeof v !== 'object') throw badRequest('Maintenance must be an object.');
@@ -601,6 +610,7 @@ adminRouter.get(
     for (const k of Object.keys(SETTINGS_SCHEMA)) out[k] = await getSetting(k, null);
     out.onepay_guide = await onepayGuide(); // defaults filled in until the admin edits it
     if (!out.social_proof) out.social_proof = { count: 40, label: 'shops onboarded' };
+    out.buyer_notice = await buyerNoticeSetting(); // default text until the admin edits it
     res.json({ settings: out });
   })
 );

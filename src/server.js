@@ -42,6 +42,7 @@ import { serveStorePage, serveProductPage } from './services/pages.js';
 import { sendVersioned, htmlFileFor, ASSET_VERSION } from './services/assetVersion.js';
 import fs from 'fs';
 import { maintenanceGate } from './services/maintenance.js';
+import { pageGate } from './services/session.js';
 
 const app = express();
 // Behind Railway's proxy: trust it so req.ip reflects the real client (used by the
@@ -111,6 +112,12 @@ app.use('/api/site', siteRouter);
 app.use('/api', publicRouter);
 // OnePay webhook (JSON per the spec; form-encoded accepted too) and buyer return page.
 app.use('/api/onepay', express.urlencoded({ extended: false, limit: '100kb' }), onepayRouter);
+
+// Admin and seller dashboard pages: only for a signed-in user with the right role
+// (checked from the login cookie); everyone else goes to the login page.
+app.use(pageGate());
+// Internal notes kept next to the pages (README, scripts) are not for the public.
+app.get(/\.md$/i, (_req, res) => res.status(404).type('text').send('Not found'));
 
 // Clean URLs: never expose ".html". Redirect any .html request to the extensionless
 // path (301), and let express.static resolve the extensionless path back to the file.
