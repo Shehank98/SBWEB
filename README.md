@@ -405,3 +405,11 @@ LankaQR) replacing manual slip verification.
 
 - Admin > Settings > Buyer notice: a popup buyers see when they open any store, saying the shop (not Sidadiya) is responsible for its products, delivery, returns and refunds. The admin edits the title, message (`{shop}` becomes the shop's name) and button, and switches it on or off for all stores.
 - On by default with that text. After "I understand" it stays hidden on the buyer's device for 30 days, or until the admin changes the text. `?notice=1` on a store link shows it again for checking.
+
+### 8.13 Page protection
+
+- Admin (`/admin/*`) and seller dashboard (`/dashboard/*`) pages are only sent to a signed-in user with the right role. Login and sign-up set an `HttpOnly`, `SameSite=Lax` (and `Secure` on https) cookie holding the same signed token as the API; logout clears it. Without it, the server redirects to `/login?next=...`, and after login the user returns to the page they asked for.
+- Sellers who open an admin address go to their dashboard; admins who open a seller address go to the admin panel. Encoded, upper-case, `..` and double-slash variants of the addresses are covered.
+- Browsers signed in before this change are moved through automatically (the login page sets the cookie from the saved login once).
+- The public demo (`/dashboard/index?demo=1`) still opens the sample seller dashboard without a login, never the admin panel. Internal `.md` notes in the frontend folder are no longer served.
+- The API was already protected by the Bearer token on every admin and seller request; this adds the same protection to the pages themselves.

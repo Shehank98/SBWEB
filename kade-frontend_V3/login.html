@@ -29,6 +29,18 @@
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script>
+    // Where to go after signing in: only our own admin / dashboard pages.
+    var NEXT = (function () {
+      var n = new URLSearchParams(location.search).get('next') || '';
+      return /^\/(admin|dashboard)(\/|$)/.test(n) && n.indexOf('//') < 0 && n.indexOf('\\') < 0 ? n : '';
+    })();
+    // Signed in on this browser before page protection existed: set the page
+    // cookie from the saved login and continue (once, so a blocked cookie cannot loop).
+    (function () {
+      if (!NEXT || !(window.KadeApi && KadeApi.enabled) || !KadeApi.token()) return;
+      try { var last = +sessionStorage.getItem('kade-autonext') || 0; if (Date.now() - last < 30000) return; sessionStorage.setItem('kade-autonext', String(Date.now())); } catch (e) { return; }
+      KadeApi.refreshSession().then(function () { location.replace(NEXT); }).catch(function () { KadeApi.clearSession(); });
+    })();
     document.getElementById('form').addEventListener('submit', async function (e) {
       e.preventDefault();
       var em = document.getElementById('email'), pw = document.getElementById('pw'), err = document.getElementById('err');
@@ -43,7 +55,9 @@
       try {
         var user = await KadeApi.login(em.value.trim(), pw.value);
         var locked = user.businessStatus === 'TRIAL_EXPIRED' || user.businessStatus === 'SUSPENDED';
-        location.href = user.role === 'SUPER_ADMIN' ? 'admin/index' : (locked && user.role === 'BUSINESS_OWNER' ? 'dashboard/subscription?wall=1' : 'dashboard/index');
+        var home = user.role === 'SUPER_ADMIN' ? 'admin/index' : (locked && user.role === 'BUSINESS_OWNER' ? 'dashboard/subscription?wall=1' : 'dashboard/index');
+        var fits = NEXT && (user.role === 'SUPER_ADMIN' ? /^\/admin/.test(NEXT) : /^\/dashboard/.test(NEXT));
+        location.href = fits && !locked ? NEXT : home;
       } catch (ex) {
         err.hidden = false; err.textContent = ex.message || 'Could not sign in.';
         btn.disabled = false; btn.textContent = 'Log in';

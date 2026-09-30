@@ -123,7 +123,10 @@
       setSession(d.token, d.user);
       return d.user;
     },
-    logout() { clearSession(); },
+    // Also clears the page cookie, so the dashboard pages need a login again.
+    logout() { clearSession(); try { fetch(BASE + '/api/auth/logout', { method: 'POST', keepalive: true, credentials: 'same-origin' }).catch(function () {}); } catch (e) {} },
+    // Browsers signed in before page protection existed: set the page cookie from the saved token.
+    refreshSession() { return req('POST', '/api/auth/session'); },
     // register(fields, fileMap) - fields is a plain object; fileMap like { slip: File }.
     async register(fields, fileMap) {
       var fd = new FormData();
