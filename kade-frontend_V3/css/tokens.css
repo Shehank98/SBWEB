@@ -73,8 +73,8 @@
   --radius-pill: 999px;
   --size-touch: 44px;
   --size-content: 1120px;
-  --font-display: "Bricolage Grotesque", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif;
-  --font-sans: "Figtree", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-sans: "Figtree", "Noto Sans Sinhala", "Noto Sans Tamil", system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
 

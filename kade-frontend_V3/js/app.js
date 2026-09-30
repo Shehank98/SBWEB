@@ -10,7 +10,20 @@
   K.rs = function (n) { return 'Rs. ' + Math.round(Number(n)).toLocaleString('en-US'); };
   K.fmtDate = function (iso) { if (!iso) return 'None'; return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
   K.daysUntil = function (iso) { var a = new Date(D.today + 'T00:00:00'), b = new Date(iso + 'T00:00:00'); return Math.round((b - a) / 86400000); };
-  K.initials = function (name) { return String(name).replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase(); };
+  // First letter of the first two words, by whole characters: works for Sinhala,
+  // Tamil and emoji names (a UTF-16 w[0] would split an emoji and show a broken character).
+  var LETTER = /[\p{L}\p{N}\p{Extended_Pictographic}]/u;
+  K.initials = function (name) {
+    var words = String(name == null ? '' : name).trim().split(/\s+/).filter(Boolean), out = [];
+    for (var i = 0; i < words.length && out.length < 2; i++) {
+      var ch = Array.from(words[i]).filter(function (c) { return LETTER.test(c); })[0];
+      if (!ch) continue;
+      // An emoji stands alone as the badge.
+      if (/\p{Extended_Pictographic}/u.test(ch)) { if (!out.length) return ch; continue; }
+      out.push(ch.toUpperCase());
+    }
+    return out.join('') || '?';
+  };
   K.priceOf = function (p) { return p.sale || p.price; };
   // Cheapest variant price (the "from" price shown on cards for variant products).
   K.fromPrice = function (p) { if (p && p.variants && p.variants.length) return Math.min.apply(null, p.variants.map(function (v) { return v.sale != null ? v.sale : v.price; })); return K.priceOf(p); };
