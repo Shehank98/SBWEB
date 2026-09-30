@@ -274,6 +274,7 @@ npm run db:migrate
 | `007_tracking_weekly.sql` | `store_visits`, `seller_digests`, order attribution + courier tracking, weekly-summary preference |
 | `008_receipts_tracking.sql` | `orders.receipt_token` + `receipt_expires_at` (30-day digital receipt, back-filled for old orders), `receipt_shared_at`, `waybill_printed_at`, status-history index, `traffic_sources` plan flag (Pro only) |
 | `009_visitor_sessions.sql` | Index for "one visit per browser session" |
+| `010_store_reviews_toggle.sql` | `stores.reviews_enabled` (admin switches customer reviews on per store; off by default) |
 
 ### 8.2 New environment variables
 
@@ -288,6 +289,7 @@ npm run db:migrate
 | `ONEPAY_SANDBOX_API_BASE` | No | API host for sandbox mode, if OnePay gives you a separate one. Default: `https://api.onepay.lk`. |
 | `ONEPAY_API_BASE` | No (tests only) | Overrides the API host for every mode (the test suite points it at a local mock). Leave unset in production. |
 | `GATEWAY_ENC_KEY` | **Yes, before any seller saves OnePay keys** | 32 random bytes (base64 or hex) used for AES-256-GCM encryption of seller gateway credentials. `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. If unset, a key is derived from `JWT_SECRET` (with a warning); changing `JWT_SECRET` later would then make saved seller keys unreadable. **Never change it once sellers have saved keys.** |
+| `APPS_SCRIPT_URL` | Recommended | The Apps Script web app URL (`.../exec`). The API pings it right after queueing an email so it is sent within seconds; without it emails go out on the 1 minute trigger. |
 | `NOTIFY_TOKEN` | Yes | Shared secret for the Apps Script (outbox + Sheet exports). Falls back to `JWT_SECRET`. |
 | `PUBLIC_BASE_URL` | Yes | Absolute site URL. Used in emails **and in the OnePay callback/redirect URLs**, so it must be the public https domain. |
 | `UPLOAD_DRIVER`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_SERVICE_ACCOUNT` | For production | Unchanged, but now also used for **private** verification documents (see 8.4). |

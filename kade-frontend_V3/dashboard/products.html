@@ -228,7 +228,7 @@
           if (editing) fields.tone = editing.tone;
           var restore = K.btnLoading(K.$('#pf button[type=submit]'), 'Saving…');
           var save = editing ? KadeApi.updateProduct(editing.id, fields, newFiles, keep) : KadeApi.createProduct(fields, newFiles, keep);
-          save.then(function () { dlg.close(); K.toast(editing ? 'Product updated' : 'Product added'); return load(); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not save the product.'); });
+          save.then(function () { restore(); dlg.close(); K.toast(editing ? 'Product updated' : 'Product added'); return load(); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not save the product.'); });
         } else {
           var rec = editing || { id: 'p' + Date.now(), store: 'abc-fashion', tone: ['a', 'b', 'c', 'd', 'e', 'f'][Math.floor(Math.random() * 6)] };
           rec.name = fields.name; rec.category = fields.category; rec.desc = fields.desc; rec.options = fields.options;

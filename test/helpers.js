@@ -44,8 +44,12 @@ export async function login(email, password) {
   return r.data.token;
 }
 
+// One admin login per test file: the API rate-limits repeated logins (by design),
+// so tests reuse the token instead of logging in again for every call.
+let adminTok = null;
 export async function adminToken() {
-  return login(process.env.ADMIN_EMAIL || 'admin@sidadiya.lk', process.env.ADMIN_PASSWORD || 'admin12345');
+  if (!adminTok) adminTok = await login(process.env.ADMIN_EMAIL || 'admin@sidadiya.lk', process.env.ADMIN_PASSWORD || 'admin12345');
+  return adminTok;
 }
 
 export async function outbox(businessId, type) {

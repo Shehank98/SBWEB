@@ -136,7 +136,7 @@ registerKind('ORDER', {
       `SELECT s.name, s.slug, s.phone, s.whatsapp, s.address, COALESCE(NULLIF(s.contact_email, ''), b.email) AS email FROM stores s JOIN businesses b ON b.id = s.business_id WHERE s.business_id = $1`,
       [o.business_id]
     )).rows[0];
-    const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [o.id])).rows;
+    const items = (await client.query('SELECT oi.name, oi.qty, oi.price, COALESCE(pr.image_url, pr.images->>0) AS image FROM order_items oi LEFT JOIN products pr ON pr.id = oi.product_id WHERE oi.order_id=$1', [o.id])).rows;
     await queueNotification({ businessId: o.business_id, recipient: shop.email, dedupeKey: `ORDER_PAID_OWNER:${o.id}`, ...templates.orderPaidOwner(shop, o, tx) }, client);
     if (o.customer_email) await queueNotification({ businessId: o.business_id, recipient: o.customer_email, dedupeKey: `ORDER_PAID_BUYER:${o.id}`, ...templates.orderPaidBuyer(shop, o, items, tx) }, client);
   },

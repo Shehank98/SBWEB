@@ -139,7 +139,7 @@ adminRouter.get(
         business: { type: r.type, phone: r.phone, whatsapp: r.whatsapp, email: r.email, address: r.address, city: r.city, district: r.district, facebook: r.facebook, instagram: r.instagram },
         trial: r.trial_ends_at ? { startedAt: r.trial_started_at, endsAt: r.trial_ends_at } : null,
         preferredPlanId: r.preferred_plan_id,
-        store: { slug: store.slug, name: store.name, logo: store.logo_url || null, contactEmail: store.contact_email || '', address: store.address || '' },
+        store: { slug: store.slug, name: store.name, logo: store.logo_url || null, contactEmail: store.contact_email || '', address: store.address || '', reviewsEnabled: !!store.reviews_enabled },
         sales: Number(sales.s),
         products: Number(products.c),
         verificationReason: r.verification_reason,
@@ -652,5 +652,17 @@ adminRouter.delete(
     await query('DELETE FROM platform_settings WHERE key = $1', [PLATFORM_CREDS_KEY]);
     clearSettingsCache();
     res.json({ onepay: await paymentSettingsView() });
+  })
+);
+
+// PUT /api/admin/shops/:id/reviews { enabled } — turn customer reviews on or off for a
+// store. Off: no ratings on the store and buyers are not asked to review.
+adminRouter.put(
+  '/shops/:id/reviews',
+  wrap(async (req, res) => {
+    const on = !!(req.body && req.body.enabled);
+    const r = await query('UPDATE stores SET reviews_enabled = $2 WHERE business_id = $1 RETURNING reviews_enabled', [req.params.id, on]);
+    if (!r.rowCount) throw notFound('Shop not found.');
+    res.json({ ok: true, reviewsEnabled: r.rows[0].reviews_enabled });
   })
 );
