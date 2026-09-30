@@ -204,6 +204,9 @@
     adminUpdatePlan(id, p) { return req('PUT', '/api/admin/plans/' + encodeURIComponent(id), p); },
     adminSettings() { return req('GET', '/api/admin/settings'); },
     adminSaveSettings(s) { return req('PUT', '/api/admin/settings', s); },
+    adminPaymentSettings() { return req('GET', '/api/admin/payment-settings'); },
+    adminSavePaymentSettings(b) { return req('PUT', '/api/admin/payment-settings', b); },
+    adminResetPaymentSettings() { return req('DELETE', '/api/admin/payment-settings'); },
   };
 
   window.KadeApi = KadeApi;

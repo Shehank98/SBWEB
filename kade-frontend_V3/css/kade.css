@@ -913,3 +913,17 @@ body.has-cartbar { padding-bottom: 84px; }
 .kd-btn--wa:hover { filter: brightness(.95); }
 .kd-btn[disabled][title] { pointer-events: auto; }
 @media (max-width: 899px) { .toolbar .sel-all, .toolbar #bulkPrint { flex: 1 1 auto; } }
+
+/* ---- Subscription: current plan card with progress ---- */
+#current.facts { display: block; }
+.subcard { display: grid; gap: 10px; }
+.subcard__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.subcard__plan { font: 700 20px/26px var(--font-display); }
+.subcard__days { font-size: 15px; color: var(--ink-muted); }
+.subcard__days strong { font: 800 28px/1 var(--font-display); color: var(--ink); margin-right: 4px; }
+.subcard--warning .subcard__days strong, .subcard--warning .subcard__warn { color: var(--warning); }
+.subcard--danger .subcard__days strong, .subcard--danger .subcard__warn { color: var(--danger); }
+.subcard__when { font-size: 14px; color: var(--ink-muted); }
+.subcard__warn { font-weight: 700; }
+.subcard__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#opCb, #opRd { overflow-wrap: anywhere; word-break: break-all; }

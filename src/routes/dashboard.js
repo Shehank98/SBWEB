@@ -537,7 +537,7 @@ dashboardRouter.get(
       renewalDate: sub && sub.expiry_date ? sub.expiry_date.toISOString().slice(0, 10) : null,
       preferredPlanId: biz ? biz.preferred_plan_id : null,
       bankAccounts: await getSetting('platform_bank_accounts', []),
-      cardPayments: { enabled: !!platformCreds(), mode: platformCreds() ? platformCreds().mode : null },
+      cardPayments: await platformCreds().then((c) => ({ enabled: !!c, mode: c ? c.mode : null })),
       payments,
     });
   })

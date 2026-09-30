@@ -20,6 +20,8 @@
 // Points the spec leaves open are handled defensively and listed in the README
 // ("OnePay: open questions").
 import { createHash } from 'crypto';
+import { getSetting } from './settings.js';
+import { decryptJson } from './secrets.js';
 
 export const ONEPAY_LIVE_BASE = 'https://api.onepay.lk';
 
@@ -50,12 +52,30 @@ export function splitName(full) {
   return { first: parts[0], last: parts.slice(1).join(' ') || parts[0] };
 }
 
-// Platform credentials (Sidadiya's own OnePay merchant account) from env.
-export function platformCreds() {
+// Platform credentials (Sidadiya's own OnePay merchant account). An admin can save
+// them in Admin > Settings > Payment settings: stored encrypted (AES-256-GCM,
+// GATEWAY_ENC_KEY) in platform_settings.onepay_platform and never sent to a
+// browser. Without that, the ONEPAY_* environment variables are used.
+export const PLATFORM_CREDS_KEY = 'onepay_platform';
+export function envPlatformCreds() {
   const appId = process.env.ONEPAY_APP_ID || '';
   const salt = process.env.ONEPAY_HASH_SALT || '';
   const mode = process.env.ONEPAY_MODE === 'live' ? 'live' : 'sandbox';
-  return appId && salt ? { appId, salt, mode, appToken: process.env.ONEPAY_APP_TOKEN || '' } : null;
+  return appId && salt ? { appId, salt, mode, appToken: process.env.ONEPAY_APP_TOKEN || '', source: 'env' } : null;
+}
+export async function storedPlatformCreds() {
+  const row = await getSetting(PLATFORM_CREDS_KEY, null);
+  if (!row || !row.enc) return null;
+  try {
+    const c = decryptJson(row.enc);
+    return c && c.appId && c.salt ? { appId: c.appId, salt: c.salt, appToken: c.appToken || '', mode: c.mode === 'live' ? 'live' : 'sandbox', source: 'admin', updatedAt: row.updatedAt || null } : null;
+  } catch (e) {
+    console.error('[onepay] could not decrypt the saved platform credentials (was GATEWAY_ENC_KEY changed?):', e.message);
+    return null;
+  }
+}
+export async function platformCreds() {
+  return (await storedPlatformCreds()) || envPlatformCreds();
 }
 
 // Base URL. Live is api.onepay.lk. The sandbox base URL is shown in the OnePay
