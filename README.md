@@ -394,3 +394,9 @@ LankaQR) replacing manual slip verification.
 - Weights: store information 15, logo 10, category 10, first product 20, delivery 15, payment method 15 (essential, 85 in total: the store is "ready to accept orders" when all are done), cover photo 5, social links 5, business verification 5 (recommended). Optional extras (3+ categories, both COD and bank transfer, OnePay, weekly email) are shown but weigh 0, so they never lower the score.
 - Migration `011_store_setup.sql` adds `delivery_set_at` and `payments_set_at`: the defaults (Rs. 350, cash on delivery) only count once the seller confirms them. Shops that existed before are treated as confirmed.
 - New sign-ups land on `/dashboard/setup?welcome=1`. "Continue setup" always opens the next unfinished step.
+
+### 8.11 Refunds and restocking
+
+- Marking an order refunded records the refund amount (full by default, or partial up to the order total) with a note. Migration `012_refunds_restock.sql` adds `refund_amount` and `restocked_at`; older refunded orders count as full refunds.
+- Reports, the dashboard and the weekly email show net revenue: cancelled orders count 0 and refunds are deducted (a partial refund keeps the rest). Reports also show gross sales, refunds and the number of refunded orders. Fully refunded and cancelled orders do not count as sales, items sold or customer insights.
+- When cancelling or refunding, the seller must answer "Put the items back in stock?". Stock is returned at most once per order (also for failed card payments).

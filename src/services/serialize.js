@@ -125,6 +125,8 @@ export function order(row, items) {
     paymentStatus: row.payment_status || null,
     paidOn: row.paid_on || null,
     refundNote: row.refund_note || null,
+    refundAmount: row.refund_amount == null ? null : Number(row.refund_amount),
+    restocked: !!row.restocked_at,
     tracking: row.tracking_number || row.courier_name ? { courier: row.courier_name || '', number: row.tracking_number || '', url: row.tracking_url || '', shippedAt: row.shipped_at } : null,
     source: row.source || null,
     note: row.note || '',
