@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Waybills | Sidadiya dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+  <style>
+    /* Screen: preview of the labels with a print bar. Print: one A6 label per page. */
+    .wb-page { max-width: 760px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+    .wb-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .wb-bar h1 { font: 700 22px/28px var(--font-display); }
+    .wb-grid { display: grid; gap: 16px; justify-content: center; grid-template-columns: minmax(0, 105mm); }
+    .wb { width: 105mm; height: auto; aspect-ratio: 105 / 148; max-width: 100%; background: #fff; color: #111; border: 1px dashed #bbb; padding: 5mm; display: flex; flex-direction: column; gap: 3mm; font: 400 9.5pt/1.3 var(--font-sans); overflow: hidden; }
+    .wb-head { display: grid; grid-template-columns: minmax(0, 1fr) 24mm; gap: 3mm; align-items: start; border-bottom: 1.5px solid #111; padding-bottom: 2.5mm; }
+    .wb-shop { display: flex; gap: 2.5mm; align-items: center; min-width: 0; }
+    .wb-logo { width: 11mm; height: 11mm; flex: none; border-radius: 50%; overflow: hidden; background: #eee; display: grid; place-items: center; font-weight: 800; font-size: 10pt; }
+    .wb-logo img { width: 100%; height: 100%; object-fit: cover; }
+    .wb-shop b { display: block; font-size: 11pt; line-height: 1.15; overflow-wrap: anywhere; }
+    .wb-code { font: 800 13pt/1.1 var(--font-mono); margin-top: 1.5mm; letter-spacing: .02em; }
+    .wb-qr svg { width: 24mm; height: 24mm; display: block; }
+    .wb-lbl { font-size: 7pt; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #555; }
+    .wb-to { border: 1.5px solid #111; border-radius: 2mm; padding: 2.5mm; }
+    .wb-to .wb-nm { font-size: 13pt; font-weight: 800; line-height: 1.2; overflow-wrap: anywhere; }
+    .wb-to .wb-ph { font: 700 11.5pt/1.3 var(--font-mono); }
+    .wb-to .wb-ad { font-size: 10.5pt; line-height: 1.3; overflow-wrap: anywhere; }
+    .wb-to .wb-ct { font-size: 11.5pt; font-weight: 800; }
+    .wb-from { font-size: 8.5pt; overflow-wrap: anywhere; }
+    .wb-items { font-size: 8.5pt; overflow: hidden; max-height: 18mm; overflow-wrap: anywhere; }
+    .wb-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5mm; margin-top: auto; }
+    .wb-cod { border: 2px solid #111; border-radius: 2mm; padding: 2mm; text-align: center; }
+    .wb-cod b { display: block; font: 800 14pt/1.1 var(--font-mono); }
+    .wb-cod.paid b { font-size: 11pt; }
+    .wb-trk { border: 1px solid #111; border-radius: 2mm; padding: 2mm; overflow-wrap: anywhere; }
+    .wb-trk b { font: 700 10pt/1.2 var(--font-mono); }
+    .wb-foot { display: flex; justify-content: space-between; font-size: 7.5pt; color: #444; border-top: 1px solid #111; padding-top: 1.5mm; }
+    .wb-skip { border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 12px 14px; background: var(--warning-soft); }
+    .wb-skip ul { margin: 6px 0 0 18px; }
+    @page { size: 105mm 148mm; margin: 0; }
+    @media print {
+      html, body { background: #fff !important; }
+      .no-print { display: none !important; }
+      .wb-page { padding: 0; max-width: none; gap: 0; }
+      .wb-grid { gap: 0; display: block; }
+      .wb { border: 0; width: 105mm; max-width: none; height: 148mm; aspect-ratio: auto; page-break-after: always; break-after: page; }
+      .wb:last-child { page-break-after: auto; break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wb-page" id="main">
+    <div class="wb-bar no-print">
+      <div><h1>Waybills</h1><p class="muted" id="sub">A6 labels, one per page. Choose A6 paper (or "Fit to page") in the print dialog.</p></div>
+      <div class="row" style="gap:8px"><a class="kd-btn kd-btn--ghost kd-btn--sm" href="orders">Back to orders</a><button class="kd-btn kd-btn--primary kd-btn--sm" type="button" id="print" disabled>Print</button></div>
+    </div>
+    <div id="skip" class="no-print"></div>
+    <div class="wb-grid" id="grid"><p class="muted">Loading waybills…</p></div>
+  </main>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    (function () {
+      var K = Kade;
+      if (!K.guard('owner', 'orders')) return;
+      var codes = (new URLSearchParams(location.search).get('codes') || '').split(',').map(function (c) { return c.trim(); }).filter(function (c, i, a) { return c && a.indexOf(c) === i; });
+      var grid = K.$('#grid'), ready = [];
+      if (!codes.length) { grid.innerHTML = '<div class="empty"><h2>No orders selected</h2><p class="muted">Go back to Orders and choose the orders to print.</p></div>'; return; }
+      function day(t) { return t ? new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; }
+      function label(shop, w) {
+        var logo = shop.logo ? '<img src="' + K.esc(shop.logo) + '" alt="">' : K.esc(K.initials(shop.name));
+        var its = w.items.map(function (i) { return i.qty + ' × ' + i.name; }).join(', ');
+        return '<article class="wb" aria-label="Waybill ' + K.esc(w.code) + '">' +
+          '<div class="wb-head"><div><div class="wb-shop"><span class="wb-logo">' + logo + '</span><b>' + K.esc(shop.name) + '</b></div><div class="wb-code">' + K.esc(w.code) + '</div><div class="wb-lbl" style="margin-top:1mm">Placed ' + day(w.date) + '</div></div>' +
+          '<div class="wb-qr" aria-hidden="true">' + w.qr + '</div></div>' +
+          '<div class="wb-to"><div class="wb-lbl">Deliver to</div><div class="wb-nm">' + K.esc(w.customer) + '</div><div class="wb-ph">' + K.esc(w.phone) + (w.whatsapp && w.whatsapp !== w.phone ? ' / ' + K.esc(w.whatsapp) : '') + '</div>' +
+          '<div class="wb-ad">' + K.esc(w.address) + '</div><div class="wb-ct">' + K.esc(w.city) + (w.district ? ', ' + K.esc(w.district) : '') + '</div></div>' +
+          '<div class="wb-from"><span class="wb-lbl">From</span> ' + K.esc(shop.name) + (shop.address ? ', ' + K.esc(shop.address) : (shop.city ? ', ' + K.esc(shop.city) : '')) + (shop.phone ? ' · ' + K.esc(shop.phone) : '') + '</div>' +
+          '<div class="wb-items"><span class="wb-lbl">Items (' + w.pieces + ' pcs)</span> ' + K.esc(its) + (w.note ? '<br><span class="wb-lbl">Note</span> ' + K.esc(w.note) : '') + '</div>' +
+          '<div class="wb-row"><div class="wb-cod' + (w.cod ? '' : ' paid') + '"><span class="wb-lbl">' + (w.cod ? 'Cash on delivery' : 'Payment') + '</span><b>' + (w.cod ? K.rs(w.cod) : 'No cash to collect') + '</b></div>' +
+          '<div class="wb-trk"><span class="wb-lbl">' + (w.courier ? K.esc(w.courier) : 'Tracking no.') + '</span><br><b>' + (w.trackingNumber ? K.esc(w.trackingNumber) : '&nbsp;') + '</b></div></div>' +
+          '<div class="wb-foot"><span>' + K.esc(w.payment) + '</span><span>Sidadiya</span></div></article>';
+      }
+      function load() {
+        grid.innerHTML = '<p class="muted">' + K.spinner() + ' Loading waybills…</p>';
+        KadeApi.waybills(codes).then(function (r) {
+          ready = r.waybills.filter(function (w) { return !w.missing.length; });
+          var skipped = r.waybills.filter(function (w) { return w.missing.length; });
+          K.$('#skip').innerHTML = skipped.length ? '<div class="wb-skip" role="status"><strong>' + skipped.length + ' order' + (skipped.length === 1 ? ' is' : 's are') + ' not ready and will not print:</strong><ul>' +
+            skipped.map(function (w) { return '<li>' + K.esc(w.code) + ': missing ' + K.esc(w.missing.join(', ')) + '</li>'; }).join('') + '</ul></div>' : '';
+          grid.innerHTML = ready.length ? ready.map(function (w) { return label(r.shop, w); }).join('') : '<div class="empty"><h2>Nothing to print</h2><p class="muted">Complete the missing details on these orders, then try again.</p></div>';
+          K.$('#print').disabled = !ready.length;
+          K.$('#print').textContent = ready.length > 1 ? 'Print ' + ready.length + ' waybills' : 'Print waybill';
+          document.title = (ready.length === 1 ? ready[0].code : ready.length + ' waybills') + ' | Waybills';
+        }).catch(function (ex) {
+          grid.innerHTML = '<div class="empty"><h2>Could not load waybills</h2><p class="muted">' + K.esc(ex.message || 'Please try again.') + '</p><button class="kd-btn kd-btn--secondary kd-btn--sm" type="button" id="retry">Try again</button></div>';
+          K.$('#retry').addEventListener('click', load);
+        });
+      }
+      K.$('#print').addEventListener('click', function () { window.print(); });
+      window.addEventListener('afterprint', function () { if (ready.length) KadeApi.waybillsPrinted(ready.map(function (w) { return w.code; })).catch(function () {}); });
+      load();
+    })();
+  </script>
+</body>
+</html>

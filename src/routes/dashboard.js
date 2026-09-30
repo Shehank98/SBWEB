@@ -8,11 +8,13 @@ import { config } from '../config.js';
 import { startSubscriptionCheckout } from '../services/cardPayments.js';
 import { platformCreds } from '../services/onepay.js';
 import { listGateways, saveGateway, cardAvailability, gatewayUrls } from '../services/gateways.js';
+import QRCode from 'qrcode';
+import { waybillMissing, isCod, receiptExpired, toWhatsAppIntl, receiptUrl, trackUrl } from '../services/orderLinks.js';
 import { onepayGuide } from '../services/onepayGuide.js';
-import { trafficSources } from '../services/traffic.js';
+import { trafficSources, trafficBuckets } from '../services/traffic.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
-import { currentPlan, cap, businessAccess, assertFeature, paywall, trialInfo } from '../services/plan.js';
+import { currentPlan, cap, businessAccess, assertFeature, hasFeature, paywall, trialInfo } from '../services/plan.js';
 import { getSetting } from '../services/settings.js';
 import { POLICY_KINDS, TEMPLATES, loadPolicies, compliance, validateContact } from '../services/policies.js';
 import * as S from '../services/serialize.js';
@@ -324,22 +326,22 @@ dashboardRouter.put(
         'INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)',
         [order.id, status, req.user.sub, note]
       );
-      // Email the customer only at the two milestones that matter to them:
-      // when the shop confirms the order and when it ships. Other status changes
-      // stay internal. The dedupe key makes a repeated click a no-op.
-      if (order.customer_email && (status === 'CONFIRMED' || status === 'SHIPPED')) {
+      // Email the buyer a status update (on behalf of the shop) for each step on
+      // the tracking timeline. The dedupe key makes a repeated click a no-op;
+      // "Processing" and "Ready to ship" both count as Packed, so one email.
+      if (order.customer_email && status !== order.status) {
         const shop = (await client.query(
-          `SELECT COALESCE(s.name, bz.name) AS name, s.slug, s.phone, s.whatsapp, s.address
+          `SELECT COALESCE(s.name, bz.name) AS name, s.slug, s.phone, s.whatsapp, s.address, COALESCE(NULLIF(s.contact_email, ''), bz.email) AS email
              FROM businesses bz LEFT JOIN stores s ON s.business_id = bz.id
             WHERE bz.id = $1`,
           [b]
         )).rows[0] || { name: 'Your store' };
         const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [order.id])).rows;
-        const tpl = status === 'CONFIRMED' ? templates.orderConfirmed : templates.orderShipped;
-        await queueNotification(
-          { businessId: b, recipient: order.customer_email, dedupeKey: `${status}:${order.id}`, ...tpl(shop, order, items) },
-          client
-        );
+        const mail = status === 'CONFIRMED' ? templates.orderConfirmed(shop, order, items)
+          : status === 'SHIPPED' ? templates.orderShipped(shop, order, items)
+          : templates.orderStatusUpdate(shop, order, items, status);
+        const key = status === 'PROCESSING' || status === 'READY_TO_SHIP' ? 'PACKED' : status;
+        if (mail) await queueNotification({ businessId: b, recipient: order.customer_email, dedupeKey: `${key}:${order.id}`, ...mail }, client);
       }
     });
     res.json({ ok: true, status });
@@ -372,7 +374,7 @@ dashboardRouter.put(
         await client.query('INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)', [o.id, o.status, req.user.sub, `${courier} ${number}`]);
       }
       if (o.customer_email) {
-        const shop = (await client.query('SELECT s.name, s.slug, s.phone, s.whatsapp, s.address FROM stores s WHERE s.business_id=$1', [b])).rows[0];
+        const shop = (await client.query(`SELECT s.name, s.slug, s.phone, s.whatsapp, s.address, COALESCE(NULLIF(s.contact_email, ''), bz.email) AS email FROM stores s JOIN businesses bz ON bz.id = s.business_id WHERE s.business_id=$1`, [b])).rows[0];
         const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [o.id])).rows;
         // New tracking number = new email; saving the same one twice sends once.
         await queueNotification({ businessId: b, recipient: o.customer_email, dedupeKey: `SHIPPED_TRACK:${o.id}:${number}`, ...templates.orderShippedTracking(shop, o, items) }, client);
@@ -380,6 +382,90 @@ dashboardRouter.put(
       return o;
     });
     res.json({ ok: true, status: updated.status, emailed: !!updated.customer_email, tracking: { courier, number, url: url || '' } });
+  })
+);
+
+// ---- Waybills: print-ready data for one or many orders (A6 labels) ----
+// GET /api/dashboard/waybills?codes=ORD-1,ORD-2  (max 50). Each waybill carries
+// the fields still missing; the page prints only the ready ones.
+dashboardRouter.get(
+  '/waybills',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const codes = String(req.query.codes || '').split(',').map((c) => c.trim()).filter((c, i, all) => c && all.indexOf(c) === i).slice(0, 50);
+    if (!codes.length) throw badRequest('Choose at least one order.');
+    const shop = (await query(
+      `SELECT COALESCE(s.name, bz.name) AS name, s.logo_url, s.address, s.phone, bz.phone AS biz_phone, bz.city, bz.district
+         FROM businesses bz LEFT JOIN stores s ON s.business_id = bz.id WHERE bz.id = $1`,
+      [b]
+    )).rows[0];
+    const orders = (await query('SELECT * FROM orders WHERE business_id = $1 AND code = ANY($2)', [b, codes])).rows;
+    const ids = orders.map((o) => o.id);
+    const items = ids.length ? (await query('SELECT order_id, name, qty FROM order_items WHERE order_id = ANY($1) ORDER BY id', [ids])).rows : [];
+    const byOrder = items.reduce((m, i) => { (m[i.order_id] = m[i.order_id] || []).push(i); return m; }, {});
+    const waybills = await Promise.all(codes.map(async (code) => {
+      const o = orders.find((x) => x.code === code);
+      if (!o) return { code, missing: ['Order not found'] };
+      const its = byOrder[o.id] || [];
+      return {
+        code: o.code,
+        date: o.created_at,
+        customer: o.customer_name,
+        phone: o.phone,
+        whatsapp: o.whatsapp || '',
+        address: o.address || '',
+        city: o.city || '',
+        district: o.district || '',
+        items: its.map((i) => ({ name: i.name, qty: i.qty })),
+        pieces: its.reduce((n, i) => n + Number(i.qty || 0), 0),
+        payment: o.payment_method || '',
+        cod: isCod(o) ? Number(o.total) : 0,
+        total: Number(o.total),
+        courier: o.courier_name || '',
+        trackingNumber: o.tracking_number || '',
+        note: o.note || '',
+        // QR of the order id (the courier or the shop can scan it back to the order).
+        qr: await QRCode.toString(o.code, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' }),
+        missing: waybillMissing(o, its),
+      };
+    }));
+    res.json({
+      shop: { name: shop.name, logo: shop.logo_url || null, address: shop.address || '', phone: shop.phone || shop.biz_phone || '', city: shop.city || '', district: shop.district || '' },
+      waybills,
+    });
+  })
+);
+
+// POST /api/dashboard/waybills/printed { codes } — remember what was printed.
+dashboardRouter.post(
+  '/waybills/printed',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const codes = (Array.isArray(req.body && req.body.codes) ? req.body.codes : []).map(String).slice(0, 50);
+    const r = await query('UPDATE orders SET waybill_printed_at = now() WHERE business_id = $1 AND code = ANY($2)', [bid(req), codes]);
+    res.json({ ok: true, updated: r.rowCount });
+  })
+);
+
+// POST /api/dashboard/orders/:code/receipt-share — the seller shares the digital
+// receipt on WhatsApp. Returns the wa.me link (buyer number normalised to 94...).
+dashboardRouter.post(
+  '/orders/:code/receipt-share',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const o = (await query('SELECT * FROM orders WHERE business_id = $1 AND code = $2', [b, req.params.code])).rows[0];
+    if (!o) throw notFound('Order not found.');
+    if (receiptExpired(o)) throw badRequest('This receipt link has expired (receipts work for 30 days after purchase).');
+    const phone = toWhatsAppIntl(o.whatsapp || o.phone);
+    if (!phone) throw badRequest("The buyer's number is not a Sri Lankan mobile number, so WhatsApp cannot be opened.");
+    const shop = (await query('SELECT COALESCE(s.name, bz.name) AS name FROM businesses bz LEFT JOIN stores s ON s.business_id = bz.id WHERE bz.id = $1', [b])).rows[0];
+    const first = String(o.customer_name || '').trim().split(' ')[0] || 'there';
+    const until = new Date(o.receipt_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const text = `Hi ${first}, thank you for shopping with ${shop.name}! Here is your receipt for order ${o.code}: ${receiptUrl(o)}\nTrack your order: ${trackUrl(o)}\n(The receipt link works until ${until}.)`;
+    await query('UPDATE orders SET receipt_shared_at = now() WHERE id = $1', [o.id]);
+    res.json({ ok: true, waUrl: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`, phone });
   })
 );
 
@@ -402,13 +488,29 @@ dashboardRouter.put(
   })
 );
 
-// ---- Traffic sources for the overview (last N days) ----
+// ---- Where visitors came from (Pro only; gated here, not just in the UI) ----
+// GET /api/dashboard/traffic?from=YYYY-MM-DD&to=YYYY-MM-DD (Sri Lanka dates,
+// inclusive) or ?days=N. Other plans get 403 UPGRADE_REQUIRED and no data.
+const SL_DAY = /^\d{4}-\d{2}-\d{2}$/;
 dashboardRouter.get(
   '/traffic',
   wrap(async (req, res) => {
-    const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
-    const to = new Date(), from = new Date(Date.now() - days * 86400000);
-    res.json({ days, sources: await trafficSources(bid(req), from, to, 8) });
+    const b = bid(req);
+    if (!(await hasFeature(b, 'traffic_sources'))) {
+      throw new HttpError(403, 'See where your visitors come from on the Pro plan.', { code: 'UPGRADE_REQUIRED', feature: 'traffic_sources', upgrade: true });
+    }
+    let from, to;
+    if (SL_DAY.test(String(req.query.from || '')) && SL_DAY.test(String(req.query.to || ''))) {
+      from = new Date(`${req.query.from}T00:00:00+05:30`);
+      to = new Date(new Date(`${req.query.to}T00:00:00+05:30`).getTime() + 86400000);
+      if (!(from < to)) throw badRequest('The start date must be on or before the end date.');
+      if (to - from > 366 * 86400000) throw badRequest('Choose a range of one year or less.');
+    } else {
+      const days = Math.min(366, Math.max(1, Number(req.query.days) || 7));
+      to = new Date(); from = new Date(Date.now() - days * 86400000);
+    }
+    const [summary, sources] = await Promise.all([trafficBuckets(b, from, to), trafficSources(b, from, to, 8)]);
+    res.json({ from: from.toISOString(), to: to.toISOString(), ...summary, sources });
   })
 );
 
@@ -451,7 +553,7 @@ dashboardRouter.get(
       renewalDate: sub && sub.expiry_date ? sub.expiry_date.toISOString().slice(0, 10) : null,
       preferredPlanId: biz ? biz.preferred_plan_id : null,
       bankAccounts: await getSetting('platform_bank_accounts', []),
-      cardPayments: { enabled: !!platformCreds(), mode: platformCreds() ? platformCreds().mode : null },
+      cardPayments: await platformCreds().then((c) => ({ enabled: !!c, mode: c ? c.mode : null })),
       payments,
     });
   })
@@ -577,8 +679,8 @@ dashboardRouter.get(
     const store = (await query('SELECT * FROM stores WHERE business_id=$1', [b])).rows[0];
     if (!store) throw notFound('Store not found.');
     const cats = (await query('SELECT name FROM categories WHERE business_id=$1 ORDER BY sort_order, name', [b])).rows.map((r) => r.name);
-    const biz = (await query('SELECT status FROM businesses WHERE id=$1', [b])).rows[0];
-    res.json({ store: { ...S.storePublic(store, cats), status: biz ? biz.status : store.status } });
+    const biz = (await query('SELECT status, facebook, instagram FROM businesses WHERE id=$1', [b])).rows[0];
+    res.json({ store: { ...S.storePublic({ ...store, facebook: biz && biz.facebook, instagram: biz && biz.instagram }, cats), status: biz ? biz.status : store.status } });
   })
 );
 
@@ -592,6 +694,12 @@ dashboardRouter.put(
     if (!store) throw notFound('Store not found.');
     const d = s.delivery || {};
     const p = s.payments || {};
+    // Autosave sends partial or in-progress edits: never blank the name, and keep
+    // fields the page did not send (city was previously wiped on every save).
+    if (s.name !== undefined && !String(s.name || '').trim()) throw badRequest('Your store needs a name.');
+    if (d.fee != null && !(Number(d.fee) >= 0 && Number(d.fee) <= 100000)) throw badRequest('Enter a delivery fee between 0 and 100,000.');
+    if (d.freeAbove != null && !(Number(d.freeAbove) >= 0)) throw badRequest('Free delivery amount cannot be negative.');
+    const keep = (v, cur) => (v === undefined ? cur : (String(v || '').trim() || null));
     // Structured bank account (shown to customers, copyable). Keep bank_details as a
     // human-readable one-line summary composed from the fields, for the plain-text
     // fallback and any legacy readers.
@@ -614,8 +722,8 @@ dashboardRouter.put(
       `UPDATE stores SET name=$2, tagline=$3, about=$4, preset=$5, phone=$6, whatsapp=$7, address=$8, city=$9,
               delivery_fee=$10, delivery_free_above=$11, pickup=$12, pay_cod=$13, pay_bank=$14, pay_online=$15, bank_details=$16, template=$17, bank_account=$18
         WHERE business_id=$1`,
-      [b, s.name || store.name, s.tagline || null, s.about || null, s.preset || store.preset,
-       s.phone || null, s.whatsapp || null, s.address || null, s.city || null,
+      [b, String(s.name || '').trim() || store.name, keep(s.tagline, store.tagline), keep(s.about, store.about), s.preset || store.preset,
+       keep(s.phone, store.phone), keep(s.whatsapp, store.whatsapp), keep(s.address, store.address), keep(s.city, store.city),
        d.fee != null ? d.fee : store.delivery_fee, d.freeAbove != null ? d.freeAbove : store.delivery_free_above,
        d.pickup != null ? d.pickup : store.pickup,
        p.cod != null ? p.cod : store.pay_cod, p.bank != null ? p.bank : store.pay_bank, p.online != null ? p.online : store.pay_online,
@@ -623,6 +731,11 @@ dashboardRouter.put(
        ['classic', 'showcase', 'minimal'].includes(s.template) ? s.template : store.template,
        JSON.stringify(bankAccount)]
     );
+    // Social links for the storefront footer (a handle or a full https link).
+    const social = (v) => { const t = String(v || '').trim().slice(0, 200); if (!t) return null; if (/^https?:\/\//i.test(t)) return t; if (/^@?[A-Za-z0-9._-]{1,80}$/.test(t)) return t.replace(/^@/, ''); throw badRequest('Enter a Facebook or Instagram page name, or its full link.'); };
+    if (s.facebook !== undefined || s.instagram !== undefined) {
+      await query('UPDATE businesses SET facebook = COALESCE($2, facebook), instagram = COALESCE($3, instagram) WHERE id = $1', [b, s.facebook !== undefined ? social(s.facebook) || '' : null, s.instagram !== undefined ? social(s.instagram) || '' : null]);
+    }
 
     // Replace category list if provided (deduped, and capped to the plan's limit).
     if (Array.isArray(s.categories)) {

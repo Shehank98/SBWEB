@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FBF7F0">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <title>Receipt</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/storefront.css">
+</head>
+<body>
+  <main id="main" class="wrap" tabindex="-1">
+    <div class="rcpt-wrap"><div class="skeleton" style="height:420px"></div></div>
+  </main>
+  <script src="/js/config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/data.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/store.js"></script>
+  <script>
+    /* Digital receipt: /receipt/<token>. The server refuses expired links (410). */
+    (function () {
+      var K = Kade, rs = SF.rs, main = document.getElementById('main');
+      var token = location.pathname.replace(/^\/receipt\//, '').replace(/\/$/, '');
+      function day(t) { return t ? new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''; }
+      function brand(s) {
+        document.documentElement.classList.add('sf');
+        document.documentElement.setAttribute('data-preset', (s && s.preset) || 'tea');
+      }
+      function note(icon, title, text, s, retry) {
+        brand(s);
+        main.innerHTML = '<div class="rcpt-wrap"><div class="panel empty"><div class="big" aria-hidden="true">' + icon + '</div><h1>' + title + '</h1><p style="color:var(--sf-muted)">' + text + '</p>' +
+          (retry ? '<button type="button" class="btn btn-soft btn-sm" id="retry">Try again</button>' : '') +
+          (s && s.slug ? '<a class="btn btn-primary btn-sm" href="/store/' + encodeURIComponent(s.slug) + '">Visit ' + K.esc(s.name) + '</a>' : '') + '</div></div>';
+        var r = document.getElementById('retry'); if (r) r.addEventListener('click', load);
+      }
+      var PAY = { PAID: 'Paid', PENDING: 'Payment pending', REFUNDED: 'Refunded', FAILED: 'Payment failed', DUE_ON_DELIVERY: 'Pay on delivery' };
+      function paint(d) {
+        var r = d.receipt, s = d.store || { name: 'Shop' };
+        brand(s);
+        document.title = 'Receipt ' + r.number + ' | ' + s.name;
+        var logo = s.logo ? '<img src="' + K.esc(s.logo) + '" alt="">' : K.esc(K.initials(s.name));
+        main.innerHTML = '<div class="rcpt-wrap"><article class="rcpt panel" aria-labelledby="rc-h">' +
+          '<header class="rcpt-head"><span class="sf-mark rcpt-logo">' + logo + '</span><div><h1 id="rc-h">' + K.esc(s.name) + '</h1>' +
+          '<p>' + [s.address, s.phone, s.email].filter(Boolean).map(K.esc).join(' · ') + '</p></div></header>' +
+          '<div class="rcpt-meta"><div><span>Receipt</span><b>' + K.esc(r.number) + '</b></div><div><span>Date</span><b>' + day(r.date) + '</b></div>' +
+          '<div><span>Customer</span><b>' + K.esc(r.customer || '') + '</b></div><div><span>Payment</span><b>' + K.esc(r.payment || '') + (r.paymentStatus && PAY[r.paymentStatus] ? ' <em class="rcpt-pay rcpt-pay--' + r.paymentStatus.toLowerCase() + '">' + PAY[r.paymentStatus] + '</em>' : '') + '</b></div></div>' +
+          '<table class="rcpt-items"><thead><tr><th scope="col">Item</th><th scope="col">Qty</th><th scope="col">Amount</th></tr></thead><tbody>' +
+          r.items.map(function (i) { return '<tr><td>' + K.esc(i.name) + '<small>' + rs(i.price) + ' each</small></td><td>' + i.qty + '</td><td>' + rs(i.total) + '</td></tr>'; }).join('') + '</tbody></table>' +
+          '<div class="rows rcpt-rows"><div><span>Subtotal</span><span>' + rs(r.subtotal) + '</span></div>' + (r.discount ? '<div class="disc"><span>Discount</span><span>− ' + rs(r.discount) + '</span></div>' : '') +
+          '<div><span>Delivery</span><span>' + (r.delivery ? rs(r.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span>' + rs(r.total) + '</span></div></div>' +
+          '<p class="rcpt-foot">Thank you for shopping with ' + K.esc(s.name) + '. This receipt link works until ' + day(r.expiresAt) + '.</p>' +
+          '</article><div class="rcpt-actions"><button type="button" class="btn btn-primary btn-sm" id="print">Print or save as PDF</button>' +
+          (s.slug ? '<a class="btn btn-ghost btn-sm" href="/store/' + encodeURIComponent(s.slug) + '">Visit the shop</a>' : '') + '</div></div>';
+        document.getElementById('print').addEventListener('click', function () { window.print(); });
+      }
+      function load() {
+        if (!/^[a-f0-9]{16,64}$/.test(token)) { note('🧾', 'This receipt link is not valid', 'Open the receipt link from your order email or ask the shop to send it again.'); return; }
+        main.innerHTML = '<div class="rcpt-wrap"><div class="skeleton" style="height:420px"></div></div>';
+        fetch('/api/receipt/' + token, { headers: { Accept: 'application/json' } }).then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (j) { return { status: res.status, body: j }; });
+        }).then(function (r) {
+          if (r.status === 410) return note('⏳', 'This receipt has expired', 'Receipt links work for 30 days after purchase. If you need a copy, please contact the shop and they can help.', r.body.store);
+          if (r.status === 404) return note('🧾', 'We could not find this receipt', 'Check the link in your order email, or contact the shop.');
+          if (r.status !== 200) throw new Error();
+          paint(r.body);
+        }).catch(function () { note('📶', 'Could not load your receipt', 'Please check your connection and try again.', null, true); });
+      }
+      load();
+    })();
+  </script>
+</body>
+</html>

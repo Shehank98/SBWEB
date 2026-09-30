@@ -18,13 +18,13 @@
       <header class="topbar" id="topbar"></header>
       <main class="main" id="main" tabindex="-1">
 
-        <div class="page-head"><div><h1>Store settings</h1><p>What customers see, and how they can pay and get their order.</p></div></div>
+        <div class="page-head"><div><h1>Store settings</h1><p>What customers see, and how they can pay and get their order. Changes save automatically.</p></div><span class="as-global" id="asGlobal" role="status" aria-live="polite"></span></div>
         <form id="sf" class="stack-lg" novalidate>
           <section class="kd-card panel" aria-labelledby="a1"><h2 id="a1">Store link</h2>
             <p class="slug-preview" id="url"></p>
             <div class="row"><a class="kd-btn kd-btn--secondary kd-btn--sm" id="open" target="_blank" rel="noopener">Open my store</a><button class="kd-btn kd-btn--secondary kd-btn--sm" type="button" id="copy">Copy link</button></div>
           </section>
-          <section class="kd-card panel" aria-labelledby="a2"><h2 id="a2">Store details</h2>
+          <section class="kd-card panel" aria-labelledby="a2" data-autosave="details"><h2 id="a2">Store details</h2>
             <div class="form-grid form-grid--2">
               <div class="kd-field"><label class="kd-label" for="name">Store name</label><input class="kd-input" id="name"></div>
               <div class="kd-field"><label class="kd-label" for="tagline">Tagline</label><input class="kd-input" id="tagline"></div>
@@ -32,6 +32,8 @@
               <div class="kd-field"><label class="kd-label" for="phone">Phone</label><input class="kd-input" id="phone" type="tel"></div>
               <div class="kd-field"><label class="kd-label" for="wa">WhatsApp (with 94, no plus)</label><input class="kd-input" id="wa" inputmode="numeric"></div>
               <div class="kd-field span-2"><label class="kd-label" for="address">Address</label><input class="kd-input" id="address"></div>
+              <div class="kd-field"><label class="kd-label" for="fb">Facebook page <span class="muted">(optional)</span></label><input class="kd-input" id="fb" placeholder="yourpage or https://facebook.com/yourpage" autocapitalize="off" spellcheck="false"></div>
+              <div class="kd-field"><label class="kd-label" for="ig">Instagram <span class="muted">(optional)</span></label><input class="kd-input" id="ig" placeholder="@yourshop" autocapitalize="off" spellcheck="false"></div>
             </div>
           </section>
           <section class="kd-card panel" aria-labelledby="acat"><h2 id="acat">Product categories</h2>
@@ -69,16 +71,16 @@
               <button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" id="coverRm" hidden style="color:var(--danger)">Remove</button>
             </div>
           </section>
-          <section class="kd-card panel" aria-labelledby="atpl"><h2 id="atpl">Store template</h2>
+          <section class="kd-card panel" aria-labelledby="atpl" data-autosave="template"><h2 id="atpl">Store template</h2>
             <p class="muted">Choose how your storefront is laid out. You can change it any time.</p>
             <div class="preset-grid" id="templates" role="radiogroup" aria-labelledby="atpl"></div>
           </section>
-          <section class="kd-card panel" aria-labelledby="a3"><h2 id="a3">Colours</h2>
+          <section class="kd-card panel" aria-labelledby="a3" data-autosave="preset"><h2 id="a3">Colours</h2>
             <p class="muted">Pick the look for your store. Every colour set is checked to be easy to read.</p>
             <div class="preset-grid" id="presets" role="radiogroup" aria-labelledby="a3"></div>
             <div id="prev" class="kd-card" style="overflow:hidden;max-width:360px"><div style="background:var(--brand);color:var(--on-brand);padding:16px"><strong id="pname" class="display-md" style="font-size:20px"></strong></div><div style="padding:16px;background:var(--surface-raised);display:flex;flex-direction:column;gap:12px"><span class="kd-tag" style="position:static;align-self:flex-start">Sale</span><button type="button" class="kd-btn kd-btn--accent">Add to cart</button><span class="kd-badge" style="background:var(--brand-soft);color:var(--brand);align-self:flex-start">Selected item</span></div></div>
           </section>
-          <section class="kd-card panel" aria-labelledby="a4"><h2 id="a4">Payment methods</h2>
+          <section class="kd-card panel" aria-labelledby="a4" data-autosave="payments"><h2 id="a4">Payment methods</h2>
             <label class="kd-switch"><span class="kd-check__text"><strong>Cash on delivery</strong><span class="muted">Customers pay when the order arrives.</span></span><input type="checkbox" role="switch" id="cod"></label>
             <label class="kd-switch"><span class="kd-check__text"><strong>Bank transfer</strong><span class="muted">Customers send money to your account and share the slip.</span></span><input type="checkbox" role="switch" id="bank"></label>
             <div id="bankBox">
@@ -92,14 +94,13 @@
             </div>
             <p class="kd-help" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="online" hidden disabled>💳 <span><strong>Card payments</strong> are set up in <a class="kd-link" href="#gateways">Payment gateways</a> below.</span></p>
           </section>
-          <section class="kd-card panel" aria-labelledby="a5"><h2 id="a5">Delivery</h2>
+          <section class="kd-card panel" aria-labelledby="a5" data-autosave="delivery"><h2 id="a5">Delivery</h2>
             <div class="form-grid form-grid--2">
               <div class="kd-field"><label class="kd-label" for="fee">Delivery fee (Rs.)</label><input class="kd-input" id="fee" type="number" inputmode="numeric" min="0"></div>
               <div class="kd-field"><label class="kd-label" for="free">Free delivery above (Rs.)</label><input class="kd-input" id="free" type="number" inputmode="numeric" min="0"><span class="kd-help">Leave 0 for no free delivery.</span></div>
             </div>
             <label class="kd-switch"><span class="kd-check__text"><strong>Allow pickup from the shop</strong></span><input type="checkbox" role="switch" id="pickup"></label>
           </section>
-          <div class="row"><button class="kd-btn kd-btn--primary" type="submit">Save changes</button></div>
         </form>
 
         <!-- Payment gateways: the seller's own OnePay (and PayHere) merchant account.
@@ -206,6 +207,7 @@
         $('open').href = '../store/index?s=' + S.slug;
         ['name', 'tagline', 'about', 'phone', 'address'].forEach(function (k) { $(k).value = S[k] || ''; });
         $('wa').value = S.whatsapp || '';
+        var so = S.social || {}; $('fb').value = so.facebook || ''; $('ig').value = so.instagram || '';
         $('cod').checked = !!S.payments.cod; $('bank').checked = !!S.payments.bank; $('online').checked = !!S.payments.online;
         var ba = S.bankAccount || {};
         $('bankName').value = ba.bankName || ''; $('bankHolder').value = ba.holder || ''; $('bankBranch').value = ba.branch || ''; $('bankAcc').value = ba.accountNo || '';
@@ -362,27 +364,119 @@
           .catch(function (ex) { K.toast(ex.message || 'Could not remove the logo.'); });
       });
 
-      $('sf').addEventListener('submit', function (e) {
-        e.preventDefault();
-        if (!$('name').value.trim()) { $('name').focus(); K.toast('Your store needs a name.'); return; }
-        if (!$('cod').checked && !$('bank').checked) { K.toast('Turn on at least one payment method.'); return; }
-        var payload = {
-          name: $('name').value.trim(), tagline: $('tagline').value.trim(), about: $('about').value.trim(),
-          phone: $('phone').value.trim(), whatsapp: $('wa').value.trim(), address: $('address').value.trim(),
-          preset: preset, template: template,
-          bankAccount: { bankName: $('bankName').value.trim(), holder: $('bankHolder').value.trim(), branch: $('bankBranch').value.trim(), accountNo: $('bankAcc').value.trim() },
-          payments: { cod: $('cod').checked, bank: $('bank').checked, online: false },
-          delivery: { fee: +$('fee').value || 0, freeAbove: +$('free').value || 0, pickup: $('pickup').checked }
-        };
-        if (API) {
-          var restore = K.btnLoading(K.$('#sf button[type=submit]'), 'Saving…');
-          KadeApi.updateStore(payload).then(function () { restore(); K.toast('Settings saved'); }).catch(function (ex) { restore(); K.toast(ex.message || 'Could not save.'); });
-        } else {
-          S.name = payload.name; S.tagline = payload.tagline; S.about = payload.about; S.phone = payload.phone; S.whatsapp = payload.whatsapp; S.address = payload.address; S.preset = preset; S.template = template; S.bankAccount = payload.bankAccount;
-          S.payments.cod = payload.payments.cod; S.payments.bank = payload.payments.bank;
-          S.delivery.fee = payload.delivery.fee; S.delivery.freeAbove = payload.delivery.freeAbove; S.delivery.pickup = payload.delivery.pickup;
-          K.toast('Settings saved');
+      /* ---------- Autosave: each section saves itself 800ms after the last change ----------
+         Only that section's fields are sent (the API keeps everything else), invalid
+         values are never saved, and the page warns before leaving with unsaved edits. */
+      var DELAY = 800;
+      var SECTIONS = {
+        details: {
+          fields: ['name', 'tagline', 'about', 'phone', 'wa', 'address', 'fb', 'ig'],
+          validate: function () {
+            var e = {};
+            if (!$('name').value.trim()) e.name = 'Your store needs a name.';
+            var ph = $('phone').value.replace(/[\s-]/g, ''); if (ph && !/^(?:\+?94|0)\d{9}$/.test(ph)) e.phone = 'Enter a Sri Lankan number, e.g. 077 123 4567.';
+            var wa = $('wa').value.replace(/[\s-]/g, ''); if (wa && !/^(?:\+?94|0)?7\d{8}$/.test(wa)) e.wa = 'Enter a mobile number, e.g. 94771234567.';
+            var soc = /^(https?:\/\/\S+|@?[A-Za-z0-9._-]{1,80})$/;
+            if ($('fb').value.trim() && !soc.test($('fb').value.trim())) e.fb = 'Enter your page name or its full link.';
+            if ($('ig').value.trim() && !soc.test($('ig').value.trim())) e.ig = 'Enter your Instagram name or its full link.';
+            return e;
+          },
+          payload: function () { return { name: $('name').value.trim(), tagline: $('tagline').value.trim(), about: $('about').value.trim(), phone: $('phone').value.trim(), whatsapp: $('wa').value.trim(), address: $('address').value.trim(), facebook: $('fb').value.trim(), instagram: $('ig').value.trim() }; },
+          apply: function (p) { S.name = p.name; S.tagline = p.tagline; S.about = p.about; S.phone = p.phone; S.whatsapp = p.whatsapp; S.address = p.address; S.social = { facebook: p.facebook, instagram: p.instagram }; }
+        },
+        template: { fields: [], validate: function () { return {}; }, payload: function () { return { template: template }; }, apply: function (p) { S.template = p.template; } },
+        preset: { fields: [], validate: function () { return {}; }, payload: function () { return { preset: preset }; }, apply: function (p) { S.preset = p.preset; } },
+        payments: {
+          fields: ['bankName', 'bankHolder', 'bankBranch', 'bankAcc'],
+          validate: function () {
+            var e = {};
+            if (!$('cod').checked && !$('bank').checked) e._ = 'Turn on at least one payment method.';
+            if ($('bank').checked) {
+              if (!$('bankName').value.trim()) e.bankName = 'Add the bank name.';
+              if (!$('bankHolder').value.trim()) e.bankHolder = 'Add the account holder name.';
+              if (!/^\d{6,20}$/.test($('bankAcc').value.replace(/[\s-]/g, ''))) e.bankAcc = 'Add the account number (digits only).';
+            }
+            return e;
+          },
+          payload: function () { return { payments: { cod: $('cod').checked, bank: $('bank').checked, online: false }, bankAccount: { bankName: $('bankName').value.trim(), holder: $('bankHolder').value.trim(), branch: $('bankBranch').value.trim(), accountNo: $('bankAcc').value.trim() } }; },
+          apply: function (p) { S.payments.cod = p.payments.cod; S.payments.bank = p.payments.bank; S.bankAccount = p.bankAccount; }
+        },
+        delivery: {
+          fields: ['fee', 'free'],
+          validate: function () {
+            var e = {}, fee = $('fee').value, free = $('free').value;
+            if (fee === '' || !(+fee >= 0 && +fee <= 100000)) e.fee = 'Enter a fee between 0 and 100,000.';
+            if (free !== '' && !(+free >= 0)) e.free = 'Enter 0 or more.';
+            return e;
+          },
+          payload: function () { return { delivery: { fee: +$('fee').value || 0, freeAbove: +$('free').value || 0, pickup: $('pickup').checked } }; },
+          apply: function (p) { S.delivery.fee = p.delivery.fee; S.delivery.freeAbove = p.delivery.freeAbove; S.delivery.pickup = p.delivery.pickup; }
         }
+      };
+      var state = {};   // section -> 'pending' | 'saving' | 'saved' | 'failed' | 'invalid'
+      var timers = {}, dirtyAgain = {};
+      Object.keys(SECTIONS).forEach(function (k) {
+        var sec = K.$('[data-autosave="' + k + '"]');
+        var h = sec && K.$('h2', sec);
+        if (h && !K.$('.as-state', h)) h.insertAdjacentHTML('beforeend', '<span class="as-state" data-as="' + k + '" aria-live="polite"></span>');
+      });
+      function showErrors(k, errs) {
+        SECTIONS[k].fields.forEach(function (f) {
+          var input = $(f), field = input && input.closest('.kd-field'); if (!field) return;
+          var el = K.$('.kd-error', field);
+          if (errs[f]) {
+            field.classList.add('kd-field--error'); input.setAttribute('aria-invalid', 'true');
+            if (!el) { el = document.createElement('span'); el.className = 'kd-error'; el.id = 'err-' + f; field.appendChild(el); input.setAttribute('aria-describedby', el.id); }
+            el.textContent = errs[f];
+          } else {
+            field.classList.remove('kd-field--error'); input.removeAttribute('aria-invalid');
+            if (el) el.remove();
+          }
+        });
+      }
+      function paintState(k, extra) {
+        var el = K.$('[data-as="' + k + '"]'); if (!el) return;
+        var st = state[k] || '';
+        el.className = 'as-state as-state--' + st;
+        el.innerHTML = st === 'saving' ? K.spinner() + ' Saving…' : st === 'saved' ? '✓ Saved' : st === 'failed' ? 'Failed, <button type="button" class="as-retry" data-retry="' + k + '">retry</button>' : st === 'invalid' ? K.esc(extra || 'Fix the highlighted field') : st === 'pending' ? 'Editing…' : '';
+        var busy = Object.keys(state).filter(function (x) { return state[x] === 'saving' || state[x] === 'pending'; }).length;
+        var bad = Object.keys(state).filter(function (x) { return state[x] === 'failed' || state[x] === 'invalid'; }).length;
+        $('asGlobal').className = 'as-global' + (bad ? ' as-global--bad' : busy ? ' as-global--busy' : '');
+        $('asGlobal').textContent = bad ? 'Some changes are not saved' : busy ? 'Saving…' : Object.keys(state).length ? 'All changes saved' : '';
+      }
+      function schedule(k) {
+        clearTimeout(timers[k]);
+        if (state[k] === 'saving') { dirtyAgain[k] = true; return; }
+        state[k] = 'pending'; paintState(k);
+        timers[k] = setTimeout(function () { save(k); }, DELAY);
+      }
+      function save(k) {
+        var sec = SECTIONS[k], errs = sec.validate();
+        showErrors(k, errs);
+        if (Object.keys(errs).length) { state[k] = 'invalid'; paintState(k, errs._ || 'Fix the highlighted field to save'); return; }
+        var body = sec.payload();
+        state[k] = 'saving'; dirtyAgain[k] = false; paintState(k);
+        var done = function () {
+          sec.apply(body);
+          if (dirtyAgain[k]) { dirtyAgain[k] = false; return schedule(k); }
+          state[k] = 'saved'; paintState(k);
+        };
+        if (!API) return setTimeout(done, 300);
+        KadeApi.updateStore(body).then(done).catch(function (ex) {
+          state[k] = 'failed'; paintState(k);
+          K.toast(ex.message || 'Could not save. Check your connection and retry.');
+        });
+      }
+      function sectionOf(el) { var sec = el.closest && el.closest('[data-autosave]'); return sec ? sec.getAttribute('data-autosave') : null; }
+      $('sf').addEventListener('input', function (e) { var k = sectionOf(e.target); if (k && e.target.type !== 'file' && e.target.type !== 'radio' && e.target.type !== 'checkbox') schedule(k); });
+      $('sf').addEventListener('change', function (e) { var k = sectionOf(e.target); if (k && (e.target.type === 'radio' || e.target.type === 'checkbox' || e.target.tagName === 'SELECT')) schedule(k); });
+      $('sf').addEventListener('focusout', function (e) { var k = sectionOf(e.target); if (k && state[k] === 'pending') { clearTimeout(timers[k]); save(k); } });
+      $('sf').addEventListener('click', function (e) { var r = e.target.closest('[data-retry]'); if (r) save(r.getAttribute('data-retry')); });
+      // Enter in a field saves that section now instead of submitting the page.
+      $('sf').addEventListener('submit', function (e) { e.preventDefault(); var k = sectionOf(document.activeElement); if (k) { clearTimeout(timers[k]); save(k); } });
+      window.addEventListener('beforeunload', function (e) {
+        var unsaved = Object.keys(state).some(function (k) { return ['pending', 'saving', 'failed', 'invalid'].indexOf(state[k]) >= 0; });
+        if (unsaved) { e.preventDefault(); e.returnValue = ''; }
       });
 
       // Delete my shop (permanent). Warn, then re-confirm with the account password.
@@ -390,7 +484,7 @@
         var name = (S && S.name) || 'your shop';
         K.confirm({
           title: 'Delete ' + name + '?',
-          body: 'This permanently deletes your storefront and ALL its data — products, orders, customer details and this login. It cannot be undone.',
+          body: 'This permanently deletes your storefront and ALL its data: products, orders, customer details and this login. It cannot be undone.',
           confirmLabel: 'Continue', danger: true
         }).then(function (ok) {
           if (!ok) return;

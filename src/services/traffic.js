@@ -49,3 +49,33 @@ export async function trafficSources(businessId, from, to, limit = 6) {
   const byOrders = Object.fromEntries(orders.map((o) => [o.source, Number(o.n)]));
   return visits.map((v) => ({ source: v.source, visits: Number(v.visits), sessions: Number(v.sessions), orders: byOrders[v.source] || 0 }));
 }
+
+// ---- "Where visitors came from" (Pro): fixed buckets, counts and percentages ----
+export const BUCKETS = [
+  ['direct', 'Direct'], ['whatsapp', 'WhatsApp'], ['facebook', 'Facebook'], ['instagram', 'Instagram'],
+  ['google', 'Google'], ['tiktok', 'TikTok'], ['other', 'Other'],
+];
+const NAMED = new Set(BUCKETS.map(([k]) => k).filter((k) => k !== 'other'));
+export const bucketOf = (source) => (!source || source === 'unknown' ? 'direct' : NAMED.has(source) ? source : 'other');
+
+// Visitors (one per browser session) and orders per bucket between two instants.
+export async function trafficBuckets(businessId, from, to) {
+  const visits = (await query(
+    `SELECT source, COUNT(DISTINCT COALESCE(session_id, id::text)) n FROM store_visits
+      WHERE business_id = $1 AND visited_at >= $2 AND visited_at < $3 GROUP BY source`,
+    [businessId, from, to]
+  )).rows;
+  const orders = (await query(
+    `SELECT source, COUNT(*) n FROM orders
+      WHERE business_id = $1 AND created_at >= $2 AND created_at < $3 AND status <> 'CANCELLED' GROUP BY source`,
+    [businessId, from, to]
+  )).rows;
+  const agg = Object.fromEntries(BUCKETS.map(([k, label]) => [k, { key: k, label, visitors: 0, orders: 0 }]));
+  for (const v of visits) agg[bucketOf(v.source)].visitors += Number(v.n);
+  for (const o of orders) agg[bucketOf(o.source)].orders += Number(o.n);
+  const total = Object.values(agg).reduce((n, b) => n + b.visitors, 0);
+  const buckets = Object.values(agg)
+    .map((b) => ({ ...b, pct: total ? Math.round((b.visitors / total) * 1000) / 10 : 0 }))
+    .sort((a, b) => b.visitors - a.visitors || b.orders - a.orders || BUCKETS.findIndex(([k]) => k === a.key) - BUCKETS.findIndex(([k]) => k === b.key));
+  return { total, orders: Object.values(agg).reduce((n, b) => n + b.orders, 0), buckets };
+}

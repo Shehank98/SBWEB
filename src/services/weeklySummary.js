@@ -58,7 +58,8 @@ export async function buildDigest(businessId, range) {
 export async function runWeeklySummary(now = new Date()) {
   const range = lastWeekRange(now);
   const shops = (await query(
-    `SELECT b.id, b.name, b.email, s.slug, s.name store_name, s.digest_channels
+    `SELECT b.id, b.name, b.email, s.slug, s.name store_name, s.digest_channels,
+            COALESCE((pl.feature_flags->>'traffic_sources')::boolean, false) AS traffic_ok
        FROM businesses b JOIN stores s ON s.business_id = b.id
        LEFT JOIN LATERAL (SELECT plan_id FROM subscriptions WHERE business_id = b.id ORDER BY created_at DESC LIMIT 1) sub ON true
        LEFT JOIN plans pl ON pl.id = sub.plan_id
@@ -69,6 +70,8 @@ export async function runWeeklySummary(now = new Date()) {
   let sent = 0;
   for (const s of shops) {
     const digest = await buildDigest(s.id, range);
+    // Visitor sources are a Pro feature: other plans get a teaser, not the data.
+    if (!s.traffic_ok) { digest.trafficSources = []; digest.trafficLocked = true; }
     const channels = s.digest_channels || { email: true };
     const deliveries = { email: channels.email === false ? 'SKIPPED' : 'QUEUED', whatsapp: channels.whatsapp ? 'NOT_BUILT' : 'SKIPPED', sms: channels.sms ? 'NOT_BUILT' : 'SKIPPED' };
     const ins = await query(

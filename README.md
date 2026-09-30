@@ -272,6 +272,8 @@ npm run db:migrate
 | `005_onepay_transactions.sql` | `gateway_transactions` (one row per OnePay checkout) |
 | `006_seller_gateways.sql` | `store_gateways` (encrypted seller keys), order `payment_status`, `paid_on`, refund note |
 | `007_tracking_weekly.sql` | `store_visits`, `seller_digests`, order attribution + courier tracking, weekly-summary preference |
+| `008_receipts_tracking.sql` | `orders.receipt_token` + `receipt_expires_at` (30-day digital receipt, back-filled for old orders), `receipt_shared_at`, `waybill_printed_at`, status-history index, `traffic_sources` plan flag (Pro only) |
+| `009_visitor_sessions.sql` | Index for "one visit per browser session" |
 
 ### 8.2 New environment variables
 
@@ -350,7 +352,19 @@ ONEPAY_API_BASE=http://localhost:4455 ONEPAY_APP_ID=test-app ONEPAY_HASH_SALT=te
 npm test
 ```
 
-### 8.7 Apps Script
+### 8.7 Buyer and seller pages added later
+
+| URL | What it is |
+| --- | --- |
+| `/track/<order code>?k=<token>` | Public order tracking timeline (token = `orders.public_token`) |
+| `/receipt/<token>` | Digital receipt; the API returns 410 after `receipt_expires_at` (30 days) |
+| `/dashboard/waybill?codes=A,B` | Print-ready A6 waybills (QR codes generated server side with the `qrcode` package) |
+
+OnePay platform keys can also be saved in **Admin > Settings > Payment settings**
+(encrypted with `GATEWAY_ENC_KEY`, used before the `ONEPAY_*` env vars). No new
+environment variables were added for these features.
+
+### 8.8 Apps Script
 
 See `apps-script/README.md`: paste the new `Code.gs`, save (and *Deploy → New
 version* if deployed as a web app), optionally set `SHEETS_SYNC_ID` and run

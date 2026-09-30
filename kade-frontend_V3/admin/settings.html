@@ -19,7 +19,7 @@
       <main class="main" id="main" tabindex="-1">
         <div class="page-head"><div><h1>Settings</h1><p>Plans, trial, payments and the text shown across Sidadiya.</p></div></div>
         <nav class="settings-nav" aria-label="Settings sections" id="snav">
-          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a><a href="#marketing">Marketing</a>
+          <a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#payments">Payment settings</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a><a href="#marketing">Marketing</a>
         </nav>
 
         <section class="kd-card panel" id="plans" aria-labelledby="h-plans" style="margin-bottom:var(--space-4)">
@@ -34,6 +34,20 @@
             <div class="kd-field" style="max-width:220px"><label class="kd-label" for="trialDays">Trial length (days)</label><input class="kd-input" id="trialDays" type="number" min="1" max="90" inputmode="numeric"><span class="kd-help">New shops only. Reminders go out 4 days and 1 day before the end.</span></div>
             <div><button class="kd-btn kd-btn--primary" type="submit">Save trial length</button></div>
           </form>
+        </section>
+
+        <section class="kd-card panel" id="payments" aria-labelledby="h-pay" style="margin-bottom:var(--space-4)">
+          <h2 id="h-pay">Payment settings: OnePay</h2>
+          <p class="muted" style="margin-bottom:var(--space-3)">Sidadiya's own OnePay account, used when shops pay for their plan by card. Keys are stored encrypted on the server and are never shown again after saving.</p>
+          <div id="payState" class="kd-help" style="margin-bottom:var(--space-3)">Loading…</div>
+          <form id="payForm" class="form-grid form-grid--2" novalidate autocomplete="off">
+            <div class="kd-field"><label class="kd-label" for="opAppId">App ID</label><input class="kd-input" id="opAppId" maxlength="64" autocomplete="off" spellcheck="false"></div>
+            <div class="kd-field"><label class="kd-label" for="opMode">Mode</label><select class="kd-select" id="opMode"><option value="sandbox">Test (sandbox)</option><option value="live">Live</option></select></div>
+            <div class="kd-field"><label class="kd-label" for="opSalt">Hash salt</label><input class="kd-input" id="opSalt" type="password" autocomplete="new-password" spellcheck="false"><span class="kd-help" id="opSaltHelp">From OnePay dashboard, App settings.</span></div>
+            <div class="kd-field"><label class="kd-label" for="opToken">App token <span class="muted">(optional)</span></label><input class="kd-input" id="opToken" type="password" autocomplete="new-password" spellcheck="false"><span class="kd-help" id="opTokenHelp">Only if OnePay gave you one.</span></div>
+            <div class="span-2 row" style="gap:8px;flex-wrap:wrap"><button class="kd-btn kd-btn--primary" type="submit">Save OnePay keys</button><button class="kd-btn kd-btn--ghost" type="button" id="opReset" hidden>Use environment variables instead</button></div>
+          </form>
+          <p class="kd-help" style="margin-top:var(--space-3)">Callback URL for the OnePay dashboard: <code id="opCb"></code><br>Redirect URL: <code id="opRd"></code></p>
         </section>
 
         <section class="kd-card panel" id="bank" aria-labelledby="h-bank" style="margin-bottom:var(--space-4)">
@@ -188,6 +202,33 @@
       K.$('#trialForm').addEventListener('submit', function (e) {
         e.preventDefault();
         KadeApi.adminSaveSettings({ trial_days: Number(K.$('#trialDays').value) }).then(function () { K.toast('Trial length saved.'); }).catch(function (ex) { K.toast(ex.message); });
+      });
+
+      // ---- Payment settings (OnePay platform keys): write-only secrets ----
+      K.$('#opCb').textContent = location.origin + '/api/onepay/callback';
+      K.$('#opRd').textContent = location.origin + '/api/onepay/return';
+      function paintPay(op) {
+        var SRC = { admin: 'Using the keys saved here', env: 'Using the ONEPAY_* environment variables on the server', none: 'Not set up: shops can only pay by bank transfer' };
+        K.$('#payState').innerHTML = '<span class="kd-badge ' + (op.configured ? (op.mode === 'live' ? 'kd-badge--success' : 'kd-badge--warning') : 'kd-badge--neutral') + '">' + (op.configured ? (op.mode === 'live' ? 'Live' : 'Test mode') : 'Off') + '</span> ' + SRC[op.source] + (op.updatedAt ? ' (saved ' + K.fmtDate(String(op.updatedAt).slice(0, 10)) + ')' : '') + '.';
+        K.$('#opAppId').value = op.appId || ''; K.$('#opMode').value = op.mode || 'sandbox';
+        K.$('#opSalt').value = ''; K.$('#opToken').value = '';
+        K.$('#opSalt').placeholder = op.hashSaltMasked ? op.hashSaltMasked + ' (leave blank to keep)' : '';
+        K.$('#opToken').placeholder = op.appTokenMasked ? op.appTokenMasked + ' (leave blank to keep)' : '';
+        K.$('#opReset').hidden = op.source !== 'admin';
+      }
+      KadeApi.adminPaymentSettings().then(function (r) { paintPay(r.onepay); }).catch(function (ex) { K.$('#payState').textContent = 'Could not load payment settings: ' + (ex.message || 'please reload'); });
+      K.$('#payForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var restore = K.btnLoading(K.$('#payForm [type=submit]'), 'Saving…');
+        KadeApi.adminSavePaymentSettings({ appId: K.$('#opAppId').value.trim(), mode: K.$('#opMode').value, hashSalt: K.$('#opSalt').value, appToken: K.$('#opToken').value })
+          .then(function (r) { restore(); paintPay(r.onepay); K.toast('OnePay keys saved.'); })
+          .catch(function (ex) { restore(); K.toast(ex.message); });
+      });
+      K.$('#opReset').addEventListener('click', function () {
+        K.confirm({ title: 'Remove the saved OnePay keys?', body: 'Card payments will use the ONEPAY_* environment variables on the server, or turn off if those are not set.', confirmLabel: 'Remove keys', danger: true }).then(function (ok) {
+          if (!ok) return;
+          KadeApi.adminResetPaymentSettings().then(function (r) { paintPay(r.onepay); K.toast('Saved keys removed.'); }).catch(function (ex) { K.toast(ex.message); });
+        });
       });
 
       K.loading(K.$('#planList'), 'Loading plans…');

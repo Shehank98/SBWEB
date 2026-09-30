@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="../css/tokens.css">
   <link rel="stylesheet" href="../css/storefront.css">
 </head>
-<body class="has-bar">
+<body class="has-bar checkout">
   <a class="sf-skip" href="#view">Skip to checkout</a>
   <div id="sf-header"></div>
   <div class="wrap">
@@ -46,12 +46,25 @@
         if (pays.cod) PAY_OPTS.push('cod');
         if (pays.bank) PAY_OPTS.push('bank');
         if (pays.card) PAY_OPTS.push('card');
+        // One checkout state object: step, customer details, delivery and payment
+        // choice, promo. Kept in sessionStorage so a refresh or a trip back to the
+        // shop never loses it. Items live in the cart (K.cart); "saved for later"
+        // is kept longer, in localStorage.
+        var SAVED_KEY = 'kade-saved-' + S.slug;
         var st = { step: 'cart', reach: 0, f: {}, method: 'delivery', pay: PAY_OPTS[0] || 'cod', waSame: true, promo: null, promoErr: '', errs: {}, saved: [] };
-        try { var sv = JSON.parse(localStorage.getItem(KEY) || 'null'); if (sv) { st = Object.assign(st, sv); st.errs = {}; st.promoErr = ''; } } catch (e) {}
+        try {
+          var sv = JSON.parse(sessionStorage.getItem(KEY) || 'null');
+          if (!sv) { sv = JSON.parse(localStorage.getItem(KEY) || 'null'); localStorage.removeItem(KEY); } // one-time move from the old storage
+          if (sv) { st = Object.assign(st, sv); st.errs = {}; st.promoErr = ''; }
+          var svd = JSON.parse(localStorage.getItem(SAVED_KEY) || 'null'); if (Array.isArray(svd)) st.saved = svd;
+        } catch (e) {}
         if (PAY_OPTS.indexOf(st.pay) < 0) st.pay = PAY_OPTS[0] || 'cod';
         if (st.method === 'pickup' && !d.pickup) st.method = 'delivery';
         if (st.step === 'done') st.step = 'cart';
-        function save() { try { var c = Object.assign({}, st); delete c.errs; delete c.order; localStorage.setItem(KEY, JSON.stringify(c)); } catch (e) {} }
+        function save() {
+          try { var c = Object.assign({}, st); delete c.errs; delete c.order; delete c.saved; sessionStorage.setItem(KEY, JSON.stringify(c)); } catch (e) {}
+          try { localStorage.setItem(SAVED_KEY, JSON.stringify(st.saved)); } catch (e) {}
+        }
 
         var find = function (id) { return P.filter(function (p) { return p.id === id; })[0]; };
         function lines() { return K.cart.get(S.slug).map(function (i, k) { var p = find(i.pid); return p ? { i: i, p: p, k: k } : null; }).filter(Boolean); }
@@ -85,7 +98,7 @@
         var V = {};
         V.cart = function () {
           var ls = lines(), m = money();
-          if (!ls.length) return '<div class="vhead"><h1 id="v-title" tabindex="-1">Your cart</h1></div><div class="panel empty"><div class="big" aria-hidden="true">🛍️</div><h2>Your cart is empty</h2><p style="color:var(--sf-muted)">Find something you love. It will show up here.</p><a class="btn btn-primary" href="' + SF.homeUrl(S.slug) + '">Browse products</a></div>' + savedHtml() + recsHtml(m);
+          if (!ls.length) return '<div class="vhead"><h1 id="v-title" tabindex="-1">Your cart</h1></div><div class="panel empty"><div class="big" aria-hidden="true">🛍️</div><h2>Your cart is empty</h2><p style="color:var(--sf-muted)">Find something you love. It will show up here.</p><a class="btn btn-primary" href="' + SF.homeUrl(S.slug) + '">Back to shop</a></div>' + savedHtml() + recsHtml(m);
           var prog = '';
           if (d.freeAbove > 0 && st.method !== 'pickup') {
             var pct = Math.min(100, (m.sub - m.disc) / d.freeAbove * 100);
@@ -189,7 +202,7 @@
             '<div class="rv"><h3>Contact</h3><p>' + K.esc(f.fn) + ' · ' + K.esc(phone) + (f.em ? ' · ' + K.esc(f.em) : '') + '<br><span style="color:var(--sf-muted);font-size:14px">WhatsApp: ' + (st.waSame ? 'same number' : K.esc(f.wa)) + '</span></p><button type="button" class="link" data-act="go" data-step="details">Edit</button></div>' +
             '<div class="rv"><h3>Delivery</h3><p><b>' + (pick ? 'Pick up from the shop' : 'Islandwide delivery') + '</b><br><span style="color:var(--sf-muted);font-size:14px">' + K.esc(addr) + '</span></p><button type="button" class="link" data-act="go" data-step="delivery">Edit</button></div>' +
             '<div class="rv"><h3>Payment</h3><p>' + payName(st.pay) + '</p><button type="button" class="link" data-act="go" data-step="payment">Edit</button></div>' +
-            '<div class="rv"><h3>Items (' + count() + ')</h3><p>' + ls.map(function (l) { return K.esc(l.i.qty + ' × ' + l.p.name) + (optTxt(l.i) ? ' <span style="color:var(--sf-muted)">(' + K.esc(optTxt(l.i)) + ')</span>' : ''); }).join('<br>') + '</p><button type="button" class="link" data-act="go" data-step="cart">Edit</button></div>' +
+            '<div class="rv rv-items"><h3>Items (' + count() + ')</h3><ul class="rv-list">' + ls.map(function (l) { return '<li><span>' + K.esc(l.i.qty + ' × ' + l.p.name) + (optTxt(l.i) ? ' <span style="color:var(--sf-muted)">(' + K.esc(optTxt(l.i)) + ')</span>' : '') + '</span><button type="button" class="link danger" data-act="rm" data-k="' + l.k + '" aria-label="Remove ' + K.esc(l.p.name) + '">Remove</button></li>'; }).join('') + '</ul></div>' +
             '</section><section class="panel">' + fld('nt', 'Note for the shop <span class="opt">(optional)</span>', '<textarea class="input" id="nt" placeholder="e.g. Gift wrap please, or call before delivery">' + K.esc(f.nt || '') + '</textarea>') +
             termsHtml() + '<p class="hint-t" style="margin-top:10px">You will pay <b>' + rs(m.total) + '</b>.</p></section>';
         };
@@ -208,10 +221,11 @@
             '<p style="color:var(--sf-muted)">Order <b style="color:var(--sf-ink)">' + K.esc(o.code) + '</b> · ' + K.esc(S.name) + ' will confirm it with you soon.</p>' + tracker('PENDING') +
             (bank ? bankBox(o.total).replace('<div class="bankbox"><h3>Transfer to this account</h3>', '<div class="bankbox" style="text-align:left"><h3>Complete your payment</h3><p style="font-size:14px">Use <b>' + K.esc(o.code) + '</b> as the payment reference.</p>') : '') +
             (S.whatsapp ? '<a class="btn btn-wa btn-block" target="_blank" rel="noopener" href="' + K.wa(S, msg) + '">' + SF.WA + (bank ? 'Send payment slip on WhatsApp' : 'Send order details on WhatsApp') + '</a>' : '') +
-            (o.statusUrl ? '<a class="btn btn-soft btn-block" href="' + K.esc(o.statusUrl) + '">Track this order</a>' : '') +
+            (o.statusUrl ? '<a class="btn btn-primary btn-block" href="' + K.esc(o.statusUrl) + '">Track your order</a>' : '') +
+            (o.receiptUrl ? '<a class="btn btn-soft btn-block" href="' + K.esc(o.receiptUrl) + '">View your receipt</a>' : '') +
             '<section class="panel"><h2>Order summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li><span class="mini-img"><span class="ph">' + K.esc(K.initials(i.name)) + '</span><b>' + i.qty + '</b></span><span class="mini-n">' + K.esc(i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
             '<div class="rows" style="margin-bottom:0"><div><span>Subtotal</span><span>' + rs(o.subtotal) + '</span></div>' + (o.discount ? '<div class="disc"><span>Discount</span><span>− ' + rs(o.discount) + '</span></div>' : '') + '<div><span>' + (o.pickup ? 'Pickup' : 'Delivery') + '</span><span' + (o.delivery ? '' : ' class="free"') + '>' + (o.delivery ? rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span>' + rs(o.total) + '</span></div></div>' +
-            '<p class="hint-t">Save the tracking link to check your order any time.</p></section>' +
+            '<p class="hint-t">' + (o.receiptUrl ? 'We also emailed you the receipt and tracking link if you gave your email. The receipt link works for 30 days.' : 'Save the tracking link to check your order any time.') + '</p></section>' +
             '<a class="btn btn-ghost" href="' + SF.homeUrl(S.slug) + '">Continue shopping</a></div>';
         };
 
@@ -223,14 +237,18 @@
             ? '<div class="promo-on"><span>🏷️ <b>' + K.esc(st.promo.code) + '</b> · ' + rs(m.disc) + ' off</span><button type="button" class="link danger" data-act="promo-rm">Remove</button></div>'
             : '<div class="promo"><label for="promo">Promo code</label><div class="promo-row"><input class="input" id="promo" placeholder="Enter code" autocomplete="off"' + (st.promoErr ? ' aria-invalid="true" aria-describedby="promo-err"' : '') + '><button type="button" class="btn btn-soft" data-act="promo">Apply</button></div>' + (st.promoErr ? '<p class="err" id="promo-err">' + K.esc(st.promoErr) + '</p>' : '') + '</div>';
           return '<div class="panel sum-panel"><h2>Order summary</h2>' +
-            (st.step !== 'cart' && ls.length ? '<ul class="mini">' + ls.map(function (l) { return '<li><span class="mini-img">' + SF.media(l.p) + '<b>' + l.i.qty + '</b></span><span class="mini-n">' + K.esc(l.p.name) + '<small>' + K.esc(optTxt(l.i)) + '</small></span><span>' + rs(K.linePrice(l.p, l.i) * l.i.qty) + '</span></li>'; }).join('') + '</ul>' : '') +
+            (st.step !== 'cart' && ls.length ? '<ul class="mini mini--edit">' + ls.map(function (l) {
+              return '<li><span class="mini-img">' + SF.media(l.p) + '</span><span class="mini-n">' + K.esc(l.p.name) + '<small>' + K.esc(optTxt(l.i)) + '</small>' +
+                '<span class="mini-ctl">' + qtyCtl(l.k, l.i.qty, l.p.name) + '<button type="button" class="link danger" data-act="rm" data-k="' + l.k + '" aria-label="Remove ' + K.esc(l.p.name) + '">Remove</button></span></span>' +
+                '<span class="mini-p">' + rs(K.linePrice(l.p, l.i) * l.i.qty) + '</span></li>';
+            }).join('') + '</ul>' : '') +
             promo +
             '<div class="rows" aria-live="polite"><div><span>Subtotal (' + count() + ' ' + (count() === 1 ? 'item' : 'items') + ')</span><span>' + rs(m.sub) + '</span></div>' +
             (m.disc ? '<div class="disc"><span>Discount</span><span>− ' + rs(m.disc) + '</span></div>' : '') +
             '<div><span>' + (st.method === 'pickup' ? 'Pickup' : 'Delivery') + '</span><span>' + feeTxt + '</span></div>' +
             '<div class="grand"><span>Total</span><span>' + rs(m.total) + '</span></div></div>' +
-            '<button type="button" class="btn btn-primary btn-block hide-m" data-act="next"' + (ls.length ? '' : ' disabled') + ' style="min-height:54px">' + ctaLabel() + '</button>' +
-            (st.step !== 'cart' ? '<button type="button" class="btn btn-ghost btn-block hide-m" data-act="back">← Back</button>' : '') +
+            '<button type="button" class="btn btn-primary btn-block hide-m" data-act="next"' + (ls.length ? '' : ' disabled') + '>' + ctaLabel() + '</button>' +
+            (st.step !== 'cart' ? '<button type="button" class="btn btn-ghost hide-m" data-act="back">Back</button>' : '') +
             '</div>';
         }
 
@@ -243,10 +261,13 @@
             var inner = '<span class="n">' + (cls === 's-done' ? '✓' : i + 1) + '</span><span class="sl">' + LABELS[s] + '</span>';
             return '<li class="' + cls + '">' + (cls === 's-done' ? '<button type="button" class="stp" data-act="go" data-step="' + s + '" aria-label="Go to ' + LABELS[s] + '">' + inner + '</button>' : '<span class="stp"' + (i === cur ? ' aria-current="step"' : '') + '>' + inner + '</span>') + '</li>';
           }).join('');
-          $('#view').innerHTML = V[st.step]();
-          $('#summary').innerHTML = done ? '' : summaryHtml();
-          $('#summary').hidden = done;
-          document.querySelector('.layout').style.gridTemplateColumns = done ? '1fr' : '';
+          // Last item removed mid-checkout: show the empty state but keep the step,
+          // details and choices, so adding an item brings the buyer right back.
+          var empty = !done && !lines().length;
+          $('#view').innerHTML = empty ? V.cart() : V[st.step]();
+          $('#summary').innerHTML = done || empty ? '' : summaryHtml();
+          $('#summary').hidden = done || empty;
+          document.querySelector('.layout').style.gridTemplateColumns = done || empty ? '1fr' : '';
           var n = count();
           $('#bar').hidden = done || !n;
           document.body.classList.toggle('has-bar', !done && !!n);
@@ -315,7 +336,7 @@
           function finish(res) {
             var od = res.order || {};
             st.order = { code: res.code, name: f.fn, phone: body.phone, pay: st.pay, pickup: pick, items: od.items && od.items.length ? od.items : ls.map(function (l) { return { name: l.p.name, qty: l.i.qty, price: K.linePrice(l.p, l.i) }; }),
-              subtotal: od.subtotal != null ? od.subtotal : m.sub, discount: od.discount || m.disc, delivery: od.delivery != null ? od.delivery : m.fee, total: od.total != null ? od.total : m.total, statusUrl: res.statusUrl || '' };
+              subtotal: od.subtotal != null ? od.subtotal : m.sub, discount: od.discount || m.disc, delivery: od.delivery != null ? od.delivery : m.fee, total: od.total != null ? od.total : m.total, statusUrl: res.trackUrl || res.statusUrl || '', receiptUrl: res.receiptUrl || '' };
             K.cart.clear(S.slug); st.promo = null; st.reach = 0; st.f.nt = ''; st.f.agree = false;
             placing = false; goStep('done');
           }
@@ -366,8 +387,13 @@
             var max = Math.min(lineStock(l), 20);
             if (act === 'inc' && items[k].qty >= max) { SF.toast('That is all we have in stock'); return; }
             items[k].qty = act === 'inc' ? items[k].qty + 1 : Math.max(1, items[k].qty - 1);
-            K.cart.set(S.slug, items); refreshPromo(); render();
-          } else if (act === 'rm') { items.splice(k, 1); K.cart.set(S.slug, items); refreshPromo(); render(); SF.toast('Removed from your cart'); }
+            K.cart.set(S.slug, items); save(); refreshPromo(); render();
+          } else if (act === 'rm') {
+            // Only the items (and so the totals) change: step, details and choices stay.
+            var gone = items[k]; if (!gone) return;
+            items.splice(k, 1); K.cart.set(S.slug, items); save(); refreshPromo(); render();
+            SF.toast(items.length ? 'Removed from your order' : 'Your cart is now empty');
+          }
           else if (act === 'save') { st.saved.push(items[k]); items.splice(k, 1); K.cart.set(S.slug, items); save(); refreshPromo(); render(); SF.toast('Saved for later'); }
           else if (act === 'move') { K.cart.add(S.slug, st.saved[k]); st.saved.splice(k, 1); save(); refreshPromo(); render(); }
           else if (act === 'unsave') { st.saved.splice(k, 1); save(); render(); }

@@ -133,7 +133,7 @@ registerKind('ORDER', {
     const o = (await client.query(`UPDATE orders SET payment_status='PAID', paid_on=$2 WHERE id=$1 AND COALESCE(payment_status,'') <> 'PAID' RETURNING *`, [tx.order_id, tx.paid_on || new Date()])).rows[0];
     if (!o) return;
     const shop = (await client.query(
-      `SELECT s.name, s.slug, s.phone, s.whatsapp, s.address, b.email FROM stores s JOIN businesses b ON b.id = s.business_id WHERE s.business_id = $1`,
+      `SELECT s.name, s.slug, s.phone, s.whatsapp, s.address, COALESCE(NULLIF(s.contact_email, ''), b.email) AS email FROM stores s JOIN businesses b ON b.id = s.business_id WHERE s.business_id = $1`,
       [o.business_id]
     )).rows[0];
     const items = (await client.query('SELECT name, qty, price FROM order_items WHERE order_id=$1', [o.id])).rows;
