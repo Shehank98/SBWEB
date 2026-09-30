@@ -104,7 +104,7 @@ publicRouter.get(
         date: order.created_at,
         expiresAt: order.receipt_expires_at,
         customer: order.customer_name,
-        items: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, total: i.qty * i.price, image: i.image || null })),
+        items: items.map((i) => ({ name: i.name, qty: i.qty, price: i.price, total: i.qty * i.price })),
         subtotal: order.subtotal,
         discount: order.discount || 0,
         delivery: order.delivery_fee || 0,
