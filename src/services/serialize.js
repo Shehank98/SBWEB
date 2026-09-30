@@ -94,6 +94,9 @@ export function buyerOrder(row, items, history, reviewedSet) {
     total: row.total,
     payment: row.payment_method,
     paymentStatus: row.payment_status || null,
+    // Bank transfer slip: the buyer only sees whether it arrived and any request for a new one.
+    slip: row.slip_uploaded_at ? { uploadedAt: row.slip_uploaded_at } : null,
+    slipNote: row.payment_status === 'SLIP_REJECTED' ? (row.slip_note || '') : null,
     tracking: row.tracking_number || row.courier_name ? { courier: row.courier_name || '', number: row.tracking_number || '', url: row.tracking_url || '', shippedAt: row.shipped_at } : null,
     method: row.delivery_method,
     address: row.address || '',
@@ -124,6 +127,9 @@ export function order(row, items) {
     payment: row.payment_method,
     paymentStatus: row.payment_status || null,
     paidOn: row.paid_on || null,
+    // Bank transfer slip uploaded by the buyer (the file itself is private; see /orders/:code/slip).
+    slip: row.slip_key ? { name: row.slip_name || 'Payment slip', type: row.slip_type || '', uploadedAt: row.slip_uploaded_at, isPdf: row.slip_type === 'application/pdf' } : null,
+    slipNote: row.slip_note || null,
     refundNote: row.refund_note || null,
     refundAmount: row.refund_amount == null ? null : Number(row.refund_amount),
     restocked: !!row.restocked_at,

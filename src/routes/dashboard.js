@@ -4,7 +4,7 @@ import { query, withTransaction } from '../db/pool.js';
 import { authenticate, requireBusiness, requireOwner, requirePermission } from '../middleware/auth.js';
 import { storeSetup } from '../services/setup.js';
 import { wrap, badRequest, notFound, conflict, forbidden, HttpError } from '../utils/http.js';
-import { saveUpload, savePrivate, SLIP_TYPES } from '../services/uploads.js';
+import { saveUpload, savePrivate, signedPrivateUrl, SLIP_TYPES } from '../services/uploads.js';
 import { config } from '../config.js';
 import { startSubscriptionCheckout } from '../services/cardPayments.js';
 import { platformCreds } from '../services/onepay.js';
@@ -314,6 +314,44 @@ dashboardRouter.get(
       itemsByOrder = items.reduce((m, i) => { (m[i.order_id] = m[i.order_id] || []).push(i); return m; }, {});
     }
     res.json({ orders: rows.map((r) => S.order(r, itemsByOrder[r.id])) });
+  })
+);
+
+// ---- Bank transfer slips: view (short-lived private link), confirm or ask for a new one ----
+dashboardRouter.get(
+  '/orders/:code/slip',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const o = (await query('SELECT slip_key, slip_name, slip_type FROM orders WHERE business_id = $1 AND code = $2', [bid(req), req.params.code])).rows[0];
+    if (!o) throw notFound('Order not found.');
+    if (!o.slip_key) throw notFound('The buyer has not uploaded a slip for this order yet.');
+    res.set('Cache-Control', 'no-store');
+    res.json({ url: await signedPrivateUrl(o.slip_key, 300), name: o.slip_name, type: o.slip_type });
+  })
+);
+dashboardRouter.post(
+  '/orders/:code/payment',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const o = (await query('SELECT * FROM orders WHERE business_id = $1 AND code = $2', [b, req.params.code])).rows[0];
+    if (!o) throw notFound('Order not found.');
+    if (!/bank/i.test(String(o.payment_method || ''))) throw badRequest('Only bank transfer orders are confirmed here.');
+    const action = req.body && req.body.action;
+    if (action === 'confirm') {
+      await query(`UPDATE orders SET payment_status = 'PAID', paid_on = now(), slip_note = NULL WHERE id = $1`, [o.id]);
+      await query(`INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1, $2, $3, 'Bank transfer received')`, [o.id, o.status, req.user.sub]);
+      return res.json({ ok: true, paymentStatus: 'PAID' });
+    }
+    if (action === 'reject') {
+      const note = clip(String((req.body && req.body.note) || '').trim(), 300);
+      if (!note) throw badRequest('Tell the buyer why you need a new slip.');
+      if (o.payment_status === 'PAID') throw badRequest('This payment is already confirmed.');
+      await query(`UPDATE orders SET payment_status = 'SLIP_REJECTED', slip_note = $2 WHERE id = $1`, [o.id, note]);
+      await query(`INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1, $2, $3, $4)`, [o.id, o.status, req.user.sub, 'New payment slip requested: ' + note]);
+      return res.json({ ok: true, paymentStatus: 'SLIP_REJECTED', slipNote: note });
+    }
+    throw badRequest('Unknown action.');
   })
 );
 

@@ -169,18 +169,42 @@
           return '<div class="bankbox"><h3>Transfer to this account</h3>' +
             (rows.length ? rows.map(function (r) { return '<div class="brow"><span>' + r[0] + '</span><b>' + K.esc(r[1]) + (r[2] ? '<button type="button" class="copy" data-act="copy" data-copy="' + K.esc(r[1]) + '">Copy</button>' : '') + '</b></div>'; }).join('') : '<p>' + K.esc(S.bank) + '</p>') +
             '<div class="brow"><span>Amount</span><b>' + rs(total) + '<button type="button" class="copy" data-act="copy" data-copy="' + Math.round(total) + '">Copy</button></b></div>' +
-            '<p class="hint-t">Place the order now, then send the slip on WhatsApp with your order number.</p></div>';
+            '<p class="hint-t">Transfer the amount first, then add a photo or PDF of your payment slip below.</p></div>';
+        }
+        // Bank transfer slip: kept in memory (a file cannot be saved in sessionStorage),
+        // uploaded privately right after the order is created. Only the shop can see it.
+        var slipFile = null, slipUrl = null;
+        var SLIP_OK = /^(image\/(jpeg|png|webp|gif)|application\/pdf)$/;
+        function slipPicker(id) {
+          var e = st.errs.slip, pdf = slipFile && slipFile.type === 'application/pdf';
+          return '<div class="slip' + (e ? ' bad' : '') + (slipFile ? ' has' : '') + '">' +
+            '<h3>Payment slip</h3>' +
+            (slipFile
+              ? '<div class="slip-file">' + (pdf ? '<span class="slip-pdf" aria-hidden="true">PDF</span>' : '<img src="' + slipUrl + '" alt="Your payment slip">') +
+                  '<span class="slip-name">' + K.esc(slipFile.name) + '<small>' + Math.max(1, Math.round(slipFile.size / 1024)) + ' KB · ready to send</small></span>' +
+                  '<button type="button" class="link" data-act="slip-rm">Change</button></div>'
+              : '<label class="slip-drop" for="' + id + '">' + ic('bank') + '<b>Add your payment slip</b><span>Photo or PDF, up to 8 MB. Only the shop can see it.</span></label>') +
+            '<input type="file" id="' + id + '" class="slip-input" accept="image/jpeg,image/png,image/webp,application/pdf"' + (e ? ' aria-invalid="true" aria-describedby="err-slip"' : '') + '>' +
+            (e ? '<p class="err" id="err-slip" role="alert">' + K.esc(e) + '</p>' : '') + '</div>';
+        }
+        function setSlip(file) {
+          if (!file) return;
+          if (!SLIP_OK.test(file.type)) { SF.toast('Choose a photo (JPG, PNG) or a PDF of your slip.'); return; }
+          if (file.size > 8 * 1024 * 1024) { SF.toast('The slip must be 8 MB or smaller.'); return; }
+          if (slipUrl) URL.revokeObjectURL(slipUrl);
+          slipFile = file; slipUrl = file.type === 'application/pdf' ? null : URL.createObjectURL(file);
+          delete st.errs.slip; render();
         }
         V.payment = function () {
           var m = money(), pick = st.method === 'pickup';
           var opts = [];
           if (pays.card) opts.push(choice('pay', 'card', 'Card payment', 'Visa, Mastercard or Amex. Secure checkout by OnePay.', 'card', st.pay));
           if (pays.cod) opts.push(choice('pay', 'cod', payName('cod'), pick ? 'Pay in cash when you collect.' : 'Pay the rider in cash when your parcel arrives.', 'cash', st.pay, pick ? '' : 'Popular'));
-          if (pays.bank) opts.push(choice('pay', 'bank', 'Bank transfer', 'Online banking, ATM or CDM. Then share the slip.', 'bank', st.pay));
+          if (pays.bank) opts.push(choice('pay', 'bank', 'Bank transfer', 'Online banking, ATM or CDM. Add your slip here.', 'bank', st.pay));
           return '<div class="vhead"><h1 id="v-title" tabindex="-1">Payment</h1><p>Pay the way that suits you.</p></div>' +
             '<section class="panel" aria-labelledby="pm-h"><h2 id="pm-h">Payment method</h2><div class="choices" role="radiogroup" aria-labelledby="pm-h">' + opts.join('') + '</div>' +
             (st.pay === 'cod' ? '<div class="info">' + ic('cash') + '<p>Please keep <b>' + rs(m.total) + '</b> ready. Riders carry limited change.</p></div>' : '') +
-            (st.pay === 'bank' ? bankBox(m.total) : '') +
+            (st.pay === 'bank' ? bankBox(m.total) + slipPicker('slipIn') : '') +
             (st.pay === 'card' ? '<div class="info">' + ic('lock') + '<p>You will pay <b>' + rs(m.total) + '</b> on OnePay\'s secure page, then come straight back here.</p></div>' +
               (st.f.em && !st.errs.em ? '' : '<div class="fgrid" style="margin-top:12px">' + fld('em', 'Email for your receipt', inp('em', 'type="email" inputmode="email" autocomplete="email" placeholder="you@example.com"'), { hint: 'OnePay and the shop send your payment receipt here.' }) + '</div>') : '') +
             '</section>';
@@ -201,7 +225,7 @@
             '<section class="panel">' +
             '<div class="rv"><h3>Contact</h3><p>' + K.esc(f.fn) + ' · ' + K.esc(phone) + (f.em ? ' · ' + K.esc(f.em) : '') + '<br><span style="color:var(--sf-muted);font-size:14px">WhatsApp: ' + (st.waSame ? 'same number' : K.esc(f.wa)) + '</span></p><button type="button" class="link" data-act="go" data-step="details">Edit</button></div>' +
             '<div class="rv"><h3>Delivery</h3><p><b>' + (pick ? 'Pick up from the shop' : 'Islandwide delivery') + '</b><br><span style="color:var(--sf-muted);font-size:14px">' + K.esc(addr) + '</span></p><button type="button" class="link" data-act="go" data-step="delivery">Edit</button></div>' +
-            '<div class="rv"><h3>Payment</h3><p>' + payName(st.pay) + '</p><button type="button" class="link" data-act="go" data-step="payment">Edit</button></div>' +
+            '<div class="rv"><h3>Payment</h3><p>' + payName(st.pay) + (st.pay === 'bank' && slipFile ? '<br><span style="color:var(--sf-muted);font-size:14px">Slip: ' + K.esc(slipFile.name) + '</span>' : '') + '</p><button type="button" class="link" data-act="go" data-step="payment">Edit</button></div>' +
             '<div class="rv rv-items"><h3>Items (' + count() + ')</h3><ul class="rv-list">' + ls.map(function (l) { return '<li><span>' + K.esc(l.i.qty + ' × ' + l.p.name) + (optTxt(l.i) ? ' <span style="color:var(--sf-muted)">(' + K.esc(optTxt(l.i)) + ')</span>' : '') + '</span><button type="button" class="link danger" data-act="rm" data-k="' + l.k + '" aria-label="Remove ' + K.esc(l.p.name) + '">Remove</button></li>'; }).join('') + '</ul></div>' +
             '</section><section class="panel">' + fld('nt', 'Note for the shop <span class="opt">(optional)</span>', '<textarea class="input" id="nt" placeholder="e.g. Gift wrap please, or call before delivery">' + K.esc(f.nt || '') + '</textarea>') +
             termsHtml() + '<p class="hint-t" style="margin-top:10px">You will pay <b>' + rs(m.total) + '</b>.</p></section>';
@@ -215,12 +239,15 @@
         V.done = function () {
           var o = st.order; if (!o) return '';
           var first = (o.name || '').trim().split(' ')[0] || 'friend', bank = o.pay === 'bank';
-          var msg = 'Hello ' + S.name + ', I placed order ' + o.code + '.\n\n' + o.items.map(function (i) { return i.qty + ' × ' + i.name + ': ' + rs(i.qty * i.price); }).join('\n') + '\n\nTotal: ' + rs(o.total) + '\nPayment: ' + payName(o.pay) + '\nName: ' + o.name + ' · ' + o.phone + (bank ? '\n\nI am sending the payment slip here.' : '');
+          var msg = 'Hello ' + S.name + ', I placed order ' + o.code + '.\n\n' + o.items.map(function (i) { return i.qty + ' × ' + i.name + ': ' + rs(i.qty * i.price); }).join('\n') + '\n\nTotal: ' + rs(o.total) + '\nPayment: ' + payName(o.pay) + '\nName: ' + o.name + ' · ' + o.phone + (bank && o.slip !== 'sent' ? '\n\nI am sending the payment slip here.' : (bank ? '\n\nI added the payment slip at checkout.' : ''));
           return '<div class="thanks"><div class="ok-ic">' + ic('check') + '</div>' +
             '<h1 id="done-h" tabindex="-1">Thank you, ' + K.esc(first) + '! Your order is placed 🎉</h1>' +
             '<p style="color:var(--sf-muted)">Order <b style="color:var(--sf-ink)">' + K.esc(o.code) + '</b> · ' + K.esc(S.name) + ' will confirm it with you soon.</p>' + tracker('PENDING') +
-            (bank ? bankBox(o.total).replace('<div class="bankbox"><h3>Transfer to this account</h3>', '<div class="bankbox" style="text-align:left"><h3>Complete your payment</h3><p style="font-size:14px">Use <b>' + K.esc(o.code) + '</b> as the payment reference.</p>') : '') +
-            (S.whatsapp ? '<a class="btn btn-wa btn-block" target="_blank" rel="noopener" href="' + K.wa(S, msg) + '">' + SF.WA + (bank ? 'Send payment slip on WhatsApp' : 'Send order details on WhatsApp') + '</a>' : '') +
+            (bank && o.slip === 'sent' ? '<div class="info slip-ok">' + ic('check') + '<p><b>Payment slip received.</b> ' + K.esc(S.name) + ' will check it and confirm your order.</p></div>' : '') +
+            (bank && o.slip === 'failed' ? '<div class="slip bad" style="text-align:left"><h3>Your slip did not upload</h3><p class="hint-t">' + K.esc(o.slipErr || 'Please try again.') + ' Your order is placed; only the slip is missing.</p>' +
+              '<button type="button" class="btn btn-primary btn-block" data-act="slip-retry">Try uploading again</button></div>' : '') +
+            (bank && !o.slip ? bankBox(o.total).replace('<div class="bankbox"><h3>Transfer to this account</h3>', '<div class="bankbox" style="text-align:left"><h3>Complete your payment</h3><p style="font-size:14px">Use <b>' + K.esc(o.code) + '</b> as the payment reference.</p>') : '') +
+            (S.whatsapp ? '<a class="btn btn-wa btn-block" target="_blank" rel="noopener" href="' + K.wa(S, msg) + '">' + SF.WA + (bank && o.slip !== 'sent' ? 'Send payment slip on WhatsApp' : 'Send order details on WhatsApp') + '</a>' : '') +
             (o.statusUrl ? '<a class="btn btn-primary btn-block" href="' + K.esc(o.statusUrl) + '">Track your order</a>' : '') +
             (o.receiptUrl ? '<a class="btn btn-soft btn-block" href="' + K.esc(o.receiptUrl) + '">View your receipt</a>' : '') +
             '<section class="panel"><h2>Order summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li><span class="mini-img">' + (i.image ? '<img src="' + K.esc(i.image) + '" alt="" width="52" height="60" style="width:52px;height:60px;object-fit:cover;border-radius:10px">' : '<span class="ph">' + K.esc(K.initials(i.name)) + '</span>') + '<b>' + i.qty + '</b></span><span class="mini-n">' + K.esc(i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
@@ -303,6 +330,7 @@
           }
           if (step === 'payment' && PAY_OPTS.indexOf(st.pay) < 0) e.pay = 'Choose a payment method.';
           if (step === 'payment' && st.pay === 'card' && !/^\S+@\S+\.\S+$/.test(f.em || '')) e.em = 'Enter your email to pay by card.';
+          if (step === 'payment' && st.pay === 'bank' && !slipFile) e.slip = 'Add your payment slip to pay by bank transfer.';
           if (step === 'review' && termsHtml() && !f.agree) e.terms = 'Please agree to the Terms & Conditions to place your order.';
           st.errs = e;
           if (Object.keys(e).length) {
@@ -323,7 +351,10 @@
         /* ---------- Place the order ---------- */
         var placing = false;
         function place() {
-          if (placing) return; placing = true;
+          if (placing) return;
+          // A page reload clears the chosen file: ask for it again before ordering.
+          if (st.pay === 'bank' && !slipFile) { st.errs = { slip: 'Add your payment slip again to place the order.' }; goStep('payment'); return; }
+          placing = true;
           var f = st.f, ls = lines(), m = money(), pick = st.method === 'pickup';
           var btns = $$('[data-act="next"]'); btns.forEach(function (b) { b.disabled = true; b.textContent = st.pay === 'card' ? 'Opening secure payment…' : 'Placing order…'; });
           var body = {
@@ -337,7 +368,16 @@
             var od = res.order || {};
             st.order = { code: res.code, name: f.fn, phone: body.phone, pay: st.pay, pickup: pick, items: od.items && od.items.length ? od.items : ls.map(function (l) { return { name: l.p.name, qty: l.i.qty, price: K.linePrice(l.p, l.i), image: l.p.image || null }; }),
               subtotal: od.subtotal != null ? od.subtotal : m.sub, discount: od.discount || m.disc, delivery: od.delivery != null ? od.delivery : m.fee, total: od.total != null ? od.total : m.total, statusUrl: res.trackUrl || res.statusUrl || '', receiptUrl: res.receiptUrl || '' };
+            st.order.token = res.token || '';
             K.cart.clear(S.slug); st.promo = null; st.reach = 0; st.f.nt = ''; st.f.agree = false;
+            if (st.pay === 'bank' && slipFile && API && res.token) {
+              st.order.slip = 'sending';
+              KadeApi.uploadSlip(S.slug, res.code, res.token, slipFile)
+                .then(function () { st.order.slip = 'sent'; })
+                .catch(function (ex) { st.order.slip = 'failed'; st.order.slipErr = ex.message || ''; })
+                .then(function () { placing = false; goStep('done'); });
+              return;
+            }
             placing = false; goStep('done');
           }
           if (!API) return finish({ code: 'ORD-' + Math.floor(10000 + Math.random() * 90000) });
@@ -360,6 +400,7 @@
         });
         document.addEventListener('change', function (e) {
           var t = e.target;
+          if (t.classList && t.classList.contains('slip-input')) { setSlip(t.files && t.files[0]); t.value = ''; return; }
           if (t.name === 'method') { st.method = t.value; save(); render(); }
           else if (t.name === 'pay') { st.pay = t.value; save(); render(); }
           else if (t.id === 'waSame') { st.waSame = t.checked; save(); render(); }
@@ -378,6 +419,12 @@
         }
         document.addEventListener('click', function (e) {
           var b = e.target.closest('[data-act]'); if (!b) return;
+          if (b.getAttribute('data-act') === 'slip-rm') { var fi = $('.slip-input'); if (fi) fi.click(); return; }
+          if (b.getAttribute('data-act') === 'slip-retry') {
+            var o = st.order; b.disabled = true; b.textContent = 'Uploading…';
+            KadeApi.uploadSlip(S.slug, o.code, o.token, slipFile).then(function () { o.slip = 'sent'; render(); }).catch(function (ex) { o.slipErr = ex.message || ''; render(); SF.toast(o.slipErr || 'Could not upload the slip.'); });
+            return;
+          }
           var act = b.getAttribute('data-act'), k = +b.getAttribute('data-k'), items = K.cart.get(S.slug);
           if (act === 'next') next();
           else if (act === 'back') goStep(STEPS[Math.max(0, STEPS.indexOf(st.step) - 1)]);
