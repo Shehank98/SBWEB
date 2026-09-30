@@ -305,6 +305,16 @@
   };
   K.icon = function (n) { return '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICON[n] + '</svg>'; };
 
+  /* ---------- Locked feature teaser: a blurred preview with made-up sample data
+     (never the shop's own data), a lock, what the feature does and an upgrade
+     button. o = { sample: html, title, text, cta, href } ---------- */
+  K.lockTeaser = function (o) {
+    return '<div class="lock-teaser"><div class="lock-teaser__blur" aria-hidden="true" inert>' + o.sample + '</div>' +
+      '<div class="lock-teaser__over"><span class="lock-teaser__ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>' +
+      '<p class="lock-teaser__t">' + K.esc(o.title) + '</p><p class="lock-teaser__s">' + K.esc(o.text) + '</p>' +
+      '<a class="kd-btn kd-btn--primary kd-btn--sm" href="' + K.esc(o.href || 'subscription') + '">' + K.esc(o.cta || 'Upgrade to Pro') + '</a></div></div>';
+  };
+
   /* ---------- App shell (owner dashboard and admin) ---------- */
   K.shell = function (kind, active) {
     var api = !!(window.KadeApi && KadeApi.enabled);
@@ -533,7 +543,9 @@
   }
   K.line = function (el, data, o) {
     o = o || {};
-    var W = 720, H = 260, ml = 48, mr = 14, mt = 20, mb = 30, pw = W - ml - mr, ph = H - mt - mb;
+    // Draw at the container's real width (340 to 720 units) so the 12px axis text
+    // stays readable on phones instead of shrinking with a fixed wide viewBox.
+    var W = Math.max(340, Math.min(720, Math.round((el && el.clientWidth) || 720))), H = W < 480 ? 220 : 260, ml = 48, mr = 14, mt = 20, mb = 30, pw = W - ml - mr, ph = H - mt - mb;
     var n = data.length, fmt = o.format || K.rs;
     var max = Math.max.apply(null, data.map(function (d) { return d.value; }).concat([0]));
     var sc = nice(max || 1);
@@ -548,13 +560,22 @@
     }
     if (area) svg += '<path class="line-area" d="' + area + '"/>';
     if (line) svg += '<path class="line-path" d="' + line + '"/>';
-    // Thin x-axis labels to at most ~8 so long daily ranges stay readable.
-    var stepT = Math.max(1, Math.ceil(n / 8));
-    data.forEach(function (d, i) {
-      if (i % stepT === 0 || i === n - 1) {
-        var anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
-        svg += '<text class="axis" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="' + anchor + '">' + K.esc(d.label) + '</text>';
-      }
+    // X-axis labels never overlap: space them by the widest label (about 7 units per
+    // character at 12px, plus a gap), always show the first and the last, and drop
+    // any label that would sit closer than one label width to the last one.
+    var maxLen = Math.max.apply(null, data.map(function (d) { return String(d.label || '').length; }).concat([1]));
+    var slot = maxLen * 7 + 18;
+    var fit = Math.max(2, Math.floor(pw / slot) + 1);
+    var stepT = n <= fit ? 1 : Math.ceil((n - 1) / (fit - 1));
+    var shown = [];
+    for (var ti = 0; ti < n; ti += stepT) shown.push(ti);
+    if (n > 1 && shown[shown.length - 1] !== n - 1) {
+      if (x(n - 1) - x(shown[shown.length - 1]) < slot) shown.pop();
+      shown.push(n - 1);
+    }
+    shown.forEach(function (i) {
+      var d = data[i], anchor = n > 1 && i === 0 ? 'start' : (n > 1 && i === n - 1 ? 'end' : 'middle');
+      svg += '<text class="axis" x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="' + anchor + '">' + K.esc(d.label) + '</text>';
     });
     if (n <= 31) data.forEach(function (d, i) { svg += '<circle class="line-dot" cx="' + x(i) + '" cy="' + y(d.value) + '" r="3" style="pointer-events:none"/>'; });
     svg += '<circle class="line-cursor" r="4.5" cx="0" cy="0" hidden/>';

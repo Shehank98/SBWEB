@@ -38,13 +38,15 @@
           <h2 id="s3">Pay for <span id="payPlan">your plan</span>: <span id="amt"></span></h2>
           <div class="pay-options">
             <div id="cardSlot" hidden></div>
-            <form id="renew" class="pay-option" novalidate>
-              <h3>Bank transfer</h3>
+            <details class="pay-option pay-bank" id="bankBox">
+              <summary><span class="pay-bank__t">Pay by bank transfer</span><span class="pay-bank__hint">Show</span></summary>
+            <form id="renew" novalidate>
               <p class="muted">Send the amount to one of these accounts, then upload your slip. We activate your plan after checking it, usually within a day.</p>
               <div id="bankAccts" class="stack"></div>
               <div class="kd-field"><label class="kd-label" for="slip">Payment slip</label><input class="kd-input" id="slip" type="file" accept="image/*,application/pdf"></div>
               <div><button class="kd-btn kd-btn--secondary kd-btn--block" type="submit">Send payment slip</button></div>
             </form>
+            </details>
           </div>
         </section>
 
@@ -148,6 +150,9 @@
       function renderCard() {
         var slot = K.$('#cardSlot'), cp = sub && sub.cardPayments;
         slot.hidden = !(cp && cp.enabled);
+        // Bank transfer stays folded away while card payment is on offer, and opens
+        // by itself when it is the only way to pay.
+        var bank = K.$('#bankBox'); if (bank && slot.hidden) bank.open = true;
         if (slot.hidden) return;
         var p = selected();
         slot.className = 'pay-option pay-option--card';
@@ -166,6 +171,7 @@
       }
       function notice(title, body, tone) { K.$('#notice').innerHTML = '<div class="kd-banner kd-banner--' + (tone || 'success') + '" role="status" style="margin-bottom:var(--space-4)"><div><p class="kd-banner__title">' + K.esc(title) + '</p><p style="margin-top:4px">' + K.esc(body) + '</p></div></div>'; window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
+      K.$('#bankBox').addEventListener('toggle', function () { K.$('.pay-bank__hint', this).textContent = this.open ? 'Hide' : 'Show'; });
       K.$('#renew').addEventListener('submit', function (e) {
         e.preventDefault();
         var s = K.$('#slip'), fl = s.closest('.kd-field'), o = fl.querySelector('.kd-error'); if (o) o.remove();
