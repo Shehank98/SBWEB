@@ -679,8 +679,8 @@ dashboardRouter.get(
     const store = (await query('SELECT * FROM stores WHERE business_id=$1', [b])).rows[0];
     if (!store) throw notFound('Store not found.');
     const cats = (await query('SELECT name FROM categories WHERE business_id=$1 ORDER BY sort_order, name', [b])).rows.map((r) => r.name);
-    const biz = (await query('SELECT status FROM businesses WHERE id=$1', [b])).rows[0];
-    res.json({ store: { ...S.storePublic(store, cats), status: biz ? biz.status : store.status } });
+    const biz = (await query('SELECT status, facebook, instagram FROM businesses WHERE id=$1', [b])).rows[0];
+    res.json({ store: { ...S.storePublic({ ...store, facebook: biz && biz.facebook, instagram: biz && biz.instagram }, cats), status: biz ? biz.status : store.status } });
   })
 );
 
@@ -694,6 +694,12 @@ dashboardRouter.put(
     if (!store) throw notFound('Store not found.');
     const d = s.delivery || {};
     const p = s.payments || {};
+    // Autosave sends partial or in-progress edits: never blank the name, and keep
+    // fields the page did not send (city was previously wiped on every save).
+    if (s.name !== undefined && !String(s.name || '').trim()) throw badRequest('Your store needs a name.');
+    if (d.fee != null && !(Number(d.fee) >= 0 && Number(d.fee) <= 100000)) throw badRequest('Enter a delivery fee between 0 and 100,000.');
+    if (d.freeAbove != null && !(Number(d.freeAbove) >= 0)) throw badRequest('Free delivery amount cannot be negative.');
+    const keep = (v, cur) => (v === undefined ? cur : (String(v || '').trim() || null));
     // Structured bank account (shown to customers, copyable). Keep bank_details as a
     // human-readable one-line summary composed from the fields, for the plain-text
     // fallback and any legacy readers.
@@ -716,8 +722,8 @@ dashboardRouter.put(
       `UPDATE stores SET name=$2, tagline=$3, about=$4, preset=$5, phone=$6, whatsapp=$7, address=$8, city=$9,
               delivery_fee=$10, delivery_free_above=$11, pickup=$12, pay_cod=$13, pay_bank=$14, pay_online=$15, bank_details=$16, template=$17, bank_account=$18
         WHERE business_id=$1`,
-      [b, s.name || store.name, s.tagline || null, s.about || null, s.preset || store.preset,
-       s.phone || null, s.whatsapp || null, s.address || null, s.city || null,
+      [b, String(s.name || '').trim() || store.name, keep(s.tagline, store.tagline), keep(s.about, store.about), s.preset || store.preset,
+       keep(s.phone, store.phone), keep(s.whatsapp, store.whatsapp), keep(s.address, store.address), keep(s.city, store.city),
        d.fee != null ? d.fee : store.delivery_fee, d.freeAbove != null ? d.freeAbove : store.delivery_free_above,
        d.pickup != null ? d.pickup : store.pickup,
        p.cod != null ? p.cod : store.pay_cod, p.bank != null ? p.bank : store.pay_bank, p.online != null ? p.online : store.pay_online,
@@ -725,6 +731,11 @@ dashboardRouter.put(
        ['classic', 'showcase', 'minimal'].includes(s.template) ? s.template : store.template,
        JSON.stringify(bankAccount)]
     );
+    // Social links for the storefront footer (a handle or a full https link).
+    const social = (v) => { const t = String(v || '').trim().slice(0, 200); if (!t) return null; if (/^https?:\/\//i.test(t)) return t; if (/^@?[A-Za-z0-9._-]{1,80}$/.test(t)) return t.replace(/^@/, ''); throw badRequest('Enter a Facebook or Instagram page name, or its full link.'); };
+    if (s.facebook !== undefined || s.instagram !== undefined) {
+      await query('UPDATE businesses SET facebook = COALESCE($2, facebook), instagram = COALESCE($3, instagram) WHERE id = $1', [b, s.facebook !== undefined ? social(s.facebook) || '' : null, s.instagram !== undefined ? social(s.instagram) || '' : null]);
+    }
 
     // Replace category list if provided (deduped, and capped to the plan's limit).
     if (Array.isArray(s.categories)) {

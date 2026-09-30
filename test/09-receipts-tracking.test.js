@@ -117,3 +117,25 @@ test('waybills API: ready orders get a QR label, incomplete ones list missing fi
   const x = await api('GET', `/api/dashboard/waybills?codes=${shop.order.code}`, { token: other.token });
   assert.deepEqual(x.data.waybills[0].missing, ['Order not found']);
 });
+
+test('store settings autosave: partial updates keep other fields, invalid values are refused', async () => {
+  const shop = await registerShop();
+  const before = (await api('GET', '/api/dashboard/store', { token: shop.token })).data.store;
+  assert.equal((await api('PUT', '/api/dashboard/store', { token: shop.token, body: { tagline: 'Handmade in Kandy' } })).status, 200);
+  assert.equal((await api('PUT', '/api/dashboard/store', { token: shop.token, body: { delivery: { fee: 400, freeAbove: 0, pickup: true } } })).status, 200);
+  assert.equal((await api('PUT', '/api/dashboard/store', { token: shop.token, body: { name: '  ' } })).status, 400);
+  assert.equal((await api('PUT', '/api/dashboard/store', { token: shop.token, body: { delivery: { fee: -5 } } })).status, 400);
+  assert.equal((await api('PUT', '/api/dashboard/store', { token: shop.token, body: { facebook: '@kandyhandloom', instagram: 'https://instagram.com/kandy' } })).status, 200);
+  assert.equal((await api('PUT', '/api/dashboard/store', { token: shop.token, body: { facebook: 'not a valid page!' } })).status, 400);
+  const after = (await api('GET', '/api/dashboard/store', { token: shop.token })).data.store;
+  assert.equal(after.name, before.name);
+  assert.equal(after.tagline, 'Handmade in Kandy');
+  assert.equal(after.delivery.fee, 400);
+  assert.equal(after.phone, before.phone);
+  assert.deepEqual(after.social, { facebook: 'kandyhandloom', instagram: 'https://instagram.com/kandy' });
+  // The settings page never sends city: a save must not wipe it.
+  await db.query(`UPDATE stores SET city = 'Kandy' WHERE business_id = $1`, [shop.bizId]);
+  assert.equal((await api('PUT', '/api/dashboard/store', { token: shop.token, body: { about: 'Since 1998' } })).status, 200);
+  const { rows } = await db.query('SELECT city, about FROM stores WHERE business_id = $1', [shop.bizId]);
+  assert.deepEqual(rows[0], { city: 'Kandy', about: 'Since 1998' });
+});
