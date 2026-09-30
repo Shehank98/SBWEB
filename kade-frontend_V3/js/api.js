@@ -250,6 +250,7 @@
     adminSettings() { return req('GET', '/api/admin/settings'); },
     adminSaveSettings(s) { return req('PUT', '/api/admin/settings', s); },
     siteStatus() { return req('GET', '/api/site/status'); },
+    storeSetup() { return req('GET', '/api/dashboard/setup'); },
     adminPaymentSettings() { return req('GET', '/api/admin/payment-settings'); },
     adminSavePaymentSettings(b) { return req('PUT', '/api/admin/payment-settings', b); },
     adminResetPaymentSettings() { return req('DELETE', '/api/admin/payment-settings'); },

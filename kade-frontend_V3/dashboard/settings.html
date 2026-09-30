@@ -22,12 +22,14 @@
 
         <!-- Overview: the status of each area first; details open only when needed. -->
         <div id="ov" class="set-ov">
-          <a class="set-card" href="#info"><div class="set-card__body"><h2>Store information</h2><p class="set-card__main" id="sumName">Loading…</p><p class="muted" id="sumUrl"></p><p class="muted" id="sumInfo"></p></div><span class="set-card__go">Edit</span></a>
-          <a class="set-card" href="#appearance"><div class="set-card__body"><h2>Store appearance</h2><p class="set-card__main">Logo, cover photo, template and colours</p><p class="muted" id="sumLook"></p></div><span class="set-card__go">Customise</span></a>
-          <a class="set-card" href="#categories"><div class="set-card__body"><h2>Categories</h2><p class="set-card__main" id="sumCats"></p><p class="muted" id="sumCatNames"></p></div><span class="set-card__go">Manage</span></a>
-          <a class="set-card" href="#payments"><div class="set-card__body"><h2>Payments</h2><div class="set-stat" id="sumPay"></div></div><span class="set-card__go">Manage</span></a>
-          <a class="set-card" href="#delivery"><div class="set-card__body"><h2>Delivery</h2><p class="set-card__main" id="sumDlv"></p></div><span class="set-card__go">Manage</span></a>
-          <a class="set-card" href="#verification"><div class="set-card__body"><h2>Business verification</h2><p class="set-card__main" id="sumVer">Not verified</p><p class="muted">Get the Verified Sri Lankan Business badge.</p></div><span class="set-card__go">Verify</span></a>
+          <div id="spTop"></div>
+          <a class="set-card" href="#info" data-area="info"><div class="set-card__body"><h2>Store information</h2><p class="set-card__main" id="sumName">Loading…</p><p class="muted" id="sumUrl"></p><p class="muted" id="sumInfo"></p></div><span class="set-card__go">Edit</span></a>
+          <a class="set-card" href="#appearance" data-area="appearance"><div class="set-card__body"><h2>Store appearance</h2><p class="set-card__main">Logo, cover photo, template and colours</p><p class="muted" id="sumLook"></p></div><span class="set-card__go">Customise</span></a>
+          <a class="set-card" href="products" data-area="products"><div class="set-card__body"><h2>Products</h2><p class="set-card__main" id="sumProd">Your products and stock</p></div><span class="set-card__go">Manage</span></a>
+          <a class="set-card" href="#categories" data-area="categories"><div class="set-card__body"><h2>Categories</h2><p class="set-card__main" id="sumCats"></p><p class="muted" id="sumCatNames"></p></div><span class="set-card__go">Manage</span></a>
+          <a class="set-card" href="#payments" data-area="payments"><div class="set-card__body"><h2>Payments</h2><div class="set-stat" id="sumPay"></div></div><span class="set-card__go">Manage</span></a>
+          <a class="set-card" href="#delivery" data-area="delivery"><div class="set-card__body"><h2>Delivery</h2><p class="set-card__main" id="sumDlv"></p></div><span class="set-card__go">Manage</span></a>
+          <a class="set-card" href="#verification" data-area="verification"><div class="set-card__body"><h2>Business verification</h2><p class="set-card__main" id="sumVer">Not verified</p><p class="muted">Get the Verified Sri Lankan Business badge.</p></div><span class="set-card__go">Verify</span></a>
           <a class="set-card" href="#notifications"><div class="set-card__body"><h2>Notifications</h2><p class="set-card__main" id="sumNote">Weekly sales summary</p></div><span class="set-card__go">Manage</span></a>
           <section class="kd-card panel danger-zone" aria-labelledby="dz" style="margin-top:24px">
           <h2 id="dz">Danger zone</h2>
@@ -111,6 +113,7 @@
           <div class="set-view__head"><h2 class="set-view__title" id="v-payments">Payments</h2><p class="muted">Choose how customers can pay you.</p></div>
           <div class="stack-lg">
           <section class="kd-card panel" aria-labelledby="a4" data-autosave="payments"><h2 id="a4">Payment methods</h2>
+            <div class="set-confirm" data-confirm="payments" hidden><p><strong>Choose how buyers pay you.</strong> Turn off anything you do not offer, add your bank details for bank transfer, then confirm.</p><button type="button" class="kd-btn kd-btn--primary kd-btn--sm" data-confirm-btn="payments">Confirm payment methods</button></div>
             <label class="kd-switch"><span class="kd-check__text"><strong>Cash on delivery</strong><span class="muted">Customers pay when the order arrives.</span></span><input type="checkbox" role="switch" id="cod"></label>
             <label class="kd-switch"><span class="kd-check__text"><strong>Bank transfer</strong><span class="muted">Customers send money to your account and share the slip.</span></span><input type="checkbox" role="switch" id="bank"></label>
             <div id="bankBox">
@@ -131,6 +134,7 @@
           <div class="set-view__head"><h2 class="set-view__title" id="v-delivery">Delivery</h2><p class="muted">Delivery fee, free delivery and shop pickup.</p></div>
           <div class="stack-lg">
           <section class="kd-card panel" aria-labelledby="a5" data-autosave="delivery"><h2 id="a5">Delivery</h2>
+            <div class="set-confirm" data-confirm="delivery" hidden><p><strong>Check your delivery settings.</strong> We filled in common values. Change anything you need, then confirm.</p><button type="button" class="kd-btn kd-btn--primary kd-btn--sm" data-confirm-btn="delivery">Confirm delivery settings</button></div>
             <div class="form-grid form-grid--2">
               <div class="kd-field"><label class="kd-label" for="fee">Delivery fee (Rs.)</label><input class="kd-input" id="fee" type="number" inputmode="numeric" min="0"></div>
               <div class="kd-field"><label class="kd-label" for="free">Free delivery above (Rs.)</label><input class="kd-input" id="free" type="number" inputmode="numeric" min="0"><span class="kd-help">Leave 0 for no free delivery.</span></div>
@@ -232,7 +236,7 @@
         K.prompt({ title: 'New category', label: 'Category name', placeholder: 'e.g. Shirts', help: 'Customers browse your store by category.' }).then(function (name) {
           if (name == null) return; name = String(name).trim(); if (!name) return;
           if (categories.some(function (c) { return c.toLowerCase() === name.toLowerCase(); })) { K.toast('You already have that category.'); return; }
-          function done() { categories.push(name); catUsage.count = categories.length; renderCats(); K.toast('Category added'); }
+          function done() { categories.push(name); catUsage.count = categories.length; renderCats(); loadSetup(); K.toast('Category added'); }
           if (API) KadeApi.createCategory(name).then(done).catch(function (ex) { K.toast(ex.message || 'Could not add category.'); }); else done();
         });
       }
@@ -280,7 +284,7 @@
         paintLogo(); paintCover();
         paintPreview();
         loadCategories();
-        paintSummary(); route();
+        paintSummary(); route(); loadSetup();
       }
 
       var copyUrl = function () { return 'https://' + K.host + '/store/' + (S ? S.slug : ''); };
@@ -304,7 +308,7 @@
         KadeCrop.open(file, KadeCrop.LOGO).then(function (f) {
           if (!f) return;
           K.toast('Uploading logo…');
-          return KadeApi.uploadStoreLogo(f).then(function (r) { S.logo = r.logo; paintLogo(); K.toast('Logo updated'); });
+          return KadeApi.uploadStoreLogo(f).then(function (r) { S.logo = r.logo; paintLogo(); loadSetup(); K.toast('Logo updated'); });
         }).catch(function (ex) { K.toast(ex.message || 'Could not upload the logo.'); });
       });
       // ---- Payment gateways + "How to get OnePay" guide ----
@@ -412,7 +416,7 @@
         if (!idZone.file() || !addrZone.file()) { K.toast('Add both documents first.'); return; }
         var restore = K.btnLoading($('verSubmit'), 'Uploading…');
         KadeApi.submitVerification(idZone.file(), addrZone.file()).then(function () {
-          restore(); idZone.clear(); addrZone.clear(); K.toast('Submitted for review'); return KadeApi.verification().then(paintVerification);
+          restore(); idZone.clear(); addrZone.clear(); loadSetup(); K.toast('Submitted for review'); return KadeApi.verification().then(paintVerification);
         }).catch(function (ex) { restore(); K.toast(ex.message); });
       });
 
@@ -429,7 +433,7 @@
         KadeCrop.open(file, KadeCrop.COVER).then(function (f) {
           if (!f) return;
           K.toast('Uploading cover…');
-          return KadeApi.uploadStoreCover(f).then(function (r) { S.cover = r.cover; paintCover(); K.toast('Cover updated'); });
+          return KadeApi.uploadStoreCover(f).then(function (r) { S.cover = r.cover; paintCover(); loadSetup(); K.toast('Cover updated'); });
         }).catch(function (ex) { K.toast(ex.message || 'Could not upload the cover.'); });
       });
       $('coverRm').addEventListener('click', function () {
@@ -451,7 +455,7 @@
         var v = h && K.$('[data-view="' + h + '"]');
         K.$$('.set-view').forEach(function (x) { x.hidden = x !== v; });
         $('ov').hidden = !!v;
-        if (!v) paintSummary();
+        if (!v) { paintSummary(); if (routed) loadSetup(); }
         window.scrollTo(0, 0);
         var t = v ? K.$('.set-view__title', v) : K.$('.page-head h1');
         if (t && routed) { t.setAttribute('tabindex', '-1'); t.focus({ preventScroll: true }); }
@@ -483,6 +487,35 @@
         $('sumVer').textContent = VL[VSTATUS] || 'Not verified';
         $('sumNote').textContent = WEEKLY ? 'Weekly sales summary: ' + ($('weeklyOn').checked ? 'On' : 'Off') : 'Weekly sales summary';
       }
+
+      /* ---------- Store setup progress (shared weighted score) ---------- */
+      var SETUP = null;
+      function loadSetup() { if (API && KadeApi.storeSetup) KadeApi.storeSetup().then(function (d) { SETUP = d; paintSetup(); }).catch(function () {}); }
+      function paintSetup() {
+        var d = SETUP; if (!d) return;
+        var top = $('spTop');
+        if (d.complete) top.innerHTML = '<section class="kd-card panel sp-card sp-card--slim"><div class="sp-card__top"><h2>Your store is fully set up</h2><span class="sp-card__pct"><b data-count="100">0</b>%</span></div>' + K.setupBar(100) + '</section>';
+        else top.innerHTML = '<section class="kd-card panel sp-card sp-card--slim" aria-labelledby="spt-h"><div class="sp-card__top"><h2 id="spt-h">Complete your store</h2><span class="sp-card__pct"><b data-count="' + d.percent + '">0</b>%</span></div>' + K.setupBar(d.percent) +
+          '<p class="sp-card__tip">' + d.stepsDone + ' of ' + d.stepsTotal + ' setup steps completed' + (d.ready ? ' · <span class="sp-ready sp-ready--inline"><span class="sp-dot"></span>Ready to accept orders</span>' : '') + '</p>' +
+          '<div class="row" style="gap:8px;flex-wrap:wrap"><a class="kd-btn kd-btn--primary kd-btn--sm" href="' + K.esc(d.next ? d.next.href : 'setup') + '">Continue setup</a><a class="kd-btn kd-btn--ghost kd-btn--sm" href="setup">See all steps</a></div></section>';
+        K.animateSetup(top);
+        K.$$('.set-card[data-area]').forEach(function (c) {
+          var a = d.areas[c.getAttribute('data-area')], tag = K.$('.set-status', c);
+          if (!tag) { tag = document.createElement('span'); tag.className = 'set-status'; K.$('h2', c).appendChild(tag); }
+          if (!a) { tag.remove(); return; }
+          tag.className = 'set-status set-status--' + a.status;
+          tag.textContent = a.status === 'complete' ? 'Complete' : a.status === 'todo' ? 'Not started' : a.percent + '%';
+        });
+        var byKey = {}; d.items.forEach(function (i) { byKey[i.key] = i; });
+        $('sumProd').textContent = byKey.product && byKey.product.done ? 'Your products and stock' : 'Add your first product to start selling';
+        K.$('[data-confirm="delivery"]').hidden = !(byKey.delivery && !byKey.delivery.done);
+        K.$('[data-confirm="payments"]').hidden = !(byKey.payment && !byKey.payment.done);
+      }
+      $('sf').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-confirm-btn]'); if (!b) return;
+        var k = b.getAttribute('data-confirm-btn');
+        clearTimeout(timers[k]); save(k);
+      });
 
       /* ---------- Autosave: each section saves itself 800ms after the last change ----------
          Only that section's fields are sent (the API keeps everything else), invalid
@@ -579,7 +612,7 @@
         var done = function () {
           sec.apply(body);
           if (dirtyAgain[k]) { dirtyAgain[k] = false; return schedule(k); }
-          state[k] = 'saved'; paintState(k); paintSummary();
+          state[k] = 'saved'; paintState(k); paintSummary(); loadSetup();
         };
         if (!API) return setTimeout(done, 300);
         KadeApi.updateStore(body).then(done).catch(function (ex) {
