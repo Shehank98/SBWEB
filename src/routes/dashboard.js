@@ -18,6 +18,7 @@ import { queueNotification, templates } from '../services/notifications.js';
 import { currentPlan, cap, businessAccess, assertFeature, hasFeature, paywall, trialInfo } from '../services/plan.js';
 import { getSetting } from '../services/settings.js';
 import { POLICY_KINDS, TEMPLATES, loadPolicies, compliance, validateContact } from '../services/policies.js';
+import { clip } from '../utils/text.js';
 import * as S from '../services/serialize.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
@@ -328,7 +329,7 @@ dashboardRouter.put(
     if (!order) throw notFound('Order not found.');
     // "Refunded": the refund itself is made in the seller's OnePay dashboard (or by
     // bank transfer); here the seller records it with a note.
-    const note = req.body && req.body.note ? String(req.body.note).trim().slice(0, 500) : null;
+    const note = req.body && req.body.note ? clip(String(req.body.note).trim(), 500) : null;
     if (status === 'REFUNDED' && !note) throw badRequest('Add a note about the refund (how and when it was refunded).');
     // Refund amount: full by default, or a partial amount up to the order total.
     // Reports deduct it from sales.
@@ -379,7 +380,7 @@ dashboardRouter.put(
   requirePermission('orders'),
   wrap(async (req, res) => {
     const b = bid(req);
-    const courier = String((req.body && req.body.courier) || '').trim().slice(0, 60);
+    const courier = clip(String((req.body && req.body.courier) || '').trim(), 60);
     const number = String((req.body && req.body.trackingNumber) || '').trim().slice(0, 80);
     let url = String((req.body && req.body.trackingUrl) || '').trim().slice(0, 300);
     if (!courier) throw badRequest('Choose or type the courier name.');
@@ -739,7 +740,7 @@ dashboardRouter.put(
     // Structured bank account (shown to customers, copyable). Keep bank_details as a
     // human-readable one-line summary composed from the fields, for the plain-text
     // fallback and any legacy readers.
-    const clean = (v) => String(v == null ? '' : v).trim().slice(0, 120);
+    const clean = (v) => clip(String(v == null ? '' : v).trim(), 120);
     let bankAccount = store.bank_account || {};
     let bankLine = store.bank_details;
     if (s.bankAccount && typeof s.bankAccount === 'object') {
@@ -764,14 +765,14 @@ dashboardRouter.put(
        d.pickup != null ? d.pickup : store.pickup,
        p.cod != null ? p.cod : store.pay_cod, p.bank != null ? p.bank : store.pay_bank, p.online != null ? p.online : store.pay_online,
        bankLine,
-       ['classic', 'showcase', 'minimal'].includes(s.template) ? s.template : store.template,
+       ['classic', 'showcase', 'minimal', 'boutique', 'catalog'].includes(s.template) ? s.template : store.template,
        JSON.stringify(bankAccount)]
     );
     // Store setup: remember that the seller confirmed delivery / payment choices.
     if (s.delivery) await query('UPDATE stores SET delivery_set_at = now() WHERE business_id = $1', [b]);
     if (s.payments) await query('UPDATE stores SET payments_set_at = now() WHERE business_id = $1', [b]);
     // Social links for the storefront footer (a handle or a full https link).
-    const social = (v) => { const t = String(v || '').trim().slice(0, 200); if (!t) return null; if (/^https?:\/\//i.test(t)) return t; if (/^@?[A-Za-z0-9._-]{1,80}$/.test(t)) return t.replace(/^@/, ''); throw badRequest('Enter a Facebook or Instagram page name, or its full link.'); };
+    const social = (v) => { const t = clip(String(v || '').trim(), 200); if (!t) return null; if (/^https?:\/\//i.test(t)) return t; if (/^@?[A-Za-z0-9._-]{1,80}$/.test(t)) return t.replace(/^@/, ''); throw badRequest('Enter a Facebook or Instagram page name, or its full link.'); };
     if (s.facebook !== undefined || s.instagram !== undefined) {
       await query('UPDATE businesses SET facebook = COALESCE($2, facebook), instagram = COALESCE($3, instagram) WHERE id = $1', [b, s.facebook !== undefined ? social(s.facebook) || '' : null, s.instagram !== undefined ? social(s.instagram) || '' : null]);
     }
@@ -887,7 +888,7 @@ dashboardRouter.post(
          VALUES ($1,$2,$3,$4,$5,$6, now())
          ON CONFLICT (business_id, kind) DO UPDATE SET storage_key=EXCLUDED.storage_key, filename=EXCLUDED.filename,
            content_type=EXCLUDED.content_type, size_bytes=EXCLUDED.size_bytes, uploaded_at=now()`,
-        [b, kind, key, String(file.originalname || kind).slice(0, 120), file.mimetype, file.size]
+        [b, kind, key, clip(String(file.originalname || kind), 120), file.mimetype, file.size]
       );
     }
     await query(
@@ -980,7 +981,7 @@ dashboardRouter.put(
     const c = { email: String(req.body?.email || '').trim(), phone: String(req.body?.phone || '').trim(), address: String(req.body?.address || '').trim() };
     const errors = validateContact(c);
     if (Object.keys(errors).length) throw badRequest(Object.values(errors)[0], { fields: errors });
-    await query('UPDATE stores SET contact_email = $2, phone = $3, address = $4 WHERE business_id = $1', [b, c.email.slice(0, 120), c.phone.slice(0, 30), c.address.slice(0, 300)]);
+    await query('UPDATE stores SET contact_email = $2, phone = $3, address = $4 WHERE business_id = $1', [b, c.email.slice(0, 120), c.phone.slice(0, 30), clip(c.address, 300)]);
     res.json({ ok: true, compliance: await compliance(b) });
   })
 );

@@ -139,7 +139,16 @@
         }
         // Live suggestions: top matches by name, keyboard navigable.
         var sel = -1, sugg = [];
-        function hl(name, q) { var n = K.esc(name); if (!q) return n; var i = norm(name).indexOf(norm(q)); return i < 0 ? n : K.esc(name.slice(0, i)) + '<mark>' + K.esc(name.slice(i, i + q.length)) + '</mark>' + K.esc(name.slice(i + q.length)); }
+        // Highlight the match by whole characters: the normalised text can differ in
+        // length from the name (accents, emoji), so map positions character by character.
+        function hl(name, q) {
+          var n = K.esc(name); q = norm(q).trim(); if (!q) return n;
+          var chars = Array.from(String(name)), flat = '', at = [];
+          chars.forEach(function (c, i) { var f = norm(c); for (var k = 0; k < f.length; k++) at.push(i); flat += f; });
+          var i = flat.indexOf(q); if (i < 0) return n;
+          var a = at[i], b = at[i + q.length - 1] + 1;
+          return K.esc(chars.slice(0, a).join('')) + '<mark>' + K.esc(chars.slice(a, b).join('')) + '</mark>' + K.esc(chars.slice(b).join(''));
+        }
         function suggest() {
           var q = H.q.trim(), box = $('suggest');
           if (!q) { box.hidden = true; $('searchBox').setAttribute('aria-expanded', 'false'); return; }

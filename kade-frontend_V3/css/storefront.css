@@ -7,7 +7,7 @@
   --sf-sale: #C2410C; --sf-danger: #B42318; --sf-warn: #B54708; --sf-ok: #067647; --sf-wa: #25D366;
   --sf-r: 16px; --sf-shadow: 0 1px 2px rgba(16,24,40,.05), 0 10px 30px rgba(16,24,40,.07);
   --sf-shadow-sm: 0 1px 2px rgba(16,24,40,.06), 0 4px 12px rgba(16,24,40,.06);
-  --sf-font: var(--font-sans, system-ui), -apple-system, "Segoe UI", Roboto, "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif;
+  --sf-font: var(--font-sans, system-ui), -apple-system, "Segoe UI", Roboto, "Noto Sans Sinhala", "Noto Sans Tamil", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --sf-top: 64px;
 }
 *, *::before, *::after { box-sizing: border-box; }
@@ -412,6 +412,55 @@ textarea.input { padding: 12px 14px; min-height: 90px; resize: vertical; }
 @media (min-width: 1000px) {
   .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   [data-template="showcase"] .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+/* ---------- Template: Boutique (centred brand, tall cover, portrait photos) ---------- */
+[data-template="boutique"] .cover { height: 220px; }
+[data-template="boutique"] .store-card { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; margin-top: -64px; }
+[data-template="boutique"] .store-info h1 { justify-content: center; letter-spacing: .01em; }
+[data-template="boutique"] .store-stats { justify-content: center; }
+[data-template="boutique"] .store-actions { width: 100%; justify-content: center; }
+[data-template="boutique"] .card { border: 0; background: transparent; border-radius: 0; overflow: visible; }
+[data-template="boutique"] .card:hover { box-shadow: none; transform: none; }
+[data-template="boutique"] .media { aspect-ratio: 3 / 4; border-radius: 18px; }
+[data-template="boutique"] .card-body { text-align: center; padding: 10px 4px 6px; }
+[data-template="boutique"] .pname { font-weight: 600; }
+[data-template="boutique"] .pmeta, [data-template="boutique"] .price { justify-content: center; }
+[data-template="boutique"] .card-foot { padding: 0 4px 8px; }
+[data-template="boutique"] .card-foot .btn:not([disabled]) { background: transparent; border: 1.5px solid var(--sf-ink); color: var(--sf-ink); border-radius: 999px; min-height: 42px; }
+[data-template="boutique"] .card-foot .btn:not([disabled]):hover { background: var(--sf-ink); color: var(--sf-surface); }
+[data-template="boutique"] .card-foot .btn[disabled] { border-radius: 999px; }
+[data-template="boutique"] .heart { right: 10px; top: 10px; }
+
+/* ---------- Template: Catalogue (one product per row, quick to scan) ---------- */
+[data-template="catalog"] .cover { height: 140px; }
+[data-template="catalog"] .grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+[data-template="catalog"] .card { display: block; }
+[data-template="catalog"] .card:hover { transform: none; }
+[data-template="catalog"] .card > a { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 54px 6px 10px; }
+[data-template="catalog"] .media { aspect-ratio: 1; border-radius: 12px; }
+[data-template="catalog"] .ph { font-size: 24px; }
+[data-template="catalog"] .tag { left: 6px; top: 6px; font-size: 10px; padding: 2px 6px; border-radius: 6px; }
+[data-template="catalog"] .card-body { padding: 0; }
+[data-template="catalog"] .pmeta { margin: 2px 0 4px; }
+[data-template="catalog"] .price { font-size: 16px; }
+[data-template="catalog"] .card-foot { padding: 0 10px 10px 118px; }
+[data-template="catalog"] .card-foot .btn { min-height: 38px; font-size: 13px; }
+[data-template="catalog"] .heart { width: 36px; height: 36px; top: 10px; right: 10px; background: var(--sf-bg); box-shadow: none; }
+@media (max-width: 359px) {
+  [data-template="catalog"] .card > a { grid-template-columns: 76px minmax(0, 1fr); padding-right: 48px; }
+  [data-template="catalog"] .card-foot { padding-left: 10px; }
+}
+@media (min-width: 640px) {
+  [data-template="boutique"] .store-card { grid-template-columns: minmax(0, 1fr); }
+  [data-template="boutique"] .store-actions .btn { flex: none; min-width: 160px; }
+  [data-template="boutique"] .cover { height: 320px; }
+  [data-template="catalog"] .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  [data-template="catalog"] .cover { height: 180px; }
+}
+@media (min-width: 1000px) {
+  [data-template="catalog"] .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  [data-template="catalog"] .card > a { grid-template-columns: 120px minmax(0, 1fr); }
+  [data-template="catalog"] .card-foot { padding-left: 142px; }
 }
 @media (prefers-reduced-motion: reduce) { .sf *, .sf *::before, .sf *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 
