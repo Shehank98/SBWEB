@@ -238,6 +238,31 @@
   };
 
   SF.chrome = applyChrome;
+
+  /* ---------- Buyer notice (platform popup, set by the Sidadiya admin) ----------
+     Shown when a buyer opens a store. After "I understand" it stays hidden on this
+     device for 30 days, or until the admin changes the text. ?notice=1 forces it. */
+  var NOTICE_DAYS = 30;
+  SF.notice = function (s) {
+    var n = s && s.notice; if (!n || !n.message) return;
+    var key = 'kade-notice:' + s.slug, seen = K.storage.get(key), force = /[?&]notice=1\b/.test(location.search);
+    if (!force && seen && seen.v === n.version && Date.now() - seen.at < NOTICE_DAYS * 86400000) return;
+    if (document.querySelector('.sf-notice')) return;
+    var fill = function (t) { return K.esc(String(t || '')).replace(/\{shop\}/g, '<b>' + K.esc(s.name) + '</b>'); };
+    var body = String(n.message).split(/\n+/).filter(Boolean).map(function (p) { return '<p>' + fill(p) + '</p>'; }).join('');
+    var wa = s.whatsapp ? String(s.whatsapp).replace(/\D/g, '').replace(/^0/, '94') : '';
+    var d = document.createElement('dialog');
+    d.className = 'sf-notice'; d.setAttribute('aria-labelledby', 'sfn-t'); d.setAttribute('aria-describedby', 'sfn-b');
+    d.innerHTML = '<div class="sf-notice__icon">' + SF.ic('shield') + '</div><h2 id="sfn-t">' + fill(n.title || 'Before you shop') + '</h2><div id="sfn-b" class="sf-notice__body">' + body + '</div>' +
+      '<button type="button" class="btn btn-primary btn-block" id="sfn-ok">' + K.esc(n.button || 'I understand') + '</button>' +
+      (wa.length >= 11 ? '<a class="sf-notice__wa" href="https://wa.me/' + wa + '" target="_blank" rel="noopener">Questions? Chat with ' + K.esc(s.name) + ' on WhatsApp</a>' : '');
+    document.body.appendChild(d);
+    function done() { K.storage.set(key, { v: n.version, at: Date.now() }); d.classList.add('is-closing'); setTimeout(function () { if (d.open) d.close(); d.remove(); }, 180); }
+    d.querySelector('#sfn-ok').addEventListener('click', done);
+    d.addEventListener('cancel', function (e) { e.preventDefault(); done(); });   // Esc counts as "I understand"
+    if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+    setTimeout(function () { var b = d.querySelector('#sfn-ok'); if (b) b.focus(); }, 60);
+  };
   SF.POLICY_LINKS = [{ key: 'refund', title: 'Refund Policy' }, { key: 'return', title: 'Return Policy' }, { key: 'privacy', title: 'Privacy Policy' }, { key: 'terms', title: 'Terms & Conditions' }, { key: 'contact', title: 'Contact Details' }];
 
   /* Async loader used by every storefront page: cb(store, products). */
@@ -251,6 +276,7 @@
         SF.store = res.store;
         applyChrome(res.store, opts);
         cb(res.store, res.products || []);
+        SF.notice(res.store);
         SF.track(/\/product/.test(location.pathname) ? 'product' : /\/cart/.test(location.pathname) ? 'cart' : /\/order/.test(location.pathname) ? 'order' : 'home');
       }).catch(function (e) {
         if (e && e.status === 404) blocked(NOT_FOUND[0], NOT_FOUND[1]);

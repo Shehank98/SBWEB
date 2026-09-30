@@ -95,6 +95,7 @@
   /* ---- Banner: a fixed strip telling visitors this is a sandbox ---- */
   function exitDemo() {
     try { sessionStorage.removeItem('kade-demo'); } catch (e) {}
+    document.cookie = 'kade_demo=; path=/; max-age=0; SameSite=Lax';
     location.href = '../index';
   }
   function injectBanner() {

@@ -518,9 +518,11 @@
   /* Auth guard for protected pages. In mock mode (file://) it allows through so the
      offline prototype still works. Returns false after redirecting. */
   K.guard = function (kind, section) {
-    if (!(window.KadeApi && KadeApi.enabled)) return true;
+    var here = '../login?next=' + encodeURIComponent(location.pathname + location.search);
+    // Demo mode (no API) is a sample seller dashboard only: never the admin panel.
+    if (!(window.KadeApi && KadeApi.enabled)) { if (kind === 'admin') { location.replace(here); return false; } return true; }
     var u = KadeApi.token() ? KadeApi.currentUser() : null;
-    if (!u) { location.replace('../login'); return false; }
+    if (!u) { location.replace(here); return false; }
     if (kind === 'admin' && u.role !== 'SUPER_ADMIN') { location.replace('../login'); return false; }
     if (kind === 'owner' && u.role === 'SUPER_ADMIN') { location.replace('../admin/index'); return false; }
     // Staff may only open sections they were granted; everything else sends them home.

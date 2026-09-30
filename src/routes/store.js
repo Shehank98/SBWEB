@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { publicBuyerNotice } from '../services/buyerNotice.js';
 import { query, withTransaction } from '../db/pool.js';
 import { wrap, badRequest, notFound, HttpError } from '../utils/http.js';
 import { orderCode } from '../utils/slug.js';
@@ -82,6 +83,8 @@ storeRouter.get(
     // Card payments show at checkout only when the shop's gateway is on AND compliant.
     store.payments.card = (await cardAvailability(st.biz_id)).available;
     store.returnDays = st.return_days;
+    // Platform notice for buyers (admin-controlled; null when switched off).
+    store.notice = await publicBuyerNotice();
     res.json({ store, products, available: true });
   })
 );

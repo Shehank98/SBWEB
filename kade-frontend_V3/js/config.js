@@ -18,7 +18,9 @@ window.KADE_API_BASE = window.KADE_API_BASE || '';
  */
 try {
   var _demo = new URLSearchParams(location.search).get('demo');
-  if (_demo === '1') sessionStorage.setItem('kade-demo', '1');
-  if (_demo === '0') sessionStorage.removeItem('kade-demo');
+  // The demo cookie lets the server send the sample seller pages (never admin)
+  // without a login; the demo itself never calls the API.
+  if (_demo === '1') { sessionStorage.setItem('kade-demo', '1'); document.cookie = 'kade_demo=1; path=/; SameSite=Lax'; }
+  if (_demo === '0') { sessionStorage.removeItem('kade-demo'); document.cookie = 'kade_demo=; path=/; max-age=0; SameSite=Lax'; }
   if (sessionStorage.getItem('kade-demo') === '1') window.KADE_API_DISABLED = true;
 } catch (e) { /* private mode: demo just won't persist */ }

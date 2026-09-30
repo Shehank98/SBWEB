@@ -48,11 +48,6 @@
           return SF.priceHtml(p);
         }
         function badge() { return hasVar && !vSel ? '<span class="badge" style="background:#EFEBE4">Choose an option</span>' : SF.stockBadge(curStock(), curLow()); }
-        function waMsg() {
-          var out = hasVar ? (vSel && vSel.stock <= 0) : p.stock <= 0;
-          return out ? 'Hello ' + s.name + ', is "' + p.name + '" coming back in stock?\n' + pageUrl
-            : 'Hello ' + s.name + ', I would like to order:\n\n' + p.name + (selLabel() ? '\n' + selLabel() : '') + '\nQuantity: ' + qty + '\nTotal: ' + SF.rs(curPrice() * qty) + '\n\n' + pageUrl;
-        }
 
         var media = '<div><div class="pdp-media">' + (imgs.length ? '<button type="button" class="pdp-zoom" id="zoomBtn" aria-label="Zoom photo"><img id="pdp-main" src="' + K.esc(imgs[0]) + '" alt="' + K.esc(p.name) + '" fetchpriority="high" decoding="async"></button>' : '<div class="ph">' + K.esc(K.initials(p.name)) + '</div>') +
           (p.sale ? '<span class="tag">SALE</span>' : '') + '<button class="heart" type="button" id="wish" aria-pressed="' + SF.wish.has(p.id) + '" aria-label="Save to wishlist">' + SF.ic('heart') + '</button></div>' +
@@ -74,7 +69,7 @@
           '<p class="err" id="optErr" role="alert" hidden></p>' +
           '<div><span class="lbl" id="qlabel">Quantity</span><div class="qty" role="group" aria-labelledby="qlabel"><button type="button" id="minus" aria-label="Decrease quantity">−</button><output id="qty" aria-live="polite">1</output><button type="button" id="plus" aria-label="Increase quantity">+</button></div></div>' +
           '<div class="cta-stack"><button class="btn btn-accent btn-block" type="button" id="add">Add to cart</button>' +
-            (s.whatsapp ? '<a class="btn btn-wa btn-block" id="waOrder" target="_blank" rel="noopener" href="#">' + SF.WA + 'Order on WhatsApp</a>' : '') + '</div>' +
+            '</div>' +
           '<div><span class="lbl">Share with a friend</span><div class="share-row"><a class="btn btn-soft btn-sm" id="shWa" target="_blank" rel="noopener">WhatsApp</a><a class="btn btn-soft btn-sm" id="shFb" target="_blank" rel="noopener">Facebook</a><button class="btn btn-soft btn-sm" type="button" id="copy">' + SF.ic('copy', 'ic-sm') + 'Copy link</button></div></div>' +
           '</div></div>' +
           '<section id="reviews" aria-labelledby="rv-h" style="padding-bottom:24px" hidden><h2 class="section-title" id="rv-h">Reviews</h2><div class="panel review-list" id="rvList"></div></section>' +
@@ -88,7 +83,6 @@
         }
         function sync() {
           $('qty').textContent = qty;
-          if ($('waOrder')) $('waOrder').href = K.wa(s, waMsg());
           $('shWa').href = 'https://wa.me/?text=' + encodeURIComponent(p.name + ' at ' + s.name + ': ' + pageUrl);
           $('shFb').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl);
           $('bb-t').textContent = SF.rs(curPrice() * qty); $('bb-l').textContent = qty > 1 ? qty + ' × ' + SF.rs(curPrice()) : 'Total';
