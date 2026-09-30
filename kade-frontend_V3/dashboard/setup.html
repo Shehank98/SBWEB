@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Store setup | Sidadiya dashboard</title>
+  <meta name="robots" content="noindex">
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/tokens.css">
+  <link rel="stylesheet" href="../css/kade.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="Sidebar"></aside>
+    <div>
+      <header class="topbar" id="topbar"></header>
+      <main class="main" id="main" tabindex="-1">
+        <div id="setup" class="sp-page" aria-live="polite"></div>
+      </main>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/data.js"></script>
+  <script src="../js/demo.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+    /* Store setup: a weighted checklist in three levels. Essentials open the store
+       for orders; recommended steps build trust; optional extras never block. */
+    (function () {
+      var K = Kade;
+      if (!K.guard('owner')) return;
+      K.shell('dashboard', 'settings');
+      var API = !!(window.KadeApi && KadeApi.enabled);
+      var sess = API ? KadeApi.currentUser() : null;
+      var first = sess && sess.name ? sess.name.split(' ')[0] : '';
+      var welcome = /[?&]welcome=1/.test(location.search);
+      var box = K.$('#setup');
+
+      var LEVELS = [
+        ['essential', 'Essential', 'Needed to take orders'],
+        ['recommended', 'Recommended', 'Builds trust with buyers'],
+        ['optional', 'Optional extras', 'Nice to have. These never lower your progress.']
+      ];
+      var CTA = { info: 'Add details', logo: 'Add logo', category: 'Add category', product: 'Add product', delivery: 'Check delivery', payment: 'Choose payments', cover: 'Add cover', social: 'Add links', verification: 'Start', moreCategories: 'Add more', bothPayments: 'Turn on', card: 'Set up', weekly: 'Turn on' };
+
+      function ring(pct) {
+        var r = 52, len = (2 * Math.PI * r).toFixed(1);
+        return '<div class="sp-ring" aria-hidden="true"><svg viewBox="0 0 120 120"><circle class="sp-ring__bg" cx="60" cy="60" r="' + r + '"></circle>' +
+          '<circle class="sp-ring__fg" cx="60" cy="60" r="' + r + '" data-to="' + pct + '" style="stroke-dasharray:' + len + ';stroke-dashoffset:' + len + '"></circle></svg>' +
+          '<div class="sp-ring__num"><b data-count="' + pct + '">0</b><span>%</span></div></div>';
+      }
+      function mark(done) {
+        return '<span class="sp-mark' + (done ? ' is-done' : '') + '" aria-hidden="true">' + (done ? '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg>' : '') + '</span>';
+      }
+      function row(i, n, next) {
+        var isNext = next && next.key === i.key;
+        return '<li class="sp-item' + (i.done ? ' is-done' : '') + (isNext ? ' is-next' : '') + '" style="--i:' + n + '">' + mark(i.done) +
+          '<div class="sp-item__txt"><strong>' + K.esc(i.label) + '</strong>' + (i.done ? '<small>Done</small>' : '<small>' + K.esc(i.tip) + '</small>') + '</div>' +
+          '<div class="sp-item__end">' + (i.weight ? '<span class="sp-weight">' + (i.done ? '' : '+') + i.weight + '%</span>' : '') +
+          (i.done ? '<a class="kd-link sp-item__go" href="' + K.esc(i.href) + '">Edit</a>' : '<a class="kd-btn kd-btn--' + (isNext ? 'primary' : 'secondary') + ' kd-btn--sm sp-item__go" href="' + K.esc(i.href) + '">' + (CTA[i.key] || 'Start') + '</a>') + '</div></li>';
+      }
+
+      function paint(d) {
+        var store = d.slug ? '../store/' + encodeURIComponent(d.slug) : '#';
+        var head = d.complete ? 'Your store is fully set up' : welcome || d.percent < 50 ? 'Welcome to Sidadiya' + (first ? ', ' + K.esc(first) : '') : 'Store setup';
+        var lede = d.complete ? 'Everything is in place. Share your store link and start selling.'
+          : d.ready ? 'Your store is ready. Complete these steps to make it more trustworthy.'
+          : 'Let\'s get your store ready. Finish the essentials and you can start taking orders.';
+        var state = d.complete ? '' : d.ready
+          ? '<p class="sp-ready"><span class="sp-dot"></span>Your store is ready to accept orders</p>'
+          : '<p class="sp-state">' + (d.percent >= 60 ? 'You\'re almost ready to start selling!' : 'A few quick steps and you can start selling.') + '</p>';
+        var hero = '<section class="kd-card panel sp-hero' + (d.complete ? ' is-complete' : '') + '">' + ring(d.percent) +
+          '<div class="sp-hero__txt"><h1>' + head + '</h1><p class="muted">' + lede + '</p>' + state +
+          K.setupBar(d.percent, 'sp-bar--lg') + '<p class="sp-count">' + d.stepsDone + ' of ' + d.stepsTotal + ' steps completed · Store quality: ' + d.percent + '%</p>' +
+          (d.next && !d.complete ? '<div class="sp-next"><div><span class="sp-next__k">Next step</span><strong>' + K.esc(d.next.label) + '</strong><small>' + K.esc(d.next.tip) + '</small></div><a class="kd-btn kd-btn--primary" href="' + K.esc(d.next.href) + '">Continue setup →</a></div>' : '') +
+          '</div></section>';
+        var done = d.complete
+          ? '<section class="kd-card panel sp-done"><h2>Your customers can now</h2><ul class="sp-can">' +
+              ['Browse your products', 'Add products to their cart', 'Place orders', 'Contact your business'].map(function (t, n) { return '<li style="--i:' + n + '">' + mark(true) + '<span>' + t + '</span></li>'; }).join('') +
+            '</ul><div class="row" style="gap:8px;flex-wrap:wrap"><a class="kd-btn kd-btn--primary" href="' + store + '" target="_blank" rel="noopener">Open my store</a><a class="kd-btn kd-btn--secondary" href="index">Go to dashboard</a></div></section>'
+          : '';
+        var n = 0;
+        var levels = LEVELS.map(function (L) {
+          var items = d.items.filter(function (i) { return i.level === L[0]; });
+          if (!items.length) return '';
+          var ok = items.filter(function (i) { return i.done; }).length;
+          return '<section class="kd-card panel sp-level sp-level--' + L[0] + '" aria-labelledby="lv-' + L[0] + '"><div class="sp-level__head"><div><h2 id="lv-' + L[0] + '">' + L[1] + '</h2><p class="muted">' + L[2] + '</p></div>' +
+            '<span class="kd-badge ' + (ok === items.length ? 'kd-badge--success' : 'kd-badge--neutral') + '">' + ok + ' of ' + items.length + '</span></div>' +
+            '<ul class="sp-list">' + items.map(function (i) { return row(i, n++, d.next); }).join('') + '</ul></section>';
+        }).join('');
+        box.innerHTML = hero + done + levels +
+          '<p class="sp-foot"><a class="kd-link" href="' + store + '" target="_blank" rel="noopener">Preview my store</a> · <a class="kd-link" href="settings">All store settings</a></p>';
+        K.animateSetup(box);
+        if (d.complete) K.confetti(K.$('.sp-hero', box));
+      }
+
+      function load() {
+        if (!API) return paint({ percent: 75, ready: true, complete: false, stepsDone: 6, stepsTotal: 9, slug: 'abc-fashion', next: { key: 'cover', label: 'Store cover photo', tip: 'Add a cover photo to make your store look more professional.', href: 'settings#appearance' }, items: [] });
+        box.innerHTML = '<div class="kd-card panel"><div class="skeleton" style="height:180px"></div></div>';
+        KadeApi.storeSetup().then(paint).catch(function (ex) {
+          box.innerHTML = '<div class="kd-card panel empty"><p class="muted">' + K.esc(ex.message || 'Could not load your setup progress.') + '</p><button class="kd-btn kd-btn--secondary kd-btn--sm" type="button" id="retry">Try again</button></div>';
+          K.$('#retry').addEventListener('click', load);
+        });
+      }
+      load();
+    })();
+  </script>
+</body>
+</html>

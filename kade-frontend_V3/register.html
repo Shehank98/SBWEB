@@ -269,6 +269,8 @@
       $('skip').addEventListener('click', function () { show(3); });
 
       function success(r) {
+        // Signed in by the register call: go straight to the guided store setup.
+        if (r && KadeApi.token && KadeApi.token()) { location.replace('dashboard/setup?welcome=1'); return; }
         var slug = (r && r.store && r.store.slug) || slugEl.value;
         var ends = r && r.trial ? K.fmtDate(String(r.trial.endsAt).slice(0, 10)) : '';
         $('card').innerHTML = '<div class="stack-lg" role="status"><div class="onb-done__icon" aria-hidden="true">✓</div><h1>Your store is live 🎉</h1>' +
