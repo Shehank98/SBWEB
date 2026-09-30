@@ -91,3 +91,29 @@ test('waybill readiness lists missing fields', () => {
   assert.deepEqual(waybillMissing({ ...ok, phone: '12' }, []), ['Phone number', 'Items']);
   assert.ok(waybillMissing({ ...ok, delivery_method: 'Pickup' }, [{}]).some((m) => /pickup/.test(m)));
 });
+
+test('waybills API: ready orders get a QR label, incomplete ones list missing fields; receipt share builds wa.me', async () => {
+  const shop = await shopWithOrder();
+  const pickup = await api('POST', `/api/store/${shop.slug}/orders`, { body: { customer: 'Pick Up', phone: '0771234567', address: 'x', city: 'Pickup', delivery: 'Pickup', acceptTerms: true, items: [{ pid: shop.product.id, qty: 1 }] } });
+  const r = await api('GET', `/api/dashboard/waybills?codes=${shop.order.code},${pickup.data.code},${shop.order.code}`, { token: shop.token });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.waybills.length, 2); // duplicates removed
+  const [ok, bad] = r.data.waybills;
+  assert.deepEqual(ok.missing, []);
+  assert.match(ok.qr, /^<svg/);
+  assert.equal(ok.cod, 3950 * 2 + (r.data.waybills[0].total - 3950 * 2));
+  assert.ok(bad.missing.length > 0);
+  assert.equal(r.data.shop.name, shop.fields.bizName);
+  const list = await api('GET', '/api/dashboard/orders', { token: shop.token });
+  const mine = list.data.orders.find((o) => o.id === shop.order.code);
+  assert.deepEqual(mine.waybillMissing, []);
+  assert.equal(mine.waPhone, '94771234567');
+  const share = await api('POST', `/api/dashboard/orders/${shop.order.code}/receipt-share`, { token: shop.token });
+  assert.equal(share.status, 200);
+  assert.match(share.data.waUrl, /^https:\/\/wa\.me\/94771234567\?text=/);
+  assert.ok(decodeURIComponent(share.data.waUrl).includes('/receipt/'));
+  // Other shops cannot print this order.
+  const other = await registerShop();
+  const x = await api('GET', `/api/dashboard/waybills?codes=${shop.order.code}`, { token: other.token });
+  assert.deepEqual(x.data.waybills[0].missing, ['Order not found']);
+});

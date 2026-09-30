@@ -8,6 +8,8 @@ import { config } from '../config.js';
 import { startSubscriptionCheckout } from '../services/cardPayments.js';
 import { platformCreds } from '../services/onepay.js';
 import { listGateways, saveGateway, cardAvailability, gatewayUrls } from '../services/gateways.js';
+import QRCode from 'qrcode';
+import { waybillMissing, isCod, receiptExpired, toWhatsAppIntl, receiptUrl, trackUrl } from '../services/orderLinks.js';
 import { onepayGuide } from '../services/onepayGuide.js';
 import { trafficSources } from '../services/traffic.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
@@ -380,6 +382,90 @@ dashboardRouter.put(
       return o;
     });
     res.json({ ok: true, status: updated.status, emailed: !!updated.customer_email, tracking: { courier, number, url: url || '' } });
+  })
+);
+
+// ---- Waybills: print-ready data for one or many orders (A6 labels) ----
+// GET /api/dashboard/waybills?codes=ORD-1,ORD-2  (max 50). Each waybill carries
+// the fields still missing; the page prints only the ready ones.
+dashboardRouter.get(
+  '/waybills',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const codes = String(req.query.codes || '').split(',').map((c) => c.trim()).filter((c, i, all) => c && all.indexOf(c) === i).slice(0, 50);
+    if (!codes.length) throw badRequest('Choose at least one order.');
+    const shop = (await query(
+      `SELECT COALESCE(s.name, bz.name) AS name, s.logo_url, s.address, s.phone, bz.phone AS biz_phone, bz.city, bz.district
+         FROM businesses bz LEFT JOIN stores s ON s.business_id = bz.id WHERE bz.id = $1`,
+      [b]
+    )).rows[0];
+    const orders = (await query('SELECT * FROM orders WHERE business_id = $1 AND code = ANY($2)', [b, codes])).rows;
+    const ids = orders.map((o) => o.id);
+    const items = ids.length ? (await query('SELECT order_id, name, qty FROM order_items WHERE order_id = ANY($1) ORDER BY id', [ids])).rows : [];
+    const byOrder = items.reduce((m, i) => { (m[i.order_id] = m[i.order_id] || []).push(i); return m; }, {});
+    const waybills = await Promise.all(codes.map(async (code) => {
+      const o = orders.find((x) => x.code === code);
+      if (!o) return { code, missing: ['Order not found'] };
+      const its = byOrder[o.id] || [];
+      return {
+        code: o.code,
+        date: o.created_at,
+        customer: o.customer_name,
+        phone: o.phone,
+        whatsapp: o.whatsapp || '',
+        address: o.address || '',
+        city: o.city || '',
+        district: o.district || '',
+        items: its.map((i) => ({ name: i.name, qty: i.qty })),
+        pieces: its.reduce((n, i) => n + Number(i.qty || 0), 0),
+        payment: o.payment_method || '',
+        cod: isCod(o) ? Number(o.total) : 0,
+        total: Number(o.total),
+        courier: o.courier_name || '',
+        trackingNumber: o.tracking_number || '',
+        note: o.note || '',
+        // QR of the order id (the courier or the shop can scan it back to the order).
+        qr: await QRCode.toString(o.code, { type: 'svg', margin: 0, errorCorrectionLevel: 'M' }),
+        missing: waybillMissing(o, its),
+      };
+    }));
+    res.json({
+      shop: { name: shop.name, logo: shop.logo_url || null, address: shop.address || '', phone: shop.phone || shop.biz_phone || '', city: shop.city || '', district: shop.district || '' },
+      waybills,
+    });
+  })
+);
+
+// POST /api/dashboard/waybills/printed { codes } — remember what was printed.
+dashboardRouter.post(
+  '/waybills/printed',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const codes = (Array.isArray(req.body && req.body.codes) ? req.body.codes : []).map(String).slice(0, 50);
+    const r = await query('UPDATE orders SET waybill_printed_at = now() WHERE business_id = $1 AND code = ANY($2)', [bid(req), codes]);
+    res.json({ ok: true, updated: r.rowCount });
+  })
+);
+
+// POST /api/dashboard/orders/:code/receipt-share — the seller shares the digital
+// receipt on WhatsApp. Returns the wa.me link (buyer number normalised to 94...).
+dashboardRouter.post(
+  '/orders/:code/receipt-share',
+  requirePermission('orders'),
+  wrap(async (req, res) => {
+    const b = bid(req);
+    const o = (await query('SELECT * FROM orders WHERE business_id = $1 AND code = $2', [b, req.params.code])).rows[0];
+    if (!o) throw notFound('Order not found.');
+    if (receiptExpired(o)) throw badRequest('This receipt link has expired (receipts work for 30 days after purchase).');
+    const phone = toWhatsAppIntl(o.whatsapp || o.phone);
+    if (!phone) throw badRequest("The buyer's number is not a Sri Lankan mobile number, so WhatsApp cannot be opened.");
+    const shop = (await query('SELECT COALESCE(s.name, bz.name) AS name FROM businesses bz LEFT JOIN stores s ON s.business_id = bz.id WHERE bz.id = $1', [b])).rows[0];
+    const first = String(o.customer_name || '').trim().split(' ')[0] || 'there';
+    const until = new Date(o.receipt_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const text = `Hi ${first}, thank you for shopping with ${shop.name}! Here is your receipt for order ${o.code}: ${receiptUrl(o)}\nTrack your order: ${trackUrl(o)}\n(The receipt link works until ${until}.)`;
+    await query('UPDATE orders SET receipt_shared_at = now() WHERE id = $1', [o.id]);
+    res.json({ ok: true, waUrl: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`, phone });
   })
 );
 

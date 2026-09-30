@@ -900,3 +900,16 @@ body.has-cartbar { padding-bottom: 84px; }
   html.sb-collapsed .nav .count { position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; padding: 0 4px; font-size: 11px; margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .app { transition: none; } }
+
+/* ---- Orders: selection, bulk waybills, waybill + receipt block ---- */
+.sel-box { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin: -6px 6px -6px -6px; vertical-align: middle; cursor: pointer; }
+.sel-box input, .sel-all input { width: 18px; height: 18px; accent-color: var(--brand); }
+.sel-all { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.toolbar #bulkPrint { white-space: nowrap; }
+.docs { display: grid; gap: 8px; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-raised); }
+.docs__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.docs__miss { color: var(--warning); }
+.kd-btn--wa { background: #25D366; color: #07361F; border-color: #25D366; }
+.kd-btn--wa:hover { filter: brightness(.95); }
+.kd-btn[disabled][title] { pointer-events: auto; }
+@media (max-width: 899px) { .toolbar .sel-all, .toolbar #bulkPrint { flex: 1 1 auto; } }
