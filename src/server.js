@@ -39,6 +39,7 @@ import { siteRouter } from './routes/site.js';
 import { publicRouter } from './routes/public.js';
 import { onepayRouter } from './routes/onepay.js';
 import { serveStorePage, serveProductPage } from './services/pages.js';
+import { sendVersioned, htmlFileFor } from './services/assetVersion.js';
 
 const app = express();
 // Behind Railway's proxy: trust it so req.ip reflects the real client (used by the
@@ -132,17 +133,23 @@ app.get('/store/:slug', (req, res, next) => {
 });
 
 // Buyer pages addressed by private tokens: never indexed or cached.
-app.get('/track/:code', (_req, res) => { res.set({ 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' }); res.sendFile(path.join(FRONTEND_DIR, 'track.html')); });
-app.get('/receipt/:token', (_req, res) => { res.set({ 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' }); res.sendFile(path.join(FRONTEND_DIR, 'receipt.html')); });
+app.get('/track/:code', (_req, res) => { res.set({ 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' }); sendVersioned(res, path.join(FRONTEND_DIR, 'track.html')); });
+app.get('/receipt/:token', (_req, res) => { res.set({ 'X-Robots-Tag': 'noindex', 'Cache-Control': 'no-store' }); sendVersioned(res, path.join(FRONTEND_DIR, 'receipt.html')); });
 
 // Platform legal pages: /legal/refund, /legal/privacy, /legal/return, /legal/terms, /legal/contact.
-app.get(/^\/legal\/(refund|privacy|return|terms|contact)\/?$/, (_req, res) => res.sendFile(path.join(FRONTEND_DIR, 'legal', 'index.html')));
+app.get(/^\/legal\/(refund|privacy|return|terms|contact)\/?$/, (_req, res) => sendVersioned(res, path.join(FRONTEND_DIR, 'legal', 'index.html')));
 
 // Serve the frontend (landing, storefront, dashboard, admin) from the same origin.
 // This makes the whole platform a single deployable service: the pages call the API
 // at a relative path, so there is no CORS and no second service to run.
+// Every other HTML page: sent with version-tagged JS/CSS links (cache busting).
+app.get(/^(?!\/api\/|\/uploads\/).*/, (req, res, next) => {
+  const file = htmlFileFor(FRONTEND_DIR, req.path === '/' ? '/index.html' : req.path);
+  if (!file) return next();
+  sendVersioned(res, file);
+});
 app.use(express.static(FRONTEND_DIR, { extensions: ['html'] }));
-app.get('/', (_req, res) => res.sendFile(path.join(FRONTEND_DIR, 'index.html')));
+app.get('/', (_req, res) => sendVersioned(res, path.join(FRONTEND_DIR, 'index.html')));
 
 // Unknown /api routes -> JSON 404; everything else falls through to the frontend 404.
 app.use('/api', notFoundHandler);

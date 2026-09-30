@@ -75,10 +75,8 @@
         K.$('#rangebar').hidden = true;
         K.$('#export').hidden = true;
         K.$('#sub').textContent = 'Upgrade to unlock sales reports.';
-        body.innerHTML = '<section class="kd-card panel" style="text-align:center;max-width:560px;margin:24px auto">' +
-          '<h2 class="heading">Reports are a Business feature</h2>' +
-          '<p class="muted" style="margin-top:8px">Your Starter plan covers products and orders. Upgrade to <strong>Business</strong> for sales reports, or <strong>Pro</strong> for advanced customer and location insights.</p>' +
-          '<div class="row" style="justify-content:center;margin-top:16px"><a class="kd-btn kd-btn--primary" href="subscription">See plans</a></div></section>';
+        // Blurred preview with sample numbers (not this shop's data) and an upgrade button.
+        body.innerHTML = '<section class="kd-card" style="padding:16px">' + K.lockTeaser({ sample: '<div class="tiles" style="margin-bottom:12px"><div class="kd-card stat"><span class="stat__label">Revenue</span><span class="stat__value">Rs. 86,400</span></div><div class="kd-card stat"><span class="stat__label">Orders</span><span class="stat__value">31</span></div><div class="kd-card stat"><span class="stat__label">Average order</span><span class="stat__value">Rs. 2,787</span></div></div><div class="kd-card" style="padding:16px;margin-bottom:12px"><svg viewBox="0 0 320 110" style="width:100%;height:auto"><path d="M0 95 L40 80 L80 86 L120 60 L160 66 L200 40 L240 48 L280 22 L320 30" fill="none" stroke="var(--brand)" stroke-width="3"/></svg></div><div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Top product</th><th scope="col">Units</th><th scope="col">Revenue</th></tr></thead><tbody><tr><td>Batik Sarong</td><td>12</td><td>Rs. 34,800</td></tr><tr><td>Silk Scarf</td><td>9</td><td>Rs. 16,200</td></tr><tr><td>Linen Shirt</td><td>6</td><td>Rs. 22,800</td></tr></tbody></table></div>', title: 'See how your shop is doing', text: 'Sales over time, best-selling products, categories and payment methods. Available on the Business and Pro plans.', cta: 'Upgrade to Business' }) + '</section>';
       }
 
       // ---- Rendering helpers ----
