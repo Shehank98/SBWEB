@@ -1,6 +1,7 @@
 // Buyer reviews: one per product per delivered order, only on stores where a
 // Sidadiya admin has enabled reviews (stores.reviews_enabled).
 import { query } from '../db/pool.js';
+import { clip } from '../utils/text.js';
 import { badRequest, HttpError } from '../utils/http.js';
 
 export async function reviewsEnabled(businessId) {
@@ -20,7 +21,7 @@ export async function saveBuyerReviews(businessId, order, list) {
   for (const r of list) {
     const rating = Math.round(Number(r.rating));
     if (!byId.has(r.productId) || !(rating >= 1 && rating <= 5)) continue;
-    const body = r.body ? String(r.body).trim().slice(0, 1000) : null;
+    const body = r.body ? clip(String(r.body).trim(), 1000) : null;
     const ins = await query(
       `INSERT INTO product_reviews (business_id, product_id, order_id, product_name, rating, body, customer_name)
        VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (order_id, product_id) DO NOTHING RETURNING id`,

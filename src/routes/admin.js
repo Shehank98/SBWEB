@@ -11,6 +11,7 @@ import { signedPrivateUrl } from '../services/uploads.js';
 import { onepayGuide } from '../services/onepayGuide.js';
 import { getSetting, setSetting, clearSettingsCache } from '../services/settings.js';
 import { storedPlatformCreds, envPlatformCreds, PLATFORM_CREDS_KEY } from '../services/onepay.js';
+import { clip } from '../utils/text.js';
 import { encryptJson, mask } from '../services/secrets.js';
 
 export const adminRouter = Router();
@@ -537,7 +538,7 @@ adminRouter.put(
 );
 
 // ---- Platform settings (Admin Settings). Each key has a validator/normaliser. ----
-const cleanStr = (v, n = 200) => String(v == null ? '' : v).trim().slice(0, n);
+const cleanStr = (v, n = 200) => clip(String(v == null ? '' : v).trim(), n);
 const POLICY_KEYS = ['refund', 'privacy', 'return', 'terms'];
 export const SETTINGS_SCHEMA = {
   platform_contact: (v) => {
