@@ -493,6 +493,16 @@ adminRouter.get(
   wrap(async (_req, res) => {
     const plans = (await query('SELECT * FROM plans ORDER BY sort_order, price')).rows.map(S.planAdmin);
     const featureDefs = (await query('SELECT key, label, description FROM plan_feature_defs ORDER BY sort_order, key')).rows;
+    // Shops currently on each plan (their latest subscription), so the admin sees who a change affects.
+    const counts = Object.fromEntries((await query(
+      `SELECT plan_id, COUNT(*)::int n FROM (
+         SELECT DISTINCT ON (s.business_id) s.business_id, s.plan_id
+           FROM subscriptions s JOIN businesses b ON b.id = s.business_id
+          WHERE b.status NOT IN ('CANCELLED', 'DELETED')
+          ORDER BY s.business_id, s.created_at DESC) t
+        GROUP BY plan_id`
+    )).rows.map((r) => [r.plan_id, r.n]));
+    for (const p of plans) p.shops = counts[p.id] || 0;
     res.json({ plans, featureDefs });
   })
 );

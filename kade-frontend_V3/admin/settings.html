@@ -17,13 +17,28 @@
     <div>
       <header class="topbar" id="topbar"></header>
       <main class="main" id="main" tabindex="-1">
-        <div class="page-head"><div><h1>Settings</h1><p>Plans, trial, payments and the text shown across Sidadiya.</p></div></div>
-        <nav class="settings-nav" aria-label="Settings sections" id="snav">
-          <a href="#maintenance">Maintenance</a><a href="#notice">Buyer notice</a><a href="#plans">Plans</a><a href="#trial">Trial</a><a href="#payments">Payment settings</a><a href="#bank">Bank accounts</a><a href="#contact">Contact details</a><a href="#legal">Legal pages</a><a href="#guide">OnePay guide</a><a href="#marketing">Marketing</a>
-        </nav>
+        <div class="page-head"><div><h1>Settings</h1><p>Plans, payments, site status and the text shown across Sidadiya.</p></div></div>
 
-        <section class="kd-card panel maint-card" id="maintenance" aria-labelledby="h-maint" style="margin-bottom:var(--space-4)">
-          <h2 id="h-maint">Maintenance mode</h2>
+        <div id="ov" class="set-ov set-ov--admin">
+          <h2 class="set-group">Site status</h2>
+          <a class="set-card" href="#maintenance"><div class="set-card__body"><h2>Maintenance mode</h2><p class="set-card__main" id="sumMaint">Loading</p><p class="muted">Close the site for updates</p></div><span class="set-card__go">Edit</span></a>
+          <a class="set-card" href="#notice"><div class="set-card__body"><h2>Buyer notice</h2><p class="set-card__main" id="sumNotice">Loading</p><p class="muted" id="sumNoticeSub"></p></div><span class="set-card__go">Edit</span></a>
+          <h2 class="set-group">Plans and billing</h2>
+          <a class="set-card set-card--wide" href="#plans"><div class="set-card__body"><h2>Packages</h2><div class="plan-mini" id="sumPlans">Loading</div></div><span class="set-card__go">Edit</span></a>
+          <a class="set-card" href="#trial"><div class="set-card__body"><h2>Free trial</h2><p class="set-card__main" id="sumTrial">Loading</p><p class="muted">For new shops</p></div><span class="set-card__go">Edit</span></a>
+          <a class="set-card" href="#payments"><div class="set-card__body"><h2>Card payments (OnePay)</h2><p class="set-card__main" id="sumPay">Loading</p><p class="muted">How shops pay for their plan by card</p></div><span class="set-card__go">Edit</span></a>
+          <a class="set-card" href="#bank"><div class="set-card__body"><h2>Bank accounts</h2><p class="set-card__main" id="sumBank">Loading</p><p class="muted">For plan payments by bank transfer</p></div><span class="set-card__go">Edit</span></a>
+          <h2 class="set-group">Content</h2>
+          <a class="set-card" href="#contact"><div class="set-card__body"><h2>Contact details</h2><p class="set-card__main" id="sumContact">Loading</p><p class="muted" id="sumContactSub"></p></div><span class="set-card__go">Edit</span></a>
+          <a class="set-card" href="#legal"><div class="set-card__body"><h2>Legal pages</h2><p class="set-card__main" id="sumLegal">Loading</p><p class="muted">Refund, return, privacy and terms</p></div><span class="set-card__go">Edit</span></a>
+          <a class="set-card" href="#guide"><div class="set-card__body"><h2>OnePay guide for sellers</h2><p class="set-card__main" id="sumGuide">Loading</p><p class="muted">Shown in each seller's card payment setup</p></div><span class="set-card__go">Edit</span></a>
+          <a class="set-card" href="#marketing"><div class="set-card__body"><h2>Marketing</h2><p class="set-card__main" id="sumMkt">Loading</p><p class="muted">Social proof on the main page</p></div><span class="set-card__go">Edit</span></a>
+        </div>
+
+        <section class="set-view" data-view="maintenance" aria-labelledby="v-maintenance" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-maintenance">Maintenance mode</h2><p class="muted">Close Sidadiya for everyone except admins while you update it.</p></div>
+          <section class="kd-card panel maint-card" id="maintenance" aria-labelledby="h-maint">
           <p class="muted" style="margin-bottom:var(--space-3)">Closes Sidadiya for everyone except admins. Stores, dashboards and checkout show an animated "shop is closed" page and reopen by themselves when you switch this off. Payment callbacks and emails keep working.</p>
           <form id="maintForm" class="stack" novalidate>
             <label class="kd-switch"><span class="kd-check__text"><strong id="maintLabel">Off: the site is open</strong><span class="muted">Turn on before a big update or database work.</span></span><input type="checkbox" role="switch" id="maintOn"></label>
@@ -35,9 +50,11 @@
               <span class="maint-preview"><a class="kd-btn kd-btn--ghost" href="/closed?preview=maintenance" target="_blank" rel="noopener">Preview maintenance page</a><a class="kd-btn kd-btn--ghost" href="/closed?preview=down" target="_blank" rel="noopener">Preview "server down" page</a></span></div>
           </form>
         </section>
-
-        <section class="kd-card panel" id="notice" aria-labelledby="h-notice" style="margin-bottom:var(--space-4)">
-          <h2 id="h-notice">Buyer notice</h2>
+        </section>
+        <section class="set-view" data-view="notice" aria-labelledby="v-notice" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-notice">Buyer notice</h2><p class="muted">The popup buyers see when they open any store.</p></div>
+          <section class="kd-card panel" id="notice" aria-labelledby="h-notice">
           <p class="muted" style="margin-bottom:var(--space-3)">A popup buyers see when they open any store, explaining that each shop is responsible for its own products, delivery and refunds. After they tap the button it stays hidden on their device for 30 days, or until you change the text.</p>
           <form id="noticeForm" class="stack" novalidate>
             <label class="kd-switch"><span class="kd-check__text"><strong id="noticeLabel">Show the notice</strong><span class="muted">Applies to every store on Sidadiya.</span></span><input type="checkbox" role="switch" id="noticeOn"></label>
@@ -50,23 +67,26 @@
             <div class="row" style="gap:8px;flex-wrap:wrap"><button class="kd-btn kd-btn--primary" type="submit">Save notice</button><button class="kd-btn kd-btn--ghost" type="button" id="noticeReset">Use the default text</button></div>
           </form>
         </section>
-
-        <section class="kd-card panel" id="plans" aria-labelledby="h-plans" style="margin-bottom:var(--space-4)">
-          <h2 id="h-plans">Plans and features</h2>
-          <p class="muted" style="margin-bottom:var(--space-3)">Prices are LKR per month. A struck-through price is optional and must be higher than the price. Feature switches decide what each plan unlocks, immediately, for every shop on that plan. Leave a limit empty for unlimited.</p>
-          <div id="planList"></div>
         </section>
-
-        <section class="kd-card panel" id="trial" aria-labelledby="h-trial" style="margin-bottom:var(--space-4)">
-          <h2 id="h-trial">Free trial</h2>
+        <section class="set-view" data-view="plans" aria-labelledby="v-plans" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-plans">Packages</h2><p class="muted">Prices, limits and features for each plan. Saved changes apply at once to every shop on that plan.</p></div>
+          <div class="pk" id="pk"><p class="muted">Loading plans</p></div>
+        </section>
+        <section class="set-view" data-view="trial" aria-labelledby="v-trial" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-trial">Free trial</h2><p class="muted">How long new shops can use Sidadiya before choosing a plan.</p></div>
+          <section class="kd-card panel" id="trial" aria-labelledby="h-trial">
           <form id="trialForm" class="stack" novalidate>
             <div class="kd-field" style="max-width:220px"><label class="kd-label" for="trialDays">Trial length (days)</label><input class="kd-input" id="trialDays" type="number" min="1" max="90" inputmode="numeric"><span class="kd-help">New shops only. Reminders go out 4 days and 1 day before the end.</span></div>
             <div><button class="kd-btn kd-btn--primary" type="submit">Save trial length</button></div>
           </form>
         </section>
-
-        <section class="kd-card panel" id="payments" aria-labelledby="h-pay" style="margin-bottom:var(--space-4)">
-          <h2 id="h-pay">Payment settings: OnePay</h2>
+        </section>
+        <section class="set-view" data-view="payments" aria-labelledby="v-payments" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-payments">Card payments (OnePay)</h2><p class="muted">Sidadiya's own OnePay account, used when shops pay for their plan by card.</p></div>
+          <section class="kd-card panel" id="payments" aria-labelledby="h-pay">
           <p class="muted" style="margin-bottom:var(--space-3)">Sidadiya's own OnePay account, used when shops pay for their plan by card. Keys are stored encrypted on the server and are never shown again after saving.</p>
           <div id="payState" class="kd-help" style="margin-bottom:var(--space-3)">Loading…</div>
           <form id="payForm" class="form-grid form-grid--2" novalidate autocomplete="off">
@@ -78,16 +98,21 @@
           </form>
           <p class="kd-help" style="margin-top:var(--space-3)">Callback URL for the OnePay dashboard: <code id="opCb"></code><br>Redirect URL: <code id="opRd"></code></p>
         </section>
-
-        <section class="kd-card panel" id="bank" aria-labelledby="h-bank" style="margin-bottom:var(--space-4)">
-          <h2 id="h-bank">Bank accounts for manual payments</h2>
+        </section>
+        <section class="set-view" data-view="bank" aria-labelledby="v-bank" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-bank">Bank accounts</h2><p class="muted">Shown to sellers who pay their plan by bank transfer.</p></div>
+          <section class="kd-card panel" id="bank" aria-labelledby="h-bank">
           <p class="muted" style="margin-bottom:var(--space-3)">Shown to sellers who pay their subscription by bank transfer.</p>
           <form id="bankForm" class="stack" novalidate><div id="bankRows" class="stack"></div>
             <div class="row"><button class="kd-btn kd-btn--ghost" type="button" id="addBank">Add account</button><button class="kd-btn kd-btn--primary" type="submit">Save bank accounts</button></div>
           </form>
         </section>
-        <section class="kd-card panel" id="contact" aria-labelledby="h-contact" style="margin-bottom:var(--space-4)">
-          <h2 id="h-contact">Sidadiya contact details</h2>
+        </section>
+        <section class="set-view" data-view="contact" aria-labelledby="v-contact" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-contact">Contact details</h2><p class="muted">Shown in the site footer and on the contact page.</p></div>
+          <section class="kd-card panel" id="contact" aria-labelledby="h-contact">
           <p class="muted" style="margin-bottom:var(--space-3)">Shown in the main site footer and on /legal/contact. Card networks require an email, a physical address (not a P.O. Box) and a phone number.</p>
           <form id="contactForm" class="form-grid form-grid--2" novalidate>
             <div class="kd-field"><label class="kd-label" for="pcName">Business name</label><input class="kd-input" id="pcName" data-k="businessName"></div>
@@ -99,14 +124,19 @@
             <div class="span-2"><button class="kd-btn kd-btn--primary" type="submit">Save contact details</button></div>
           </form>
         </section>
-
-        <section class="kd-card panel" id="legal" aria-labelledby="h-legal" style="margin-bottom:var(--space-4)">
-          <h2 id="h-legal">Sidadiya legal pages</h2>
+        </section>
+        <section class="set-view" data-view="legal" aria-labelledby="v-legal" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-legal">Legal pages</h2><p class="muted">The platform's own refund, return, privacy and terms pages.</p></div>
+          <section class="kd-card panel" id="legal" aria-labelledby="h-legal">
           <p class="muted" style="margin-bottom:var(--space-3)">The platform's own Refund, Return, Privacy and Terms pages. Clear a box to go back to the default template. Use "## " for headings and "- " for bullets. Have these reviewed by a lawyer before launch.</p>
           <form id="legalForm" class="stack" novalidate><div id="legalEditors" class="stack"></div><div><button class="kd-btn kd-btn--primary" type="submit">Save legal pages</button></div></form>
         </section>
-        <section class="kd-card panel" id="guide" aria-labelledby="h-guide" style="margin-bottom:var(--space-4)">
-          <h2 id="h-guide">“How to get OnePay” guide</h2>
+        </section>
+        <section class="set-view" data-view="guide" aria-labelledby="v-guide" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-guide">OnePay guide for sellers</h2><p class="muted">Step-by-step help shown to sellers who set up card payments.</p></div>
+          <section class="kd-card panel" id="guide" aria-labelledby="h-guide">
           <p class="muted" style="margin-bottom:var(--space-3)">Shown to every seller in Store settings &gt; Payment gateways. Lists take one item per line. Check fees and documents with OnePay from time to time.</p>
           <form id="guideForm" class="stack" novalidate>
             <div class="kd-field"><label class="kd-label" for="gIntro">Introduction</label><textarea class="kd-input" id="gIntro" rows="2" data-g="intro"></textarea></div>
@@ -126,14 +156,18 @@
             <div><button class="kd-btn kd-btn--primary" type="submit">Save guide</button></div>
           </form>
         </section>
-        <section class="kd-card panel" id="marketing" aria-labelledby="h-mkt" style="margin-bottom:var(--space-4)">
-          <h2 id="h-mkt">Marketing</h2>
+        </section>
+        <section class="set-view" data-view="marketing" aria-labelledby="v-marketing" hidden>
+          <a class="set-back" href="#">&larr; Settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-marketing">Marketing</h2><p class="muted">Social proof shown on the main Sidadiya page.</p></div>
+          <section class="kd-card panel" id="marketing" aria-labelledby="h-mkt">
           <p class="muted" style="margin-bottom:var(--space-3)">Social proof on the main Sidadiya page, shown as “40+ shops onboarded”. Set the count to 0 to hide it.</p>
           <form id="mktForm" class="form-grid form-grid--2" novalidate>
             <div class="kd-field"><label class="kd-label" for="spCount">Shops onboarded</label><input class="kd-input" id="spCount" type="number" min="0" inputmode="numeric"></div>
             <div class="kd-field"><label class="kd-label" for="spLabel">Label</label><input class="kd-input" id="spLabel" maxlength="60" placeholder="shops onboarded"></div>
             <div class="span-2"><button class="kd-btn kd-btn--primary" type="submit">Save</button></div>
           </form>
+        </section>
         </section>
         <div id="moreSections"></div>
       </main>
@@ -148,51 +182,169 @@
       var K = Kade;
       if (!K.guard('admin')) return;
       K.shell('admin', 'settings');
-      var defs = [];
-
-      function num(v) { return v == null ? '' : String(v); }
       function field(id, label, value, attrs, help) {
         return '<div class="kd-field"><label class="kd-label" for="' + id + '">' + label + '</label><input class="kd-input" id="' + id + '" value="' + K.esc(value) + '" ' + (attrs || '') + '>' + (help ? '<span class="kd-help">' + help + '</span>' : '') + '</div>';
       }
-      function planHtml(p) {
-        var id = 'p-' + p.id;
-        return '<form class="plan-editor" data-plan="' + K.esc(p.id) + '" novalidate>' +
-          '<div class="row row--between"><h3 class="heading">' + K.esc(p.name) + ' <span class="muted" style="font-size:14px">(' + K.esc(p.id) + ')</span></h3>' +
-          '<label class="kd-check"><input type="checkbox" name="visible"' + (p.status !== 'HIDDEN' ? ' checked' : '') + '><span class="kd-check__text">Shown to sellers</span></label></div>' +
-          '<div class="form-grid form-grid--2">' +
-            field(id + '-name', 'Name', p.name, 'name="name" maxlength="40"') +
-            field(id + '-tag', 'Tagline', p.tagline || '', 'name="tagline" maxlength="80"') +
-            field(id + '-price', 'Price (LKR / month)', num(p.price), 'name="price" type="number" min="1" inputmode="numeric" required') +
-            field(id + '-cmp', 'Struck-through price', num(p.compareAtPrice), 'name="compareAtPrice" type="number" min="1" inputmode="numeric"', 'Optional, e.g. 1500') +
-            field(id + '-dur', 'Billing period (days)', num(p.durationDays), 'name="durationDays" type="number" min="1" max="366" inputmode="numeric"') +
-            field(id + '-mp', 'Max products', num(p.maxProducts), 'name="maxProducts" type="number" min="0" inputmode="numeric" placeholder="Unlimited"') +
-            field(id + '-mi', 'Photos per product', num(p.maxImages), 'name="maxImages" type="number" min="0" inputmode="numeric" placeholder="Unlimited"') +
-            field(id + '-mc', 'Max categories', num(p.maxCategories), 'name="maxCategories" type="number" min="0" inputmode="numeric" placeholder="Unlimited"') +
-            field(id + '-mv', 'Variants per product', num(p.maxVariants), 'name="maxVariants" type="number" min="0" inputmode="numeric" placeholder="Unlimited"') +
-          '</div>' +
-          '<fieldset style="border:0;padding:0;margin:0"><legend class="kd-label" style="margin-bottom:8px">Features unlocked</legend><div class="flag-grid">' +
-            defs.map(function (d) { return '<label><input type="checkbox" name="flag" value="' + K.esc(d.key) + '"' + (p.flags && p.flags[d.key] ? ' checked' : '') + '><span><strong>' + K.esc(d.label) + '</strong><small>' + K.esc(d.description || '') + '</small></span></label>'; }).join('') +
-          '</div></fieldset>' +
-          '<div class="kd-field"><label class="kd-label" for="' + id + '-feat">Bullet points on pricing cards (one per line)</label><textarea class="kd-input" id="' + id + '-feat" name="features" rows="5">' + K.esc((p.features || []).join('\n')) + '</textarea></div>' +
-          '<div><button class="kd-btn kd-btn--primary" type="submit">Save ' + K.esc(p.name) + '</button></div></form>';
+      /* ================= Packages editor =================
+         One plan at a time (tabs), grouped fields, feature switches, a live pricing-card
+         preview and a comparison table. Edits are kept per plan until saved. */
+      var PK = { plans: [], defs: [], cur: null, edits: {} };
+      var LIMITS = [['maxProducts', 'Products', 'products'], ['maxCategories', 'Categories', 'categories'], ['maxImages', 'Photos per product', 'photos per product'], ['maxVariants', 'Variants per product', 'variants per product']];
+      function clone(o) { return JSON.parse(JSON.stringify(o)); }
+      function orig(id) { return PK.plans.filter(function (p) { return p.id === id; })[0]; }
+      function pick(p) { return { name: p.name, tagline: p.tagline || '', price: p.price, compareAtPrice: p.compareAtPrice, durationDays: p.durationDays, maxProducts: p.maxProducts, maxImages: p.maxImages, maxCategories: p.maxCategories, maxVariants: p.maxVariants, flags: p.flags || {}, features: p.features || [], status: p.status }; }
+      function dirty(id) { return !!PK.edits[id] && JSON.stringify(pick(PK.edits[id])) !== JSON.stringify(pick(orig(id))); }
+      function lkr(n) { return 'Rs. ' + Number(n || 0).toLocaleString('en-LK'); }
+      function lim(v, word) { return v == null ? 'Unlimited ' + word : (v === 1 && /photos/.test(word) ? '1 photo per product' : 'Up to ' + Number(v).toLocaleString('en-LK') + ' ' + word); }
+      function period(p) { return +p.durationDays === 30 || !p.durationDays ? '/ month' : '/ ' + p.durationDays + ' days'; }
+      function tick(on) { return on ? '<span class="pk-yes" aria-label="Included">&#10003;</span>' : '<span class="pk-no" aria-label="Not included">&ndash;</span>'; }
+      function fieldNum(k, label, v, attrs, help) {
+        return '<div class="kd-field"><label class="kd-label" for="pk-' + k + '">' + label + '</label><input class="kd-input" id="pk-' + k + '" data-f="' + k + '" type="number" inputmode="numeric" value="' + (v == null ? '' : v) + '" ' + (attrs || '') + '>' + (help ? '<span class="kd-help">' + help + '</span>' : '') + '</div>';
       }
-      function intVal(f, n) { var v = f.elements[n].value.trim(); return v === '' ? null : Number(v); }
-      function wirePlans() {
-        K.$$('.plan-editor').forEach(function (f) {
-          f.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var flags = {}; K.$$('input[name=flag]', f).forEach(function (c) { flags[c.value] = c.checked; });
-            var body = {
-              name: f.elements.name.value, tagline: f.elements.tagline.value, price: intVal(f, 'price'), compareAtPrice: intVal(f, 'compareAtPrice'),
-              durationDays: intVal(f, 'durationDays'), maxProducts: intVal(f, 'maxProducts'), maxImages: intVal(f, 'maxImages'),
-              maxCategories: intVal(f, 'maxCategories'), maxVariants: intVal(f, 'maxVariants'), flags: flags,
-              features: f.elements.features.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean),
-              status: f.elements.visible.checked ? 'ACTIVE' : 'HIDDEN'
-            };
-            var restore = K.btnLoading(K.$('button[type=submit]', f), 'Saving…');
-            KadeApi.adminUpdatePlan(f.getAttribute('data-plan'), body).then(function () { restore(); K.toast('Plan saved.'); }).catch(function (ex) { restore(); K.toast(ex.message); });
-          });
+      function tabs() {
+        return '<div class="pk-tabs" role="tablist" aria-label="Plans">' + PK.plans.map(function (p) {
+          var e = PK.edits[p.id] || p, on = p.id === PK.cur;
+          return '<button type="button" role="tab" class="pk-tab' + (on ? ' is-on' : '') + '" aria-selected="' + on + '" data-plan="' + K.esc(p.id) + '">' +
+            '<span class="pk-tab__name">' + K.esc(e.name) + (dirty(p.id) ? '<i class="pk-dot" title="Unsaved changes"></i>' : '') + '</span>' +
+            '<span class="pk-tab__price">' + lkr(e.price) + ' ' + period(e) + '</span>' +
+            '<span class="pk-tab__meta">' + (p.shops || 0).toLocaleString('en-LK') + (p.shops === 1 ? ' shop' : ' shops') + (e.status === 'HIDDEN' ? ' · Hidden' : '') + '</span></button>';
+        }).join('') + '</div>';
+      }
+      function form(e) {
+        return '<form class="pk-form" id="pkForm" novalidate>' +
+          '<section class="pk-sec"><h3>Name and price</h3><div class="form-grid form-grid--2">' +
+            '<div class="kd-field"><label class="kd-label" for="pk-name">Plan name</label><input class="kd-input" id="pk-name" data-f="name" maxlength="40" value="' + K.esc(e.name) + '"></div>' +
+            '<div class="kd-field"><label class="kd-label" for="pk-tagline">Tagline</label><input class="kd-input" id="pk-tagline" data-f="tagline" maxlength="80" value="' + K.esc(e.tagline || '') + '" placeholder="e.g. Coupons and sales reports"></div>' +
+            fieldNum('price', 'Price (Rs.)', e.price, 'min="1" required') +
+            fieldNum('compareAtPrice', 'Old price, shown struck through <span class="muted">(optional)</span>', e.compareAtPrice, 'min="1"', 'Must be higher than the price.') +
+            fieldNum('durationDays', 'Billing period (days)', e.durationDays, 'min="1" max="366"', '30 days shows as "per month".') +
+          '</div><label class="kd-switch pk-vis"><span class="kd-check__text"><strong>Show on the pricing page</strong><span class="muted">Hidden plans stay active for shops already on them.</span></span><input type="checkbox" role="switch" data-f="status"' + (e.status !== 'HIDDEN' ? ' checked' : '') + '></label></section>' +
+          '<section class="pk-sec"><h3>Limits</h3><p class="kd-help">Leave a box empty for unlimited.</p><div class="form-grid form-grid--2">' +
+            LIMITS.map(function (l) { return fieldNum(l[0], l[1], e[l[0]], 'min="0" placeholder="Unlimited"'); }).join('') + '</div></section>' +
+          '<section class="pk-sec"><h3>Features</h3><div class="pk-flags">' + PK.defs.map(function (d) {
+            return '<label class="kd-switch pk-flag"><span class="kd-check__text"><strong>' + K.esc(d.label) + '</strong><span class="muted">' + K.esc(d.description || '') + '</span></span><input type="checkbox" role="switch" data-flag="' + K.esc(d.key) + '"' + (e.flags && e.flags[d.key] ? ' checked' : '') + '></label>';
+          }).join('') + '</div></section>' +
+          '<section class="pk-sec"><div class="row row--between" style="gap:8px;flex-wrap:wrap"><h3 style="margin:0">Pricing card bullet points</h3><button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" id="pkWrite">Write from limits and features</button></div>' +
+            '<div class="kd-field" style="margin-top:8px"><label class="kd-label visually-hidden" for="pk-features">Bullet points, one per line</label><textarea class="kd-input" id="pk-features" data-f="features" rows="6" placeholder="One point per line">' + K.esc((e.features || []).join('\n')) + '</textarea><span class="kd-help">One point per line, up to 20. Shown on the pricing page and the Subscription page.</span></div></section>' +
+          '</form>';
+      }
+      function preview(e) {
+        return '<div class="pk-preview-k">Pricing card preview</div><div class="pk-card' + (e.status === 'HIDDEN' ? ' is-hidden' : '') + '">' +
+          (e.status === 'HIDDEN' ? '<span class="pk-card__hidden">Hidden from sellers</span>' : '') +
+          '<h4>' + K.esc(e.name || 'Plan') + '</h4><p class="pk-card__tag">' + K.esc(e.tagline || '') + '</p>' +
+          '<p class="pk-card__price"><b>' + lkr(e.price) + '</b> <span>' + period(e) + '</span>' + (e.compareAtPrice ? ' <s>' + lkr(e.compareAtPrice) + '</s>' : '') + '</p>' +
+          '<ul>' + (e.features || []).map(function (f) { return '<li>' + K.esc(f) + '</li>'; }).join('') + '</ul>' +
+          '<span class="pk-card__btn">Choose ' + K.esc(e.name || 'plan') + '</span></div>';
+      }
+      function compare() {
+        var ps = PK.plans.map(function (p) { return PK.edits[p.id] || p; });
+        var row = function (label, fn) { return '<tr><th scope="row">' + label + '</th>' + ps.map(function (p) { return '<td>' + fn(p) + '</td>'; }).join('') + '</tr>'; };
+        return '<section class="pk-compare" aria-labelledby="pkc-h"><h3 id="pkc-h">Plans at a glance</h3><div class="pk-scroll" tabindex="0" role="region" aria-labelledby="pkc-h"><table class="pk-table"><thead><tr><th scope="col"><span class="visually-hidden">Feature</span></th>' +
+          ps.map(function (p) { return '<th scope="col">' + K.esc(p.name) + (dirty(p.id) ? ' <i class="pk-dot" title="Unsaved changes"></i>' : '') + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          row('Price', function (p) { return '<b>' + lkr(p.price) + '</b><br><small class="muted">' + period(p) + '</small>'; }) +
+          LIMITS.map(function (l) { return row(l[1], function (p) { return p[l[0]] == null ? 'Unlimited' : Number(p[l[0]]).toLocaleString('en-LK'); }); }).join('') +
+          PK.defs.map(function (d) { return row(K.esc(d.label), function (p) { return tick(p.flags && p.flags[d.key]); }); }).join('') +
+          row('On the pricing page', function (p) { return p.status === 'HIDDEN' ? 'Hidden' : 'Shown'; }) +
+          row('Shops on this plan', function (p) { var o = orig(p.id) || p; return (o.shops || 0).toLocaleString('en-LK'); }) +
+          '</tbody></table></div></section>';
+      }
+      function bar() {
+        var p = orig(PK.cur), d = dirty(PK.cur);
+        return '<div class="pk-bar' + (d ? ' is-dirty' : '') + '" role="status" aria-live="polite"><span>' + (d ? '<b>Unsaved changes to ' + K.esc(PK.edits[PK.cur].name) + '.</b> Saving applies to ' + (p.shops || 0).toLocaleString('en-LK') + (p.shops === 1 ? ' shop' : ' shops') + ' on this plan.' : 'All changes saved.') + '</span>' +
+          '<span class="pk-bar__btns"><button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" id="pkDiscard"' + (d ? '' : ' disabled') + '>Discard</button><button type="button" class="kd-btn kd-btn--primary kd-btn--sm" id="pkSave"' + (d ? '' : ' disabled') + '>Save ' + K.esc(PK.edits[PK.cur].name) + '</button></span></div>';
+      }
+      function paintPk() {
+        var e = PK.edits[PK.cur];
+        K.$('#pk').innerHTML = tabs() + '<div class="pk-body"><div class="pk-main">' + form(e) + '</div><aside class="pk-side" id="pkSide">' + preview(e) + '</aside></div>' + bar() + '<div id="pkCmp">' + compare() + '</div>';
+      }
+      function refreshPk() { // after an edit: keep the form (and focus), repaint the rest
+        var e = PK.edits[PK.cur];
+        K.$('#pkSide').innerHTML = preview(e);
+        K.$('#pkCmp').innerHTML = compare();
+        var t = K.$('.pk-tabs'); t.outerHTML = tabs();
+        K.$('.pk-bar').outerHTML = bar();
+      }
+      function readForm() {
+        var e = PK.edits[PK.cur], f = K.$('#pkForm');
+        K.$$('[data-f]', f).forEach(function (i) {
+          var k = i.getAttribute('data-f');
+          if (k === 'status') e.status = i.checked ? 'ACTIVE' : 'HIDDEN';
+          else if (k === 'features') e.features = i.value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+          else if (i.type === 'number') e[k] = i.value.trim() === '' ? null : Number(i.value);
+          else e[k] = i.value;
         });
+        e.flags = Object.assign({}, e.flags); K.$$('[data-flag]', f).forEach(function (c) { e.flags[c.getAttribute('data-flag')] = c.checked; });
+      }
+      function writeBullets() {
+        var e = PK.edits[PK.cur];
+        var out = LIMITS.map(function (l) { return lim(e[l[0]], l[2]); });
+        PK.defs.forEach(function (d) { if (e.flags && e.flags[d.key]) out.push(d.label); });
+        K.$('#pk-features').value = out.join('\n'); readForm(); refreshPk();
+      }
+      K.$('#pk').addEventListener('input', function (e) { if (e.target.closest('#pkForm')) { readForm(); refreshPk(); } });
+      K.$('#pk').addEventListener('change', function (e) { if (e.target.closest('#pkForm')) { readForm(); refreshPk(); } });
+      K.$('#pk').addEventListener('click', function (e) {
+        var tab = e.target.closest('.pk-tab');
+        if (tab) { PK.cur = tab.getAttribute('data-plan'); paintPk(); var t = K.$('.pk-tab.is-on'); if (t) t.focus(); return; }
+        if (e.target.closest('#pkWrite')) return writeBullets();
+        if (e.target.closest('#pkDiscard')) { PK.edits[PK.cur] = clone(orig(PK.cur)); paintPk(); K.toast('Changes discarded.'); return; }
+        if (e.target.closest('#pkSave')) savePlan();
+      });
+      K.$('#pk').addEventListener('keydown', function (e) { // arrow keys move between plan tabs
+        var t = e.target.closest('.pk-tab'); if (!t || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+        var ids = PK.plans.map(function (p) { return p.id; }), i = ids.indexOf(PK.cur) + (e.key === 'ArrowRight' ? 1 : -1);
+        PK.cur = ids[(i + ids.length) % ids.length]; paintPk(); K.$('.pk-tab.is-on').focus(); e.preventDefault();
+      });
+      function savePlan() {
+        var e = PK.edits[PK.cur];
+        if (!String(e.name || '').trim()) return K.toast('Give the plan a name.');
+        if (!(e.price >= 1)) return K.toast('Enter a price of at least Rs. 1.');
+        if (e.compareAtPrice != null && e.compareAtPrice <= e.price) return K.toast('The old price must be higher than the price.');
+        var restore = K.btnLoading(K.$('#pkSave'), 'Saving…'), id = PK.cur, shops = orig(id).shops;
+        KadeApi.adminUpdatePlan(id, pick(e)).then(function (r) {
+          r.plan.shops = shops;
+          PK.plans = PK.plans.map(function (p) { return p.id === id ? r.plan : p; });
+          PK.edits[id] = clone(r.plan);
+          paintPk(); paintSummary(); K.toast(r.plan.name + ' saved.');
+        }).catch(function (ex) { restore(); K.toast(ex.message); });
+      }
+      window.addEventListener('beforeunload', function (e) { if (PK.plans.some(function (p) { return dirty(p.id); })) { e.preventDefault(); e.returnValue = ''; } });
+
+      /* ================= Overview and views (hash routing) ================= */
+      var PAYSTATE = null, routed = false;
+      function route() {
+        var h = location.hash.replace('#', ''), v = h && K.$('[data-view="' + h + '"]');
+        K.$$('.set-view').forEach(function (x) { x.hidden = x !== v; });
+        K.$('#ov').hidden = !!v;
+        if (!v) paintSummary();
+        if (routed) { window.scrollTo(0, 0); var t = v ? K.$('.set-view__title', v) : K.$('.page-head h1'); if (t) { t.setAttribute('tabindex', '-1'); t.focus({ preventScroll: true }); } }
+        routed = true;
+      }
+      window.addEventListener('hashchange', route);
+      function setTxt(id, t) { var el = K.$('#' + id); if (el) el.textContent = t; }
+      function paintSummary() {
+        var s = window.KadeAdminSettings; if (!s) return;
+        var mOn = K.$('#maintOn').checked;
+        K.$('#sumMaint').innerHTML = mOn ? '<span class="set-dot set-dot--warn"></span>On: only admins can use Sidadiya' : '<span class="set-dot set-dot--ok"></span>Off: the site is open';
+        var nOn = K.$('#noticeOn').checked;
+        K.$('#sumNotice').innerHTML = nOn ? '<span class="set-dot set-dot--ok"></span>On for every store' : '<span class="set-dot"></span>Off';
+        setTxt('sumNoticeSub', nOn ? '"' + (K.$('#noticeTitle').value || 'Before you shop') + '"' : 'Buyers see no notice');
+        K.$('#sumPlans').innerHTML = PK.plans.length ? PK.plans.map(function (p) {
+          return '<span class="plan-mini__item' + (p.status === 'HIDDEN' ? ' is-hidden' : '') + '"><b>' + K.esc(p.name) + '</b><span>' + lkr(p.price) + ' ' + period(p) + '</span><small>' + (p.shops || 0).toLocaleString('en-LK') + ' shops' + (p.status === 'HIDDEN' ? ' · Hidden' : '') + '</small></span>';
+        }).join('') : 'Loading';
+        setTxt('sumTrial', (K.$('#trialDays').value || 14) + ' days free');
+        if (PAYSTATE) K.$('#sumPay').innerHTML = PAYSTATE.configured ? '<span class="set-dot set-dot--' + (PAYSTATE.mode === 'live' ? 'ok' : 'warn') + '"></span>' + (PAYSTATE.mode === 'live' ? 'Live' : 'Test mode') : '<span class="set-dot"></span>Off: shops pay by bank transfer';
+        var banks = K.$$('.bank-row').filter(function (r) { return K.$('[data-k=bank]', r).value.trim() && K.$('[data-k=accountNo]', r).value.trim(); }).length;
+        setTxt('sumBank', banks ? banks + (banks === 1 ? ' account' : ' accounts') : 'No accounts yet');
+        var c = {}; K.$$('#contactForm [data-k]').forEach(function (i) { c[i.getAttribute('data-k')] = i.value.trim(); });
+        setTxt('sumContact', [c.email, c.phone].filter(Boolean).join(' · ') || 'Not set');
+        var miss = [['email', 'email'], ['phone', 'phone'], ['address', 'address']].filter(function (x) { return !c[x[0]]; }).map(function (x) { return x[1]; });
+        setTxt('sumContactSub', miss.length ? 'Missing: ' + miss.join(', ') : 'Complete');
+        var custom = K.$$('#legalEditors textarea').filter(function (t) { return t.value.trim() && t.value !== t.dataset.template; }).length;
+        setTxt('sumLegal', custom ? custom + ' of 4 pages customised' : 'Using the standard text');
+        setTxt('sumGuide', (s.onepay_guide && (s.onepay_guide.steps || []).length ? s.onepay_guide.steps.length + ' steps' : 'Default guide'));
+        var sp = +K.$('#spCount').value || 0;
+        setTxt('sumMkt', sp ? sp + '+ ' + (K.$('#spLabel').value || 'shops onboarded') : 'Hidden');
       }
 
       function bankRow(a, i) {
@@ -299,6 +451,7 @@
       K.$('#opCb').textContent = location.origin + '/api/onepay/callback';
       K.$('#opRd').textContent = location.origin + '/api/onepay/return';
       function paintPay(op) {
+        PAYSTATE = op; paintSummary();
         var SRC = { admin: 'Using the keys saved here', env: 'Using the ONEPAY_* environment variables on the server', none: 'Not set up: shops can only pay by bank transfer' };
         K.$('#payState').innerHTML = '<span class="kd-badge ' + (op.configured ? (op.mode === 'live' ? 'kd-badge--success' : 'kd-badge--warning') : 'kd-badge--neutral') + '">' + (op.configured ? (op.mode === 'live' ? 'Live' : 'Test mode') : 'Off') + '</span> ' + SRC[op.source] + (op.updatedAt ? ' (saved ' + K.fmtDate(String(op.updatedAt).slice(0, 10)) + ')' : '') + '.';
         K.$('#opAppId').value = op.appId || ''; K.$('#opMode').value = op.mode || 'sandbox';
@@ -322,11 +475,11 @@
         });
       });
 
-      K.loading(K.$('#planList'), 'Loading plans…');
       Promise.all([KadeApi.adminPlans(), KadeApi.adminSettings()]).then(function (r) {
-        defs = r[0].featureDefs;
-        K.$('#planList').innerHTML = r[0].plans.map(planHtml).join('');
-        wirePlans();
+        PK.defs = r[0].featureDefs; PK.plans = r[0].plans;
+        PK.plans.forEach(function (p) { PK.edits[p.id] = clone(p); });
+        PK.cur = (PK.plans.filter(function (p) { return p.id === 'business'; })[0] || PK.plans[0] || {}).id;
+        if (PK.plans.length) paintPk();
         var s = r[1].settings;
         K.$('#trialDays').value = s.trial_days || 14;
         K.$('#bankRows').innerHTML = (s.platform_bank_accounts || []).map(bankRow).join('') || bankRow({}, 0);
@@ -346,7 +499,10 @@
         K.$$('#guideForm [data-g]').forEach(function (t) { var v = G[t.getAttribute('data-g')]; t.value = Array.isArray(v) ? v.join('\n') : (v || ''); });
         K.$$('#guideForm [data-gc]').forEach(function (i) { i.value = (G.contacts || {})[i.getAttribute('data-gc')] || ''; });
         document.dispatchEvent(new CustomEvent('admin-settings-loaded', { detail: s }));
-      }).catch(function (ex) { K.$('#planList').innerHTML = '<p class="muted">' + K.esc(ex.message) + '</p>'; });
+        paintSummary(); route();
+        // Legal texts arrive a moment later.
+        setTimeout(paintSummary, 1500);
+      }).catch(function (ex) { K.$('#pk').innerHTML = '<p class="muted">' + K.esc(ex.message) + '</p>'; K.toast(ex.message || 'Could not load settings.'); });
     })();
   </script>
 </body>
