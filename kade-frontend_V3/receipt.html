@@ -37,7 +37,7 @@
           (s && s.slug ? '<a class="btn btn-primary btn-sm" href="/store/' + encodeURIComponent(s.slug) + '">Visit ' + K.esc(s.name) + '</a>' : '') + '</div></div>';
         var r = document.getElementById('retry'); if (r) r.addEventListener('click', load);
       }
-      var PAY = { PAID: 'Paid', PENDING: 'Payment pending', REFUNDED: 'Refunded', FAILED: 'Payment failed', DUE_ON_DELIVERY: 'Pay on delivery' };
+      var PAY = { PAID: 'Paid', PENDING: 'Payment pending', REFUNDED: 'Refunded', FAILED: 'Payment failed', DUE_ON_DELIVERY: 'Pay on delivery', AWAITING_SLIP: 'Payment pending', SLIP_UPLOADED: 'Payment being checked', SLIP_REJECTED: 'Payment pending' };
       function paint(d) {
         var r = d.receipt, s = d.store || { name: 'Shop' };
         brand(s);

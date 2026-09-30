@@ -475,6 +475,24 @@ textarea.input { padding: 12px 14px; min-height: 90px; resize: vertical; }
 @keyframes sfn-in { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes sfn-out { to { opacity: 0; transform: translateY(8px) scale(.98); } }
 @keyframes sfn-fade { from { opacity: 0; } }
+/* ---------- Bank transfer payment slip (checkout + tracking page) ---------- */
+.slip { margin-top: 14px; display: grid; gap: 8px; }
+.slip h3 { font-size: 15px; }
+.slip-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.slip-drop { display: grid; justify-items: center; gap: 4px; text-align: center; padding: 18px 14px; border: 2px dashed var(--sf-line); border-radius: 14px; background: var(--sf-bg); cursor: pointer; transition: border-color .15s, background .15s; }
+.slip-drop:hover, .slip-input:focus-visible + .slip-drop { border-color: var(--brand); background: var(--brand-soft); }
+.slip-drop .ic { width: 26px; height: 26px; color: var(--brand); }
+.slip-drop b { font-size: 15px; }
+.slip-drop span { font-size: 13px; color: var(--sf-muted); }
+.slip.bad .slip-drop { border-color: var(--sf-danger); }
+.slip-file { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--sf-line); border-radius: 14px; background: var(--sf-surface); min-width: 0; }
+.slip-file img { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; flex: none; background: var(--sf-bg); }
+.slip-pdf { width: 56px; height: 56px; border-radius: 10px; flex: none; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); font-weight: 800; font-size: 13px; }
+.slip-name { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slip-name small { display: block; font-weight: 500; color: var(--sf-success, #1b6b3f); font-size: 12px; }
+.slip-ok { text-align: left; }
+.slip-state { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--brand-soft); font-size: 14px; }
+.slip-state.warn { background: #FFF4E0; }
 @media (prefers-reduced-motion: reduce) { .sf *, .sf *::before, .sf *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 
 /* ---- Checkout: compact buttons (40px phone / 36px desktop) and editable summary ---- */

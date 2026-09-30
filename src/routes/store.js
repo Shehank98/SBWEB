@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import multer from 'multer';
+import { savePrivate, SLIP_TYPES } from '../services/uploads.js';
+import { clip } from '../utils/text.js';
 import { publicBuyerNotice } from '../services/buyerNotice.js';
 import { query, withTransaction } from '../db/pool.js';
 import { wrap, badRequest, notFound, HttpError } from '../utils/http.js';
@@ -164,6 +167,30 @@ storeRouter.get(
   })
 );
 
+// POST /api/store/:slug/orders/:code/slip?k=<token>  (multipart, field "slip")
+// The buyer's bank transfer slip. Stored privately; only the shop can open it.
+const slipUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 1 } });
+storeRouter.post(
+  '/:slug/orders/:code/slip',
+  (req, res, next) => slipUpload.single('slip')(req, res, (err) => next(err && err.code === 'LIMIT_FILE_SIZE' ? badRequest('The slip must be 8 MB or smaller.') : err)),
+  wrap(async (req, res) => {
+    const { st, order } = await loadBuyerOrder(req);
+    if (!/bank/i.test(String(order.payment_method || ''))) throw badRequest('This order is not paid by bank transfer.');
+    if (order.payment_status === 'PAID') throw badRequest('The shop has already confirmed your payment.');
+    if (['CANCELLED', 'REFUNDED'].includes(order.status)) throw badRequest('This order is cancelled.');
+    if (!req.file) throw badRequest('Choose a photo or PDF of your payment slip.');
+    if (!SLIP_TYPES.has(req.file.mimetype)) throw badRequest('Upload a photo (JPG, PNG, WEBP) or a PDF of your slip.');
+    const key = await savePrivate(req.file, st.biz_id, `${order.code}-slip`, 'slips');
+    const name = clip(String(req.file.originalname || 'payment-slip').replace(/[\r\n]/g, ' '), 120);
+    await query(
+      `UPDATE orders SET slip_key = $2, slip_name = $3, slip_type = $4, slip_uploaded_at = now(), slip_note = NULL, payment_status = 'SLIP_UPLOADED' WHERE id = $1`,
+      [order.id, key, name, req.file.mimetype]
+    );
+    await query(`INSERT INTO order_status_history (order_id, status, note) VALUES ($1, $2, 'Payment slip uploaded by the buyer')`, [order.id, order.status]);
+    res.status(201).json({ ok: true, paymentStatus: 'SLIP_UPLOADED' });
+  })
+);
+
 // POST /api/store/:slug/orders/:code/reviews?k=<token>  { reviews: [{ productId, rating, body }] }
 // Only for delivered orders; one review per product per order (later posts are ignored).
 storeRouter.post(
@@ -267,6 +294,7 @@ storeRouter.post(
     // on and compliant. The order is created PENDING-payment, then the buyer is sent
     // to OnePay; the webhook / return page verify and mark it PAID.
     const card = body.paymentMethod === 'card';
+    const bankTransfer = body.paymentMethod === 'bank' || /bank transfer/i.test(String(body.payment || ''));
     let cardCreds = null;
     if (card) {
       const av = await cardAvailability(st.biz_id);
@@ -332,6 +360,8 @@ storeRouter.post(
       }
       await client.query('INSERT INTO order_status_history (order_id, status) VALUES ($1, $2)', [created.id, 'PENDING']);
       await client.query('UPDATE orders SET source=$2, medium=$3, campaign=$4 WHERE id=$1', [created.id, attr.source, attr.medium, attr.campaign]);
+      // Bank transfer: the buyer adds the slip next (checkout uploads it right after this).
+      if (bankTransfer && !card) await client.query(`UPDATE orders SET payment_status='AWAITING_SLIP' WHERE id=$1`, [created.id]);
       if (card) {
         await client.query(`UPDATE orders SET payment_status='PENDING' WHERE id=$1`, [created.id]);
         created.gatewayTx = (await client.query(

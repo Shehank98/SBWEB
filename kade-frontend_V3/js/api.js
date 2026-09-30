@@ -143,6 +143,10 @@
     getStore(slug) { return req('GET', '/api/store/' + encodeURIComponent(slug)); },
     getStoreProduct(slug, id) { return req('GET', '/api/store/' + encodeURIComponent(slug) + '/product/' + id); },
     placeOrder(slug, order) { return req('POST', '/api/store/' + encodeURIComponent(slug) + '/orders', order); },
+    // Buyer's bank transfer slip (photo or PDF), sent with the order's private token.
+    uploadSlip(slug, code, token, file) { var fd = new FormData(); fd.append('slip', file); return req('POST', '/api/store/' + encodeURIComponent(slug) + '/orders/' + encodeURIComponent(code) + '/slip?k=' + encodeURIComponent(token), fd, true); },
+    orderSlip(code) { return req('GET', '/api/dashboard/orders/' + encodeURIComponent(code) + '/slip'); },
+    orderPayment(code, action, note) { return req('POST', '/api/dashboard/orders/' + encodeURIComponent(code) + '/payment', { action: action, note: note || '' }); },
     storePolicy(slug, kind) { return req('GET', '/api/store/' + encodeURIComponent(slug) + '/policies/' + encodeURIComponent(kind)); },
     site() { return req('GET', '/api/site'); },
     sitePolicy(kind) { return req('GET', '/api/site/policies/' + encodeURIComponent(kind)); },
