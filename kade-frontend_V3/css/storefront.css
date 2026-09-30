@@ -423,3 +423,29 @@ textarea.input { padding: 12px 14px; min-height: 90px; resize: vertical; }
   [data-template="showcase"] .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { .sf *, .sf *::before, .sf *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* ---- Checkout: compact buttons (40px phone / 36px desktop) and editable summary ---- */
+.checkout .btn { min-height: 40px; height: auto; padding: 0 16px; font-size: 14px; border-radius: 10px; }
+.checkout .btn-sm { min-height: 36px; }
+.checkout .btn-ghost { min-height: 40px; padding: 0 12px; }
+.checkout .bar-in .btn { min-width: 0; flex: 1; }
+.checkout .qty button { width: 36px; height: 36px; font-size: 18px; }
+.checkout .qty output { min-width: 28px; }
+.mini--edit { max-height: none; }
+.mini--edit li { align-items: start; }
+.mini-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 6px; }
+.checkout .link { white-space: nowrap; }
+.checkout .btn { white-space: nowrap; }
+.checkout .bar-in .sum { flex: 0 1 auto; }
+.mini-ctl .qty button { width: 32px; height: 32px; font-size: 16px; }
+.mini-ctl .qty output { min-width: 24px; font-size: 14px; }
+.mini-p { font-weight: 700; white-space: nowrap; }
+.rv-items .rv-list { grid-column: 1 / -1; list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; font-size: 15px; }
+.rv-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+@media (min-width: 960px) {
+  .checkout .btn { min-height: 36px; }
+  .checkout .btn-ghost { min-height: 36px; }
+  /* Full-width primary only on phones; on desktop buttons size to their label. */
+  .checkout .btn-block { width: auto; display: flex; margin-left: auto; }
+  .checkout .thanks .btn-block { margin-right: auto; }
+}
