@@ -154,7 +154,7 @@
     savePreferences(p) { return req('PUT', '/api/dashboard/preferences', p); },
     // traffic(7) for the last N days, or traffic({ from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }).
     traffic(r) { return req('GET', '/api/dashboard/traffic?' + (r && typeof r === 'object' ? 'from=' + encodeURIComponent(r.from) + '&to=' + encodeURIComponent(r.to) : 'days=' + (r || 7))); },
-    setOrderStatusNote(code, status, note) { return req('PUT', '/api/dashboard/orders/' + encodeURIComponent(code) + '/status', { status: status, note: note }); },
+    setOrderStatusNote(code, status, note, extra) { return req('PUT', '/api/dashboard/orders/' + encodeURIComponent(code) + '/status', Object.assign({ status: status, note: note }, extra || {})); },
     verification() { return req('GET', '/api/dashboard/verification'); },
     submitVerification(idFile, addressFile) { var fd = new FormData(); if (idFile) fd.append('idDoc', idFile); if (addressFile) fd.append('addressDoc', addressFile); return req('POST', '/api/dashboard/verification', fd, true); },
     policies() { return req('GET', '/api/dashboard/policies'); },

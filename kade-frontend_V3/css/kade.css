@@ -1132,3 +1132,14 @@ body.has-cartbar { padding-bottom: 84px; }
   .sp-item, .sp-item.is-next, .sp-mark.is-done, .sp-can li, .sp-next { animation: none; }
   .sp-mark svg { animation: none; stroke-dashoffset: 0; }
 }
+
+/* Refund / cancel dialog */
+.od-dialog { width: min(480px, calc(100vw - 32px)); }
+.od-stock { border: 0; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+.od-items { list-style: none; margin: 0 0 4px; padding: 8px 12px; background: var(--surface-sunken); border-radius: 10px; font-size: 14px; display: grid; gap: 2px; }
+.od-opt { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; }
+.od-opt:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.od-opt input { margin-top: 3px; accent-color: var(--brand); width: 18px; height: 18px; flex: none; }
+.od-opt span { display: flex; flex-direction: column; gap: 2px; }
+.od-opt small { color: var(--ink-muted); }
+.od-err { margin-top: 10px; }

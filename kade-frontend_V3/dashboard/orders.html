@@ -49,7 +49,9 @@
         b.disabled = !n; b.textContent = n ? 'Print ' + n + ' waybill' + (n === 1 ? '' : 's') : 'Print waybills';
         var vis = visible(); K.$('#selAll').checked = vis.length > 0 && vis.every(function (o) { return picked[o.id]; });
       }
-      function openWaybills(codes) { window.open('waybill?codes=' + encodeURIComponent(codes.join(',')), '_blank', 'noopener'); }
+      // The new tab does not inherit this tab's demo flag (noopener), so pass it on;
+      // otherwise a demo click could open the real dashboard for a saved login.
+      function openWaybills(codes) { window.open('waybill?codes=' + encodeURIComponent(codes.join(',')) + (API ? '' : '&demo=1'), '_blank', 'noopener'); }
       // Buyer-facing links for the drawer: WhatsApp message with the receipt.
       function receiptText(o) {
         var until = o.receiptExpiresAt ? new Date(o.receiptExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
@@ -91,7 +93,7 @@
         open = o; o.history = o.history || [{ s: 'PENDING', t: o.date }];
         K.$('#dt').innerHTML = '#' + o.id + ' ' + K.badge('order', o.status);
         var n = next(o.status), phone = o.phone.replace(/\s/g, ''), wa = o.waPhone || ('94' + phone.replace(/^0/, ''));
-        K.$('#db').innerHTML = '<dl class="dl"><dt>Customer</dt><dd>' + K.esc(o.customer) + '</dd><dt>Phone</dt><dd><a class="kd-link" href="tel:' + phone + '">' + K.esc(o.phone) + '</a></dd><dt>Deliver to</dt><dd>' + K.esc(o.address ? o.address + ', ' + o.city : o.city) + '</dd><dt>Payment</dt><dd>' + K.esc(o.payment) + (o.paymentStatus ? ' ' + K.badge('paystat', o.paymentStatus) : '') + '</dd>' + (o.refundNote ? '<dt>Refund</dt><dd>' + K.esc(o.refundNote) + '</dd>' : '') + (o.tracking ? '<dt>Shipped with</dt><dd>' + K.esc(o.tracking.courier) + ' · <strong>' + K.esc(o.tracking.number) + '</strong>' + (o.tracking.url ? ' · <a class="kd-link" href="' + K.esc(o.tracking.url) + '" target="_blank" rel="noopener">track</a>' : '') + '</dd>' : '') + (o.source ? '<dt>Came from</dt><dd>' + K.esc(o.source) + '</dd>' : '') + '<dt>Placed</dt><dd>' + K.fmtDate(o.date) + '</dd>' + (o.note ? '<dt>Note</dt><dd>' + K.esc(o.note) + '</dd>' : '') + '</dl>' +
+        K.$('#db').innerHTML = '<dl class="dl"><dt>Customer</dt><dd>' + K.esc(o.customer) + '</dd><dt>Phone</dt><dd><a class="kd-link" href="tel:' + phone + '">' + K.esc(o.phone) + '</a></dd><dt>Deliver to</dt><dd>' + K.esc(o.address ? o.address + ', ' + o.city : o.city) + '</dd><dt>Payment</dt><dd>' + K.esc(o.payment) + (o.paymentStatus ? ' ' + K.badge('paystat', o.paymentStatus) : '') + '</dd>' + (o.status === 'REFUNDED' || o.refundNote ? '<dt>Refund</dt><dd>' + (o.refundAmount != null ? '<strong>' + K.rs(o.refundAmount) + '</strong>' + (o.refundAmount < o.total ? ' (partial)' : ' (full)') + (o.refundNote ? ' · ' : '') : '') + K.esc(o.refundNote || '') + '</dd>' : '') + ((o.status === 'CANCELLED' || o.status === 'REFUNDED') ? '<dt>Stock</dt><dd>' + (o.restocked ? 'Items returned to stock' : 'Not returned to stock') + '</dd>' : '') + (o.tracking ? '<dt>Shipped with</dt><dd>' + K.esc(o.tracking.courier) + ' · <strong>' + K.esc(o.tracking.number) + '</strong>' + (o.tracking.url ? ' · <a class="kd-link" href="' + K.esc(o.tracking.url) + '" target="_blank" rel="noopener">track</a>' : '') + '</dd>' : '') + (o.source ? '<dt>Came from</dt><dd>' + K.esc(o.source) + '</dd>' : '') + '<dt>Placed</dt><dd>' + K.fmtDate(o.date) + '</dd>' + (o.note ? '<dt>Note</dt><dd>' + K.esc(o.note) + '</dd>' : '') + '</dl>' +
           '<div><h3 class="label" style="margin-bottom:8px">Items</h3><ul class="list">' + o.items.map(function (i) { return '<li><span class="oi">' + (i.image ? '<img src="' + K.esc(i.image) + '" alt="" loading="lazy" width="40" height="40" style="width:40px;height:40px;max-width:40px;object-fit:cover;border-radius:8px;flex:none">' : '<span class="oi__ph" aria-hidden="true">' + K.esc(K.initials(i.name)) + '</span>') + '<span>' + i.qty + ' &times; ' + K.esc(i.name) + '</span></span><span class="price-sm">' + K.rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul><div class="totals" style="margin-top:8px"><div><span>Subtotal</span><span class="price-sm">' + K.rs(o.subtotal) + '</span></div><div><span>Delivery</span><span class="price-sm">' + (o.delivery ? K.rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span class="price">' + K.rs(o.total) + '</span></div></div></div>' +
           '<div><h3 class="label" style="margin-bottom:8px">History</h3><ul class="timeline">' + o.history.slice().reverse().map(function (h) { return '<li><time>' + K.fmtDate(h.t) + '</time><span>' + K.orderLabel(h.s) + (h.reason ? ': ' + K.esc(h.reason) : '') + '</span></li>'; }).join('') + '</ul></div>' +
           docsBlock(o) +
@@ -116,9 +118,57 @@
           '<p class="kd-help">' + (o.email || o.hasEmail ? 'The buyer gets an email with the tracking details.' : 'The buyer did not give an email. Send the tracking number on WhatsApp.') + ' It also shows on their order page.</p></form>';
       }
       function applyStatus(o, s, reason) { o.status = s; o.history = o.history || [{ s: 'PENDING', t: o.date }]; o.history.push({ s: s, t: D.today, reason: reason }); tabs(); rows(); drawer(o); K.toast('Order #' + o.id + ' is now ' + K.orderLabel(s).toLowerCase()); }
-      function setStatus(o, s, reason) {
-        if (API) { KadeApi.setOrderStatusNote(o.id, s, reason || null).then(function () { if (s === 'REFUNDED') { o.refundNote = reason; if (o.paymentStatus === 'PAID') o.paymentStatus = 'REFUNDED'; } applyStatus(o, s, reason); }).catch(function (ex) { K.toast(ex.message || 'Could not update the order.'); }); }
+      function setStatus(o, s, reason, extra) {
+        if (API) {
+          KadeApi.setOrderStatusNote(o.id, s, reason || null, extra).then(function (r) {
+            if (s === 'REFUNDED') { o.refundNote = reason; o.refundAmount = r && r.refundAmount != null ? r.refundAmount : o.total; if (o.paymentStatus === 'PAID') o.paymentStatus = 'REFUNDED'; }
+            if (r && (r.restocked || r.alreadyRestocked)) o.restocked = true;
+            applyStatus(o, s, reason);
+            if (r && r.restocked) setTimeout(function () { K.toast('Items are back in stock.'); }, 1600);
+          }).catch(function (ex) { K.toast(ex.message || 'Could not update the order.'); });
+        }
         else applyStatus(o, s, reason);
+      }
+      // Refund / cancel dialog: refund amount (full or partial), a note, and whether
+      // the items go back into stock. The stock question must be answered.
+      function orderDialog(o, kind) {
+        return new Promise(function (resolve) {
+          var refund = kind === 'refund', units = (o.items || []).reduce(function (n, i) { return n + Number(i.qty || 0); }, 0);
+          var d = document.createElement('dialog');
+          d.className = 'od-dialog'; d.setAttribute('aria-labelledby', 'od-title');
+          var stockQ = o.restocked
+            ? '<p class="kd-help od-stock-done">The items from this order are already back in stock.</p>'
+            : '<fieldset class="od-stock"><legend class="kd-label">Put the items back in stock?</legend>' +
+                '<ul class="od-items">' + (o.items || []).map(function (i) { return '<li><span>' + i.qty + ' &times; ' + K.esc(i.name) + '</span></li>'; }).join('') + '</ul>' +
+                '<label class="od-opt"><input type="radio" name="restock" value="yes" required><span><strong>Yes, return ' + units + (units === 1 ? ' item' : ' items') + ' to stock</strong><small>The item came back, or it was never sent.</small></span></label>' +
+                '<label class="od-opt"><input type="radio" name="restock" value="no" required><span><strong>No, keep stock as it is</strong><small>The item was not returned, or it is damaged.</small></span></label></fieldset>';
+          d.innerHTML = '<form method="dialog" novalidate><div class="dialog__head"><h2 class="heading" id="od-title">' + (refund ? 'Refund order #' : 'Cancel order #') + K.esc(o.id) + '</h2></div><div class="dialog__body">' +
+            (refund
+              ? '<div class="kd-field"><label class="kd-label" for="od-amt">Refund amount (Rs.)</label><input class="kd-input" id="od-amt" type="number" inputmode="numeric" min="1" max="' + o.total + '" value="' + o.total + '"><span class="kd-help">Order total ' + K.rs(o.total) + '. Enter less for a partial refund. Reports deduct this amount from your sales.</span></div>' +
+                '<div class="kd-field"><label class="kd-label" for="od-note">How and when was it refunded?</label><textarea class="kd-input" id="od-note" rows="2" placeholder="e.g. Refunded via OnePay on 30 Sep"></textarea></div>'
+              : '<p>The customer will not receive this order. Cancelled orders do not count in your sales.</p><div class="kd-field"><label class="kd-label" for="od-note">Reason <span class="muted">(optional)</span></label><textarea class="kd-input" id="od-note" rows="2"></textarea></div>') +
+            stockQ + '<p class="kd-error od-err" hidden></p></div>' +
+            '<div class="dialog__foot"><button class="kd-btn kd-btn--ghost" value="cancel" formnovalidate>Back</button><button class="kd-btn ' + (refund ? 'kd-btn--primary' : 'kd-btn--danger') + '" value="ok" id="od-ok">' + (refund ? 'Record refund' : 'Cancel order') + '</button></div></form>';
+          document.body.appendChild(d);
+          var err = K.$('.od-err', d);
+          d.addEventListener('input', function () { err.hidden = true; }); d.addEventListener('change', function () { err.hidden = true; });
+          K.$('#od-ok', d).addEventListener('click', function (e) {
+            var msg = '';
+            if (refund) {
+              var a = Number(K.$('#od-amt', d).value);
+              if (!(a >= 1 && a <= o.total)) msg = 'Enter an amount between Rs. 1 and ' + K.rs(o.total) + '.';
+              else if (!K.$('#od-note', d).value.trim()) msg = 'Add how and when you refunded it.';
+            }
+            if (!msg && !o.restocked && !K.$('input[name=restock]:checked', d)) msg = 'Choose whether the items go back in stock.';
+            if (msg) { e.preventDefault(); err.textContent = msg; err.hidden = false; return; }
+          });
+          d.addEventListener('close', function () {
+            var ok = d.returnValue === 'ok', pick = K.$('input[name=restock]:checked', d);
+            var out = ok ? { note: K.$('#od-note', d).value.trim(), amount: refund ? Math.round(Number(K.$('#od-amt', d).value)) : null, restock: !!(pick && pick.value === 'yes') } : null;
+            d.remove(); resolve(out);
+          });
+          d.showModal();
+        });
       }
       K.$('#tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { filter = b.getAttribute('data-s'); tabs(); rows(); K.$('[aria-selected=true]', K.$('#tabs')).focus(); } });
       K.$('#q').addEventListener('input', function () { q = this.value.trim().toLowerCase(); rows(); });
@@ -156,8 +206,8 @@
         if (act === 'share') { if (API) KadeApi.receiptShared(o.id).then(function () { o.receiptSharedAt = new Date().toISOString(); }).catch(function (ex) { K.toast(ex.message); }); return; }
         if (act === 'copyReceipt') { var url = location.origin + o.receiptUrl; if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { K.toast('Receipt link copied'); }); else K.toast(url); return; }
         if (b.getAttribute('data-act') === 'next') setStatus(o, next(o.status));
-        else if (b.getAttribute('data-act') === 'refund') K.confirm({ title: 'Mark order #' + o.id + ' as refunded?', body: 'Record how much was refunded, how and when (for example: Full refund of Rs. 4,150 via OnePay on 30 Sep).', confirmLabel: 'Mark as refunded', reason: 'Refund note' }).then(function (r) { if (r && r.reason.trim()) setStatus(o, 'REFUNDED', r.reason.trim()); else if (r) K.toast('Add a refund note.'); });
-        else K.confirm({ title: 'Cancel order #' + o.id + '?', body: 'The customer will not receive this order. You can tell them why below.', confirmLabel: 'Cancel order', danger: true, reason: 'Reason' }).then(function (r) { if (r) setStatus(o, 'CANCELLED', r.reason); });
+        else if (b.getAttribute('data-act') === 'refund') orderDialog(o, 'refund').then(function (r) { if (r) setStatus(o, 'REFUNDED', r.note, { refundAmount: r.amount, restock: r.restock }); });
+        else orderDialog(o, 'cancel').then(function (r) { if (r) setStatus(o, 'CANCELLED', r.note, { restock: r.restock }); });
       });
       function boot(list) {
         orders = list; tabs(); rows();
