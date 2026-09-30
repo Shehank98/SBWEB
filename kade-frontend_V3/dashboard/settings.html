@@ -18,8 +18,29 @@
       <header class="topbar" id="topbar"></header>
       <main class="main" id="main" tabindex="-1">
 
-        <div class="page-head"><div><h1>Store settings</h1><p>What customers see, and how they can pay and get their order. Changes save automatically.</p></div><span class="as-global" id="asGlobal" role="status" aria-live="polite"></span></div>
-        <form id="sf" class="stack-lg" novalidate>
+        <div class="page-head"><div><h1>Store settings</h1><p>Manage your shop, payments, delivery and appearance.</p></div><span class="as-global" id="asGlobal" role="status" aria-live="polite"></span></div>
+
+        <!-- Overview: the status of each area first; details open only when needed. -->
+        <div id="ov" class="set-ov">
+          <a class="set-card" href="#info"><div class="set-card__body"><h2>Store information</h2><p class="set-card__main" id="sumName">Loading…</p><p class="muted" id="sumUrl"></p><p class="muted" id="sumInfo"></p></div><span class="set-card__go">Edit</span></a>
+          <a class="set-card" href="#appearance"><div class="set-card__body"><h2>Store appearance</h2><p class="set-card__main">Logo, cover photo, template and colours</p><p class="muted" id="sumLook"></p></div><span class="set-card__go">Customise</span></a>
+          <a class="set-card" href="#categories"><div class="set-card__body"><h2>Categories</h2><p class="set-card__main" id="sumCats"></p><p class="muted" id="sumCatNames"></p></div><span class="set-card__go">Manage</span></a>
+          <a class="set-card" href="#payments"><div class="set-card__body"><h2>Payments</h2><div class="set-stat" id="sumPay"></div></div><span class="set-card__go">Manage</span></a>
+          <a class="set-card" href="#delivery"><div class="set-card__body"><h2>Delivery</h2><p class="set-card__main" id="sumDlv"></p></div><span class="set-card__go">Manage</span></a>
+          <a class="set-card" href="#verification"><div class="set-card__body"><h2>Business verification</h2><p class="set-card__main" id="sumVer">Not verified</p><p class="muted">Get the Verified Sri Lankan Business badge.</p></div><span class="set-card__go">Verify</span></a>
+          <a class="set-card" href="#notifications"><div class="set-card__body"><h2>Notifications</h2><p class="set-card__main" id="sumNote">Weekly sales summary</p></div><span class="set-card__go">Manage</span></a>
+          <section class="kd-card panel danger-zone" aria-labelledby="dz" style="margin-top:24px">
+          <h2 id="dz">Danger zone</h2>
+          <p class="muted">Deleting your shop is permanent. Your storefront, all products, orders, customer details and this login are removed and <strong>cannot be recovered</strong>.</p>
+          <div class="row"><button type="button" class="kd-btn kd-btn--secondary" id="delshop" style="color:var(--danger);border-color:var(--danger)">Delete my shop</button></div>
+        </section>
+        </div>
+
+        <form id="sf" novalidate>
+        <section class="set-view" data-view="info" aria-labelledby="v-info" hidden>
+          <a class="set-back" href="#">&larr; Store settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-info">Store information</h2><p class="muted">Your shop name, contact details and social links. Changes save automatically.</p></div>
+          <div class="stack-lg">
           <section class="kd-card panel" aria-labelledby="a1"><h2 id="a1">Store link</h2>
             <p class="slug-preview" id="url"></p>
             <div class="row"><a class="kd-btn kd-btn--secondary kd-btn--sm" id="open" target="_blank" rel="noopener">Open my store</a><button class="kd-btn kd-btn--secondary kd-btn--sm" type="button" id="copy">Copy link</button></div>
@@ -36,14 +57,12 @@
               <div class="kd-field"><label class="kd-label" for="ig">Instagram <span class="muted">(optional)</span></label><input class="kd-input" id="ig" placeholder="@yourshop" autocapitalize="off" spellcheck="false"></div>
             </div>
           </section>
-          <section class="kd-card panel" aria-labelledby="acat"><h2 id="acat">Product categories</h2>
-            <p class="muted">Customers browse your store by category. Add, rename or delete them here. Renaming moves every product to the new name.</p>
-            <div id="catList" class="cat-list"></div>
-            <div class="row" style="justify-content:space-between;align-items:center;gap:12px;margin-top:4px">
-              <button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="catAdd">+ Add category</button>
-              <span class="kd-help" id="catUsage"></span>
-            </div>
-          </section>
+          </div>
+        </section>
+        <section class="set-view" data-view="appearance" aria-labelledby="v-appearance" hidden>
+          <a class="set-back" href="#">&larr; Store settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-appearance">Store appearance</h2><p class="muted">Choose how your online shop looks to customers.</p></div>
+          <div class="stack-lg">
           <section class="kd-card panel" aria-labelledby="alogo"><h2 id="alogo">Shop logo</h2>
             <p class="muted">Your logo shows at the top of your store. After you pick an image you can crop it to a circle.</p>
             <div class="row" style="gap:16px;align-items:center;flex-wrap:wrap">
@@ -52,15 +71,6 @@
                 <label class="kd-btn kd-btn--secondary kd-btn--sm" style="cursor:pointer">Upload logo<input type="file" id="logo" accept="image/*" hidden></label>
                 <button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" id="logoRm" hidden style="color:var(--danger)">Remove</button>
               </div>
-            </div>
-          </section>
-          <section class="kd-card panel" id="verification" aria-labelledby="aver"><div class="row row--between"><h2 id="aver">Business verification</h2><span id="verBadge"></span></div>
-            <p class="muted">Get the <strong>Verified Sri Lankan Business</strong> seal on your store and product pages. Upload a copy of your NIC (or passport) and a proof of address such as a utility bill. Your documents are stored privately and only Sidadiya admins can see them.</p>
-            <div id="verState" style="margin-top:12px"></div>
-            <div id="verForm" class="form-grid form-grid--2" style="margin-top:12px">
-              <div class="kd-field"><label class="kd-label" for="idDoc">ID copy (NIC or passport)</label><input class="kd-input" id="idDoc" type="file" accept="image/png,image/jpeg,image/webp,application/pdf"></div>
-              <div class="kd-field"><label class="kd-label" for="addrDoc">Address proof (utility bill, bank statement or Grama Niladhari letter)</label><input class="kd-input" id="addrDoc" type="file" accept="image/png,image/jpeg,image/webp,application/pdf"></div>
-              <div class="span-2"><button class="kd-btn kd-btn--primary" type="button" id="verSubmit">Submit for verification</button></div>
             </div>
           </section>
           <section class="kd-card panel" aria-labelledby="acover"><h2 id="acover">Cover photo</h2>
@@ -80,6 +90,26 @@
             <div class="preset-grid" id="presets" role="radiogroup" aria-labelledby="a3"></div>
             <div id="prev" class="kd-card" style="overflow:hidden;max-width:360px"><div style="background:var(--brand);color:var(--on-brand);padding:16px"><strong id="pname" class="display-md" style="font-size:20px"></strong></div><div style="padding:16px;background:var(--surface-raised);display:flex;flex-direction:column;gap:12px"><span class="kd-tag" style="position:static;align-self:flex-start">Sale</span><button type="button" class="kd-btn kd-btn--accent">Add to cart</button><span class="kd-badge" style="background:var(--brand-soft);color:var(--brand);align-self:flex-start">Selected item</span></div></div>
           </section>
+          </div>
+        </section>
+        <section class="set-view" data-view="categories" aria-labelledby="v-categories" hidden>
+          <a class="set-back" href="#">&larr; Store settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-categories">Categories</h2><p class="muted">Customers browse your store by category.</p></div>
+          <div class="stack-lg">
+          <section class="kd-card panel" aria-labelledby="acat"><h2 id="acat">Product categories</h2>
+            <p class="muted">Customers browse your store by category. Add, rename or delete them here. Renaming moves every product to the new name.</p>
+            <div id="catList" class="cat-list"></div>
+            <div class="row" style="justify-content:space-between;align-items:center;gap:12px;margin-top:4px">
+              <button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" id="catAdd">+ Add category</button>
+              <span class="kd-help" id="catUsage"></span>
+            </div>
+          </section>
+          </div>
+        </section>
+        <section class="set-view" data-view="payments" aria-labelledby="v-payments" hidden>
+          <a class="set-back" href="#">&larr; Store settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-payments">Payments</h2><p class="muted">Choose how customers can pay you.</p></div>
+          <div class="stack-lg">
           <section class="kd-card panel" aria-labelledby="a4" data-autosave="payments"><h2 id="a4">Payment methods</h2>
             <label class="kd-switch"><span class="kd-check__text"><strong>Cash on delivery</strong><span class="muted">Customers pay when the order arrives.</span></span><input type="checkbox" role="switch" id="cod"></label>
             <label class="kd-switch"><span class="kd-check__text"><strong>Bank transfer</strong><span class="muted">Customers send money to your account and share the slip.</span></span><input type="checkbox" role="switch" id="bank"></label>
@@ -92,8 +122,14 @@
                 <div class="kd-field"><label class="kd-label" for="bankAcc">Account number</label><input class="kd-input" id="bankAcc" inputmode="numeric" placeholder="e.g. 0000000000"></div>
               </div>
             </div>
-            <p class="kd-help" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="online" hidden disabled>💳 <span><strong>Card payments</strong> are set up in <a class="kd-link" href="#gateways">Payment gateways</a> below.</span></p>
+            <input type="checkbox" id="online" hidden disabled><div class="set-row"><div><strong>Card payments</strong><span class="muted" id="payCardLine">Accept cards through your own OnePay account.</span></div><span id="payCardBadge"></span><a class="kd-btn kd-btn--secondary kd-btn--sm" href="#card">Set up</a></div>
           </section>
+          </div>
+        </section>
+        <section class="set-view" data-view="delivery" aria-labelledby="v-delivery" hidden>
+          <a class="set-back" href="#">&larr; Store settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-delivery">Delivery</h2><p class="muted">Delivery fee, free delivery and shop pickup.</p></div>
+          <div class="stack-lg">
           <section class="kd-card panel" aria-labelledby="a5" data-autosave="delivery"><h2 id="a5">Delivery</h2>
             <div class="form-grid form-grid--2">
               <div class="kd-field"><label class="kd-label" for="fee">Delivery fee (Rs.)</label><input class="kd-input" id="fee" type="number" inputmode="numeric" min="0"></div>
@@ -101,28 +137,53 @@
             </div>
             <label class="kd-switch"><span class="kd-check__text"><strong>Allow pickup from the shop</strong></span><input type="checkbox" role="switch" id="pickup"></label>
           </section>
-        </form>
-
-        <!-- Payment gateways: the seller's own OnePay (and PayHere) merchant account.
-             Outside the main form: each gateway saves on its own. -->
-        <section class="kd-card panel" id="gateways" aria-labelledby="gw-h" style="margin-top:24px">
-          <div class="row row--between"><h2 id="gw-h">Payment gateways</h2><span id="cardState"></span></div>
-          <p class="muted">Take card payments with your own merchant account. Money goes straight to your bank. Your keys are encrypted and never shown again after saving.</p>
-          <div id="cardReasons"></div>
-          <div id="gwList" class="stack" style="margin-top:12px"></div>
-          <div class="gw-urls" id="gwUrls"></div>
+          </div>
         </section>
-        <section class="kd-card panel guide" id="onepayGuide" aria-labelledby="og-h" style="margin-top:16px"></section>
-
-        <section class="kd-card panel" id="weekly" aria-labelledby="wk-h" style="margin-top:16px">
-          <h2 id="wk-h">Weekly summary email</h2>
+        <section class="set-view" data-view="verification" aria-labelledby="v-verification" hidden>
+          <a class="set-back" href="#">&larr; Store settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-verification">Business verification</h2><p class="muted">Show buyers your shop is a real, checked business.</p></div>
+          <div class="stack-lg">
+          <section class="kd-card panel" id="verification" aria-labelledby="aver"><div class="row row--between"><h2 id="aver">Business verification</h2><span id="verBadge"></span></div>
+            <p class="muted">Get the <strong>Verified Sri Lankan Business</strong> badge on your store and product pages.</p>
+            <div id="verState" style="margin-top:12px"></div>
+            <div class="row" style="margin-top:12px"><button type="button" class="kd-btn kd-btn--primary" id="verStart">Start verification</button></div>
+            <div id="verForm" class="form-grid form-grid--2" style="margin-top:12px" hidden>
+              <p class="muted span-2">Upload a copy of your NIC (or passport) and a proof of address such as a utility bill. Your documents are stored privately and only Sidadiya admins can see them.</p>
+              <div class="kd-field"><label class="kd-label" for="idDoc">ID copy (NIC or passport)</label><input class="kd-input" id="idDoc" type="file" accept="image/png,image/jpeg,image/webp,application/pdf"></div>
+              <div class="kd-field"><label class="kd-label" for="addrDoc">Address proof (utility bill, bank statement or Grama Niladhari letter)</label><input class="kd-input" id="addrDoc" type="file" accept="image/png,image/jpeg,image/webp,application/pdf"></div>
+              <div class="span-2"><button class="kd-btn kd-btn--primary" type="button" id="verSubmit">Submit for verification</button></div>
+            </div>
+          </section>
+          </div>
+        </section>
+        </form>
+        <section class="set-view" data-view="card" aria-labelledby="v-card" hidden>
+          <a class="set-back" href="#payments">&larr; Payments</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-card">Card payments</h2><p class="muted">Accept card payments directly through your own merchant account.</p></div>
+          <div class="stack-lg">
+          <section class="kd-card panel" id="gateways" aria-labelledby="gw-h">
+            <div class="row row--between"><h2 id="gw-h">OnePay</h2><span id="cardState"></span></div>
+            <p class="muted" id="opLine">Money goes straight to your bank. Your keys are encrypted and never shown again after saving.</p>
+            <div id="opDone"></div>
+            <div class="row" style="margin-top:12px"><button type="button" class="kd-btn kd-btn--primary" id="opConnect">Connect OnePay</button></div>
+            <div id="gwSetup" hidden>
+              <div id="cardReasons"></div>
+              <div id="gwList" class="stack" style="margin-top:12px"></div>
+              <details class="set-adv"><summary>Advanced setup: callback and redirect URLs</summary><div class="gw-urls" id="gwUrls"></div></details>
+            </div>
+          </section>
+          <section class="kd-card panel guide" id="onepayGuide" aria-labelledby="og-h"></section>
+          </div>
+        </section>
+        <section class="set-view" data-view="notifications" aria-labelledby="v-notifications" hidden>
+          <a class="set-back" href="#">&larr; Store settings</a>
+          <div class="set-view__head"><h2 class="set-view__title" id="v-notifications">Notifications</h2><p class="muted">Emails we send you about your shop.</p></div>
+          <div class="stack-lg">
+          <section class="kd-card panel" id="weekly" aria-labelledby="wk-h" style="margin-top:16px">
+          <h2 id="wk-h">Weekly sales summary</h2>
           <label class="kd-switch"><span class="kd-check__text"><strong>Send me a summary every Monday morning</strong><span class="muted">Last week's sales, orders, top products and where your visitors came from.</span></span><input type="checkbox" role="switch" id="weeklyOn"></label>
         </section>
-
-        <section class="kd-card panel danger-zone" aria-labelledby="dz" style="margin-top:24px">
-          <h2 id="dz">Delete my shop</h2>
-          <p class="muted">Deleting your shop is permanent. Your storefront, all products, orders, customer details and this login are removed and <strong>cannot be recovered</strong>.</p>
-          <div class="row"><button type="button" class="kd-btn kd-btn--secondary" id="delshop" style="color:var(--danger);border-color:var(--danger)">Delete my shop</button></div>
+          </div>
         </section>
       </main>
     </div>
@@ -158,6 +219,7 @@
         if (limit == null) u.textContent = categories.length + ' categories.';
         else u.innerHTML = categories.length + ' of ' + limit + ' categories used' + (categories.length >= limit ? '. <strong>Upgrade to add more.</strong>' : '.');
         $('catAdd').disabled = limit != null && categories.length >= limit;
+        paintSummary();
       }
       function loadCategories() {
         if (API) {
@@ -218,6 +280,7 @@
         paintLogo(); paintCover();
         paintPreview();
         loadCategories();
+        paintSummary(); route();
       }
 
       var copyUrl = function () { return 'https://' + K.host + '/store/' + (S ? S.slug : ''); };
@@ -257,8 +320,8 @@
             return '<div class="kd-field"><label class="kd-label" for="' + id + '-' + f.key + '">' + K.esc(f.label) + '</label><input class="kd-input" id="' + id + '-' + f.key + '" data-k="' + f.key + '" type="' + (f.secret ? 'password' : 'text') + '" autocomplete="off" spellcheck="false" placeholder="' + (f.hint ? 'Saved: ' + K.esc(f.hint) : '') + '">' + (f.hint ? '<span class="kd-help">Leave blank to keep the saved value.</span>' : '') + '</div>';
           }).join('') +
           '<div class="kd-field"><label class="kd-label" for="' + id + '-mode">Mode</label><select class="kd-select" id="' + id + '-mode" data-mode><option value="sandbox"' + (g.mode === 'sandbox' ? ' selected' : '') + '>Sandbox (testing)</option><option value="live"' + (g.mode === 'live' ? ' selected' : '') + '>Live</option></select></div></div>' +
-          '<label class="kd-switch"><span class="kd-check__text"><strong>Use ' + K.esc(g.label) + ' at checkout</strong></span><input type="checkbox" role="switch" data-enabled' + (g.enabled ? ' checked' : '') + '></label>' +
-          '<div><button class="kd-btn kd-btn--primary" type="submit">Save ' + K.esc(g.label) + '</button></div></form>';
+          '<label class="kd-switch"><span class="kd-check__text"><strong>Use ' + K.esc(g.label) + ' at checkout</strong></span><input type="checkbox" role="switch" data-enabled' + (g.enabled || !g.configured ? ' checked' : '') + '></label>' +
+          '<div><button class="kd-btn kd-btn--primary" type="submit">' + (g.configured ? 'Save changes' : 'Save and connect') + '</button></div></form>';
       }
       function list(items, ordered) { var t = ordered ? 'ol' : 'ul'; return '<' + t + ' class="guide__list">' + (items || []).map(function (i) { return '<li>' + K.esc(i) + '</li>'; }).join('') + '</' + t + '>'; }
       function paintGuide(G) {
@@ -278,12 +341,20 @@
             (c.docs ? '<li>Sample policies: <a class="kd-link" href="' + K.esc(c.docs) + '" target="_blank" rel="noopener">' + K.esc(c.docs.replace(/^https?:\/\//, '')) + '</a></li>' : '') +
           '</ul></div></details>';
       }
+      var GW = null; // last gateway state, for the summaries
+      function onepayOf(r) { return (r.gateways || []).filter(function (g) { return g.provider === 'onepay'; })[0] || { configured: false, enabled: false }; }
       function paintGateways(r) {
-        var c = r.card;
-        $('cardState').innerHTML = c.available ? '<span class="kd-badge kd-badge--success">Card payments on</span>' : '<span class="kd-badge kd-badge--neutral">Card payments off</span>';
-        $('cardReasons').innerHTML = c.available ? '<p class="muted">Buyers now see “Card payment” at checkout' + (c.mode === 'sandbox' ? ' (sandbox: test cards only)' : '') + '.</p>'
-          : '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">To show card payments at checkout</p><ul class="guide__list">' + c.reasons.map(function (x) { return '<li>' + K.esc(x) + '</li>'; }).join('') + '</ul></div></div>';
-        $('gwList').innerHTML = r.gateways.map(gwCard).join('');
+        var c = r.card, op = onepayOf(r); GW = r;
+        $('cardState').innerHTML = op.configured
+          ? (c.available ? '<span class="kd-badge kd-badge--success">Connected</span>' : '<span class="kd-badge kd-badge--warning">Connected, not live yet</span>')
+          : '<span class="kd-badge kd-badge--neutral">Not connected</span>';
+        $('opDone').innerHTML = c.available ? '<div class="kd-banner kd-banner--success"><div><p class="kd-banner__title">OnePay connected</p><p>Customers can now pay by card' + (c.mode === 'sandbox' ? ' (test mode: test cards only)' : '') + '.</p></div></div>'
+          : op.configured ? '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Almost there</p><ul class="guide__list">' + c.reasons.map(function (x) { return '<li>' + K.esc(x) + '</li>'; }).join('') + '</ul></div></div>' : '';
+        $('opConnect').textContent = op.configured ? 'Edit OnePay keys' : 'Connect OnePay';
+        var other = (c.reasons || []).filter(function (x) { return !/onepay/i.test(x); });
+        $('cardReasons').innerHTML = !op.configured && other.length ? '<div class="kd-banner kd-banner--info"><div><p class="kd-banner__title">Card payments also need</p><ul class="guide__list">' + other.map(function (x) { return '<li>' + K.esc(x) + '</li>'; }).join('') + '</ul></div></div>' : '';
+        $('gwList').innerHTML = r.gateways.filter(function (g) { return g.checkoutSupported; }).map(gwCard).join('');
+        paintSummary();
         if (r.urls) $('gwUrls').innerHTML = '<h3 class="heading" style="font-size:16px;margin-top:8px">Paste these into your OnePay app</h3><div class="bankgrid">' + copyRow('Callback URL', r.urls.callbackUrl) + copyRow('Redirect URL', r.urls.redirectUrl) + '</div><p class="kd-help">In the OnePay merchant dashboard, set the callback (webhook) URL of your app to the Callback URL above.</p>';
         if (r.guide) paintGuide(r.guide);
       }
@@ -294,7 +365,7 @@
         K.$$('[data-k]', f).forEach(function (i) { if (i.value.trim()) creds[i.getAttribute('data-k')] = i.value.trim(); });
         var restore = K.btnLoading(K.$('button[type=submit]', f), 'Saving…');
         KadeApi.saveGateway(f.getAttribute('data-gw'), { enabled: K.$('[data-enabled]', f).checked, mode: K.$('[data-mode]', f).value, credentials: creds })
-          .then(function (r) { restore(); K.toast('Saved'); paintGateways(Object.assign({}, r, { urls: null })); })
+          .then(function (r) { restore(); K.toast('Saved'); paintGateways(Object.assign({}, r, { urls: null })); if (onepayOf(r).configured) $('gwSetup').hidden = true; })
           .catch(function (ex) { restore(); K.toast(ex.message); });
       });
       $('gateways').addEventListener('click', function (e) {
@@ -304,9 +375,10 @@
       });
 
       // Weekly summary on/off (saves immediately).
-      if (API && KadeApi.preferences) KadeApi.preferences().then(function (p) { $('weeklyOn').checked = !!p.weeklySummary; }).catch(function () {});
+      if (API && KadeApi.preferences) KadeApi.preferences().then(function (p) { $('weeklyOn').checked = !!p.weeklySummary; WEEKLY = true; paintSummary(); }).catch(function () {});
+      var WEEKLY = false;
       $('weeklyOn').addEventListener('change', function () {
-        var on = this.checked;
+        var on = this.checked; paintSummary();
         KadeApi.savePreferences({ weeklySummary: on }).then(function () { K.toast(on ? 'Weekly summary on' : 'Weekly summary off'); }).catch(function (ex) { K.toast(ex.message); });
       });
 
@@ -325,8 +397,15 @@
           REJECTED: '<div class="kd-banner kd-banner--danger"><div><p class="kd-banner__title">We could not verify your business</p><p>Reason: ' + K.esc(v.reason || 'Please upload clearer documents.') + '</p><p style="margin-top:4px">Upload both documents again and resubmit.</p></div></div>'
         }[v.status] || '';
         $('verState').innerHTML = msg;
-        $('verForm').hidden = v.status === 'VERIFIED' || v.status === 'PENDING';
+        VSTATUS = v.status || 'NOT_SUBMITTED';
+        var canSubmit = !(v.status === 'VERIFIED' || v.status === 'PENDING');
+        $('verStart').hidden = !canSubmit;
+        $('verStart').textContent = v.status === 'REJECTED' ? 'Upload documents again' : 'Start verification';
+        $('verForm').hidden = true;
+        paintSummary();
       }
+      var VSTATUS = null;
+      $('verStart').addEventListener('click', function () { $('verForm').hidden = false; $('verStart').hidden = true; });
       if (API && KadeApi.verification) KadeApi.verification().then(paintVerification).catch(function () {});
       // A button (not a nested <form>): this section lives inside the main settings form.
       $('verSubmit').addEventListener('click', function () {
@@ -363,6 +442,47 @@
         KadeApi.removeStoreLogo().then(function () { S.logo = null; paintLogo(); K.toast('Logo removed'); })
           .catch(function (ex) { K.toast(ex.message || 'Could not remove the logo.'); });
       });
+
+      /* ---------- Overview and detail views (hash routing: #info, #payments, ...) ---------- */
+      var LEGACY = { gateways: 'card', onepayGuide: 'card', weekly: 'notifications' };
+      var routed = false;
+      function route() {
+        var h = location.hash.replace('#', ''); h = LEGACY[h] || h;
+        var v = h && K.$('[data-view="' + h + '"]');
+        K.$$('.set-view').forEach(function (x) { x.hidden = x !== v; });
+        $('ov').hidden = !!v;
+        if (!v) paintSummary();
+        window.scrollTo(0, 0);
+        var t = v ? K.$('.set-view__title', v) : K.$('.page-head h1');
+        if (t && routed) { t.setAttribute('tabindex', '-1'); t.focus({ preventScroll: true }); }
+        routed = true;
+      }
+      window.addEventListener('hashchange', route);
+      $('opConnect').addEventListener('click', function () { var g = $('gwSetup'); g.hidden = !g.hidden; if (!g.hidden) { var i = K.$('#gwSetup input'); if (i) i.focus(); } });
+
+      function onOff(label, on, offText) { return '<span class="set-pill' + (on ? ' is-on' : '') + '"><b>' + label + '</b>' + (on ? 'On' : (offText || 'Off')) + '</span>'; }
+      function rs(n) { return 'Rs. ' + Number(n || 0).toLocaleString('en-LK'); }
+      function paintSummary() {
+        if (!S) return;
+        $('sumName').textContent = $('name').value || S.name || 'Your store';
+        $('sumUrl').textContent = K.host + '/store/' + S.slug;
+        var have = [['Phone', $('phone').value], ['WhatsApp', $('wa').value], ['Address', $('address').value], ['Social media', $('fb').value || $('ig').value]];
+        var missing = have.filter(function (x) { return !String(x[1] || '').trim(); }).map(function (x) { return x[0]; });
+        $('sumInfo').textContent = missing.length ? 'Missing: ' + missing.join(', ') : 'Contact details complete';
+        var P = PRESETS.filter(function (x) { return x[0] === preset; })[0], T = TEMPLATES.filter(function (x) { return x[0] === template; })[0];
+        $('sumLook').textContent = [T ? T[1] + ' template' : '', P ? P[1] + ' colours' : '', S.logo ? 'Logo added' : 'No logo', S.cover ? 'Cover added' : 'No cover'].filter(Boolean).join(' · ');
+        var lim = catUsage.maxCategories;
+        $('sumCats').textContent = lim == null ? categories.length + (categories.length === 1 ? ' category' : ' categories') : categories.length + ' of ' + lim + ' categories used';
+        $('sumCatNames').textContent = categories.length ? categories.slice(0, 6).join(' · ') + (categories.length > 6 ? ' and ' + (categories.length - 6) + ' more' : '') : 'No categories yet';
+        var card = GW && GW.card && GW.card.available, opc = GW && onepayOf(GW).configured;
+        $('sumPay').innerHTML = onOff('Cash on delivery', $('cod').checked) + onOff('Bank transfer', $('bank').checked) + onOff('Card payments', card, opc ? 'Not live yet' : 'Not connected');
+        $('payCardBadge').innerHTML = card ? '<span class="kd-badge kd-badge--success">On</span>' : '<span class="kd-badge kd-badge--neutral">' + (opc ? 'Not live yet' : 'Not connected') + '</span>';
+        var fee = +$('fee').value || 0, free = +$('free').value || 0;
+        $('sumDlv').textContent = [fee ? rs(fee) + ' delivery' : 'Free delivery', free ? 'Free above ' + rs(free) : '', $('pickup').checked ? 'Pickup available' : 'No pickup'].filter(Boolean).join(' · ');
+        var VL = { NOT_SUBMITTED: 'Not verified', PENDING: 'Pending review', VERIFIED: 'Verified', REJECTED: 'Not approved: upload again' };
+        $('sumVer').textContent = VL[VSTATUS] || 'Not verified';
+        $('sumNote').textContent = WEEKLY ? 'Weekly sales summary: ' + ($('weeklyOn').checked ? 'On' : 'Off') : 'Weekly sales summary';
+      }
 
       /* ---------- Autosave: each section saves itself 800ms after the last change ----------
          Only that section's fields are sent (the API keeps everything else), invalid
@@ -459,7 +579,7 @@
         var done = function () {
           sec.apply(body);
           if (dirtyAgain[k]) { dirtyAgain[k] = false; return schedule(k); }
-          state[k] = 'saved'; paintState(k);
+          state[k] = 'saved'; paintState(k); paintSummary();
         };
         if (!API) return setTimeout(done, 300);
         KadeApi.updateStore(body).then(done).catch(function (ex) {
