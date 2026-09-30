@@ -26,7 +26,15 @@
           <section class="kd-card panel" aria-labelledby="c1"><h2 id="c1">Sales, last 7 days</h2><div id="chart"></div></section>
           <section class="kd-card panel" aria-labelledby="c2"><h2 id="c2">Needs your attention</h2><div id="attention"></div></section>
         </div>
-        <section class="kd-card panel" aria-labelledby="c4" style="margin-bottom:var(--space-4)"><div class="row row--between"><h2 id="c4">Where visitors came from</h2><span class="muted" style="font-size:13px">Last 7 days</span></div><div id="traffic"></div></section>
+        <section class="kd-card panel vs" aria-labelledby="c4" style="margin-bottom:var(--space-4)">
+          <div class="vs-head"><h2 id="c4">Where visitors came from</h2>
+            <div class="vs-range" role="group" aria-label="Date range">
+              <button type="button" class="kd-chip" data-days="7" aria-pressed="true">7 days</button><button type="button" class="kd-chip" data-days="30" aria-pressed="false">30 days</button><button type="button" class="kd-chip" data-days="90" aria-pressed="false">90 days</button><button type="button" class="kd-chip" data-days="custom" aria-pressed="false">Custom</button>
+            </div>
+          </div>
+          <form class="vs-custom" id="vsCustom" hidden novalidate><label class="kd-label" for="vsFrom">From</label><input class="kd-input" type="date" id="vsFrom"><label class="kd-label" for="vsTo">To</label><input class="kd-input" type="date" id="vsTo"><button class="kd-btn kd-btn--secondary kd-btn--sm" type="submit">Apply</button></form>
+          <div id="traffic" aria-live="polite"></div>
+        </section>
         <section class="kd-card" aria-labelledby="c3">
           <div class="row row--between" style="padding:16px 16px 0"><h2 class="heading" id="c3">Recent orders</h2><a class="kd-link" href="orders">See all orders</a></div>
           <div class="table-wrap"><table class="kd-table"><thead><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col">Status</th><th scope="col" class="kd-num">Total</th></tr></thead><tbody id="recent"></tbody></table></div>
@@ -77,16 +85,67 @@
         K.$('#recent').innerHTML = orders.slice(0, 6).map(function (o) { return '<tr><td><a class="kd-link" href="orders?o=' + o.id + '">#' + o.id + '</a></td><td>' + K.esc(o.customer) + '<span class="sub">' + K.fmtDate(o.date) + '</span></td><td>' + K.badge('order', o.status) + '</td><td class="kd-num">' + K.rs(o.total) + '</td></tr>'; }).join('') || '<tr><td colspan="4" class="muted" style="padding:16px">No orders yet.</td></tr>';
       }
 
+      /* ---------- Where visitors came from ---------- */
+      var VS_SAMPLE = [['WhatsApp', 46, 12], ['Facebook', 28, 6], ['Instagram', 14, 3], ['Direct', 7, 2], ['Google', 3, 1], ['TikTok', 2, 0], ['Other', 0, 0]];
+      function vsChart(rows, total, sample) {
+        var max = Math.max.apply(null, rows.map(function (r) { return r.visitors; }).concat([1]));
+        var bars = rows.map(function (r) {
+          var tip = r.label + ': ' + r.visitors + ' visitor' + (r.visitors === 1 ? '' : 's') + ' (' + r.pct + '%)' + (r.orders ? ', ' + r.orders + ' order' + (r.orders === 1 ? '' : 's') : '');
+          return '<li class="vs-row" title="' + K.esc(tip) + '" tabindex="' + (sample ? -1 : 0) + '" aria-label="' + K.esc(tip) + '"><span class="vs-lbl">' + K.esc(r.label) + '</span>' +
+            '<span class="vs-track"><span class="vs-bar" style="width:' + (r.visitors ? Math.max(2, r.visitors / max * 100) : 0) + '%"></span></span><span class="vs-val">' + r.pct + '%</span></li>';
+        }).join('');
+        var table = '<table class="kd-table vs-table"><caption class="visually-hidden">Visitors and orders by source</caption><thead><tr><th scope="col">Source</th><th scope="col" class="kd-num">Visitors</th><th scope="col" class="kd-num">Share</th><th scope="col" class="kd-num">Orders</th></tr></thead><tbody>' +
+          rows.map(function (r) { return '<tr><td>' + K.esc(r.label) + '</td><td class="kd-num">' + r.visitors + '</td><td class="kd-num">' + r.pct + '%</td><td class="kd-num">' + r.orders + '</td></tr>'; }).join('') +
+          '</tbody><tfoot><tr><th scope="row">Total</th><td class="kd-num">' + total + '</td><td class="kd-num">' + (total ? '100%' : '0%') + '</td><td class="kd-num">' + rows.reduce(function (n, r) { return n + r.orders; }, 0) + '</td></tr></tfoot></table>';
+        return '<div class="vs-body"><ol class="vs-chart" aria-label="Share of visitors by source">' + bars + '</ol><div class="vs-tablewrap">' + table + '</div></div>';
+      }
+      function vsLocked() {
+        var tot = VS_SAMPLE.reduce(function (n, r) { return n + r[1]; }, 0);
+        var rows = VS_SAMPLE.map(function (r) { return { label: r[0], visitors: r[1], orders: r[2], pct: Math.round(r[1] / tot * 1000) / 10 }; });
+        K.$('#traffic').innerHTML = '<div class="vs-lock"><div class="vs-blur" aria-hidden="true" inert>' + vsChart(rows, tot, true) + '</div>' +
+          '<div class="vs-over"><span class="vs-lockic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>' +
+          '<p class="vs-over__t">See where your visitors come from</p><p class="vs-over__s">WhatsApp, Facebook, Instagram, Google or TikTok: know which posts bring buyers.</p>' +
+          '<a class="kd-btn kd-btn--primary kd-btn--sm" href="subscription">Upgrade to Pro</a></div></div>';
+        K.$$('.vs-range button').forEach(function (b) { b.disabled = true; });
+      }
+      var vsReq = 0;
+      function loadTraffic(range) {
+        var box = K.$('#traffic'), my = ++vsReq;
+        box.innerHTML = '<div class="vs-loading">' + K.spinner() + ' Loading visitor sources…</div>';
+        KadeApi.traffic(range.days ? range.days : { from: range.from, to: range.to }).then(function (t) {
+          if (my !== vsReq) return;
+          if (!t.total) { box.innerHTML = '<div class="empty" style="padding:16px 0"><p class="muted">No visits in this period yet. Share your store link on WhatsApp, Facebook and Instagram.</p></div>'; return; }
+          box.innerHTML = vsChart(t.buckets, t.total) + '<p class="kd-help" style="margin-top:10px">' + t.total + ' visitor' + (t.total === 1 ? '' : 's') + ' · ' + t.orders + ' order' + (t.orders === 1 ? '' : 's') + '. Tip: add <code>?utm_source=whatsapp</code> to links you share to track each post.</p>';
+        }).catch(function (ex) {
+          if (my !== vsReq) return;
+          if (ex && ex.status === 403 && ex.details && ex.details.code === 'UPGRADE_REQUIRED') return vsLocked();
+          box.innerHTML = '<div class="empty" style="padding:16px 0"><p class="muted">Could not load visitor sources.</p><button class="kd-btn kd-btn--secondary kd-btn--sm" type="button" id="vsRetry">Try again</button></div>';
+          K.$('#vsRetry').addEventListener('click', function () { loadTraffic(range); });
+        });
+      }
+      var today = new Date(Date.now() + 5.5 * 3600000).toISOString().slice(0, 10);
+      K.$('#vsTo').value = today; K.$('#vsTo').max = today; K.$('#vsFrom').max = today;
+      K.$('#vsFrom').value = new Date(Date.now() + 5.5 * 3600000 - 29 * 86400000).toISOString().slice(0, 10);
+      K.$('.vs-range').addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b || b.disabled) return;
+        K.$$('.vs-range button').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+        var d = b.getAttribute('data-days');
+        K.$('#vsCustom').hidden = d !== 'custom';
+        if (d !== 'custom') loadTraffic({ days: Number(d) });
+      });
+      K.$('#vsCustom').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var f = K.$('#vsFrom').value, t = K.$('#vsTo').value;
+        if (!f || !t) return K.toast('Choose both dates.');
+        if (f > t) return K.toast('The start date must be before the end date.');
+        loadTraffic({ from: f, to: t });
+      });
+
       if (API) {
         K.loading(K.$('#tiles'), 'Loading your dashboard…');
-        // Traffic sources (storefront visits by referrer / UTM tag), last 7 days.
-        KadeApi.traffic(7).then(function (t) {
-          var max = Math.max.apply(null, t.sources.map(function (x) { return x.sessions; }).concat([1]));
-          K.$('#traffic').innerHTML = t.sources.length ? '<ul class="src-list">' + t.sources.map(function (x) {
-            return '<li><strong>' + K.esc(x.source) + '</strong><span class="muted">' + x.sessions + ' visitor' + (x.sessions === 1 ? '' : 's') + (x.orders ? ' · ' + x.orders + ' order' + (x.orders === 1 ? '' : 's') : '') + '</span><span class="bar-track"><span style="width:' + Math.round(x.sessions / max * 100) + '%"></span></span></li>';
-          }).join('') + '</ul><p class="kd-help" style="margin-top:10px">Tip: add <code>?utm_source=whatsapp</code> to links you share to see exactly which posts bring buyers.</p>'
-            : '<p class="muted">No visits yet this week. Share your store link on WhatsApp, Facebook and Instagram.</p>';
-        }).catch(function () { K.$('#traffic').innerHTML = ''; });
+        // Where visitors came from: Pro only. The API refuses other plans (403), and
+        // then a blurred sample (made-up numbers, never this shop's data) is shown.
+        loadTraffic({ days: 7 });
 
         // Compliance checklist (policies + contact): shown until all 5 are done.
         var sess = KadeApi.currentUser && KadeApi.currentUser();

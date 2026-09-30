@@ -110,7 +110,11 @@ storeRouter.post(
       const c = classify({ referrer: b.referrer, utmSource: b.utm_source, utmMedium: b.utm_medium, utmCampaign: b.utm_campaign, ownHost: OWN_HOST });
       if (!c) return; // internal navigation, not a new visit
       const page = ['home', 'product', 'cart', 'order', 'policy'].includes(b.page) ? b.page : 'home';
-      await recordVisit(st.business_id, { ...c, page, sessionId: /^[a-z0-9]{8,40}$/i.test(String(b.sid || '')) ? String(b.sid) : null });
+      const sessionId = /^[a-z0-9]{8,40}$/i.test(String(b.sid || '')) ? String(b.sid) : null;
+      // One visit per browser session: only the first page view (the landing)
+      // is recorded, so a reload or a second external link does not double count.
+      if (sessionId && (await query('SELECT 1 FROM store_visits WHERE business_id = $1 AND session_id = $2 LIMIT 1', [st.business_id, sessionId])).rowCount) return;
+      await recordVisit(st.business_id, { ...c, page, sessionId });
     } catch (e) { console.warn('[visit]', e.message); }
   })
 );

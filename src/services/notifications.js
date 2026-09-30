@@ -203,13 +203,14 @@ export const templates = {
       `${shop.name}: your week ${d.periodStart} to ${d.periodEnd}`,
       `Sales: ${rs(d.revenue)} from ${d.orders} order${d.orders === 1 ? '' : 's'}${d.revenueChangePct != null ? ` (${d.revenueChangePct >= 0 ? '+' : ''}${d.revenueChangePct}% vs the week before)` : ''}`,
       d.topProducts.length ? `Top products: ${d.topProducts.map((p) => `${p.name} (${p.units})`).join(', ')}` : 'No products sold this week.',
-      d.trafficSources.length ? `Where visitors came from: ${d.trafficSources.map((t) => `${t.source} ${t.sessions}`).join(', ')}` : 'No store visits recorded this week. Share your store link!',
+      d.trafficLocked ? 'See where your visitors come from (WhatsApp, Facebook, Instagram and more) on the Pro plan.'
+        : d.trafficSources.length ? `Where visitors came from: ${d.trafficSources.map((t) => `${t.source} ${t.sessions}`).join(', ')}` : 'No store visits recorded this week. Share your store link!',
     ];
     return {
       type: 'WEEKLY_SUMMARY',
       subject: `Your week at ${shop.name}: ${rs(d.revenue)} from ${d.orders} order${d.orders === 1 ? '' : 's'}`,
       message: lines.join('\n'),
-      data: { heading: 'Your weekly summary', business: shop.name, ...d, storeUrl: shop.slug ? storeUrl(shop.slug) : '', reportsUrl: dashUrl('reports'), settingsUrl: dashUrl('settings#weekly') },
+      data: { heading: 'Your weekly summary', business: shop.name, ...d, storeUrl: shop.slug ? storeUrl(shop.slug) : '', reportsUrl: dashUrl('reports'), settingsUrl: dashUrl('settings#weekly'), planUrl: dashUrl('subscription') },
     };
   },
   // Sent to the CUSTOMER when the shop adds courier tracking and marks it shipped.

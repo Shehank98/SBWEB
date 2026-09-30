@@ -11,10 +11,10 @@ import { listGateways, saveGateway, cardAvailability, gatewayUrls } from '../ser
 import QRCode from 'qrcode';
 import { waybillMissing, isCod, receiptExpired, toWhatsAppIntl, receiptUrl, trackUrl } from '../services/orderLinks.js';
 import { onepayGuide } from '../services/onepayGuide.js';
-import { trafficSources } from '../services/traffic.js';
+import { trafficSources, trafficBuckets } from '../services/traffic.js';
 import { hashPassword, verifyPassword } from '../utils/auth.js';
 import { queueNotification, templates } from '../services/notifications.js';
-import { currentPlan, cap, businessAccess, assertFeature, paywall, trialInfo } from '../services/plan.js';
+import { currentPlan, cap, businessAccess, assertFeature, hasFeature, paywall, trialInfo } from '../services/plan.js';
 import { getSetting } from '../services/settings.js';
 import { POLICY_KINDS, TEMPLATES, loadPolicies, compliance, validateContact } from '../services/policies.js';
 import * as S from '../services/serialize.js';
@@ -488,13 +488,29 @@ dashboardRouter.put(
   })
 );
 
-// ---- Traffic sources for the overview (last N days) ----
+// ---- Where visitors came from (Pro only; gated here, not just in the UI) ----
+// GET /api/dashboard/traffic?from=YYYY-MM-DD&to=YYYY-MM-DD (Sri Lanka dates,
+// inclusive) or ?days=N. Other plans get 403 UPGRADE_REQUIRED and no data.
+const SL_DAY = /^\d{4}-\d{2}-\d{2}$/;
 dashboardRouter.get(
   '/traffic',
   wrap(async (req, res) => {
-    const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
-    const to = new Date(), from = new Date(Date.now() - days * 86400000);
-    res.json({ days, sources: await trafficSources(bid(req), from, to, 8) });
+    const b = bid(req);
+    if (!(await hasFeature(b, 'traffic_sources'))) {
+      throw new HttpError(403, 'See where your visitors come from on the Pro plan.', { code: 'UPGRADE_REQUIRED', feature: 'traffic_sources', upgrade: true });
+    }
+    let from, to;
+    if (SL_DAY.test(String(req.query.from || '')) && SL_DAY.test(String(req.query.to || ''))) {
+      from = new Date(`${req.query.from}T00:00:00+05:30`);
+      to = new Date(new Date(`${req.query.to}T00:00:00+05:30`).getTime() + 86400000);
+      if (!(from < to)) throw badRequest('The start date must be on or before the end date.');
+      if (to - from > 366 * 86400000) throw badRequest('Choose a range of one year or less.');
+    } else {
+      const days = Math.min(366, Math.max(1, Number(req.query.days) || 7));
+      to = new Date(); from = new Date(Date.now() - days * 86400000);
+    }
+    const [summary, sources] = await Promise.all([trafficBuckets(b, from, to), trafficSources(b, from, to, 8)]);
+    res.json({ from: from.toISOString(), to: to.toISOString(), ...summary, sources });
   })
 );
 

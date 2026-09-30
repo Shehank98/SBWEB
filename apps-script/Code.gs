@@ -520,7 +520,7 @@ function weeklyBody_(d) {
       kv_('Visitors', esc_(d.visitors))
     ) +
     h2('Top products') + (top ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + top + '</table>' : p_('No sales this week. A new photo or a WhatsApp status post can bring buyers back.')) +
-    h2('Where visitors came from') + (src ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + src + '</table>' : p_('No visits recorded. Share your store link to get started.')) +
+    h2('Where visitors came from') + (d.trafficLocked ? p_('See which posts and apps bring your buyers: WhatsApp, Facebook, Instagram, Google and TikTok. ' + (d.planUrl ? '<a href="' + esc_(d.planUrl) + '" style="color:' + THEME.brand + ';font-weight:700;">Upgrade to Pro</a>' : 'Available on the Pro plan.')) : src ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + src + '</table>' : p_('No visits recorded. Share your store link to get started.')) +
     '<div style="margin-top:14px;">' + button_('See full reports', d.reportsUrl, 'brand') + (d.storeUrl ? button_('Open my store', d.storeUrl, 'accent') : '') + '</div>' +
     '<p style="margin:14px 0 0;font-family:' + SANS + ';font-size:12px;color:' + THEME.muted + ';">You get this every Monday. Turn it off in <a href="' + esc_(d.settingsUrl) + '" style="color:' + THEME.muted + ';">Store settings</a>.</p>';
 }

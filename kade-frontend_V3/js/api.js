@@ -109,7 +109,8 @@
     receiptShared(code) { return req('POST', '/api/dashboard/orders/' + encodeURIComponent(code) + '/receipt-share', {}); },
     preferences() { return req('GET', '/api/dashboard/preferences'); },
     savePreferences(p) { return req('PUT', '/api/dashboard/preferences', p); },
-    traffic(days) { return req('GET', '/api/dashboard/traffic?days=' + (days || 7)); },
+    // traffic(7) for the last N days, or traffic({ from: 'YYYY-MM-DD', to: 'YYYY-MM-DD' }).
+    traffic(r) { return req('GET', '/api/dashboard/traffic?' + (r && typeof r === 'object' ? 'from=' + encodeURIComponent(r.from) + '&to=' + encodeURIComponent(r.to) : 'days=' + (r || 7))); },
     setOrderStatusNote(code, status, note) { return req('PUT', '/api/dashboard/orders/' + encodeURIComponent(code) + '/status', { status: status, note: note }); },
     verification() { return req('GET', '/api/dashboard/verification'); },
     submitVerification(idFile, addressFile) { var fd = new FormData(); if (idFile) fd.append('idDoc', idFile); if (addressFile) fd.append('addressDoc', addressFile); return req('POST', '/api/dashboard/verification', fd, true); },

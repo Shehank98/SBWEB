@@ -1,7 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { api, db, registerShop, outbox } from './helpers.js';
-import { classify } from '../src/services/traffic.js';
+import { api, db, registerShop, outbox, adminToken } from './helpers.js';
+import { classify, bucketOf } from '../src/services/traffic.js';
 import { lastWeekRange, runWeeklySummary } from '../src/services/weeklySummary.js';
 import { pool } from '../src/db/pool.js';
 
@@ -15,6 +15,7 @@ test('traffic source classification', () => {
   assert.equal(classify({ referrer: '' }).source, 'direct');
   assert.equal(classify({ referrer: 'https://someblog.lk/post' }).source, 'someblog.lk');
   assert.equal(classify({ referrer: 'https://sidadiya.com/store/x', ownHost: 'sidadiya.com' }), null); // internal navigation
+  assert.deepEqual(['direct', 'whatsapp', 'tiktok', 'youtube', 'someblog.lk', null].map(bucketOf), ['direct', 'whatsapp', 'tiktok', 'other', 'other', 'direct']);
 });
 
 async function shopWithProduct() {
@@ -31,7 +32,23 @@ test('visits are recorded by source (bots skipped) and orders keep first-touch a
   await hit({ page: 'home', utm_source: 'whatsapp', sid: 'abcdefgh2' });
   await hit({ page: 'home', referrer: 'https://l.facebook.com/', sid: 'abcdefgh3' });
   await hit({ page: 'home', referrer: 'https://l.facebook.com/' }, 'facebookexternalhit/1.1');
+  // Visitor sources are a Pro feature: refused (no data) until the shop is on Pro.
+  const locked = await api('GET', '/api/dashboard/traffic?days=7', { token: shop.token });
+  assert.equal(locked.status, 403);
+  assert.equal(locked.data.details.code, 'UPGRADE_REQUIRED');
+  assert.equal(locked.data.sources, undefined);
+  assert.equal((await api('POST', `/api/admin/shops/${shop.bizId}/plan`, { token: await adminToken(), body: { planId: 'pro' } })).status, 200);
+  // Same session again: only the first page view per session counts.
+  await hit({ page: 'product', referrer: 'https://l.facebook.com/', sid: 'abcdefgh1' });
   const t = await api('GET', '/api/dashboard/traffic?days=7', { token: shop.token });
+  assert.equal(t.status, 200);
+  assert.equal(t.data.total, 3);
+  const fb = t.data.buckets.find((b) => b.key === 'facebook');
+  assert.deepEqual([fb.visitors, fb.pct], [2, 66.7]);
+  assert.deepEqual(t.data.buckets.map((b) => b.key).sort(), ['direct', 'facebook', 'google', 'instagram', 'other', 'tiktok', 'whatsapp']);
+  const range = await api('GET', '/api/dashboard/traffic?from=2020-01-01&to=2020-01-31', { token: shop.token });
+  assert.equal(range.data.total, 0);
+  assert.equal((await api('GET', '/api/dashboard/traffic?from=2020-02-01&to=2020-01-01', { token: shop.token })).status, 400);
   assert.deepEqual(t.data.sources.map((s) => [s.source, s.sessions]), [['facebook', 2], ['whatsapp', 1]]);
   const o = await api('POST', `/api/store/${shop.slug}/orders`, { body: { customer: 'Kasun Silva', phone: '0771234567', address: '1 Main St', acceptTerms: true, items: [{ pid: shop.product.id, qty: 1 }], attribution: { utm_source: 'instagram', utm_campaign: 'new-drop' } } });
   assert.equal(o.status, 201);
@@ -80,7 +97,8 @@ test('weekly summary: last week numbers, stored digest, one email, respects opt-
   assert.equal(d.orders, 3);
   assert.equal(d.revenue, 3 * (2 * 3950 + 350));
   assert.equal(d.topProducts[0].name, 'Batik Shirt');
-  assert.equal(d.trafficSources[0].source, 'facebook');
+  assert.equal(d.trafficLocked, true); // visitor sources are Pro only: trial shops get a teaser, not the data
+  assert.deepEqual(d.trafficSources, []);
   const digest = await db.query('SELECT deliveries FROM seller_digests WHERE business_id=$1', [shop.bizId]);
   assert.equal(digest.rows[0].deliveries.email, 'QUEUED');
   assert.equal((await outbox(off.bizId, 'WEEKLY_SUMMARY')).length, 0);
