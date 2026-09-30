@@ -110,7 +110,14 @@ export async function cardAvailability(businessId) {
 export const gatewayUrls = () => ({ callbackUrl: BASE + CALLBACK_PATH, redirectUrl: BASE + '/api/onepay/return' });
 
 // ---- Shop order payments: how they settle -----------------------------------------
-// Put stock back for an order whose card payment never completed.
+// Put an order's items back into stock (a failed card payment, or a cancelled or
+// refunded order when the seller chooses to). Runs at most once per order.
+export async function restockOrder(client, orderId) {
+  const claimed = await client.query('UPDATE orders SET restocked_at = now() WHERE id = $1 AND restocked_at IS NULL RETURNING id', [orderId]);
+  if (!claimed.rowCount) return false;
+  await restock(client, orderId);
+  return true;
+}
 async function restock(client, orderId) {
   const items = (await client.query('SELECT product_id, name, qty FROM order_items WHERE order_id = $1 AND product_id IS NOT NULL', [orderId])).rows;
   for (const it of items) {
@@ -148,7 +155,7 @@ registerKind('ORDER', {
       [tx.order_id, status]
     )).rows[0];
     if (o && o.status === 'CANCELLED') {
-      await restock(client, o.id);
+      await restockOrder(client, o.id);
       await client.query(`INSERT INTO order_status_history (order_id, status, note) VALUES ($1,'CANCELLED',$2)`, [o.id, 'Card payment not completed']);
     }
   },

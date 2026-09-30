@@ -8,7 +8,7 @@ import { saveUpload, savePrivate, SLIP_TYPES } from '../services/uploads.js';
 import { config } from '../config.js';
 import { startSubscriptionCheckout } from '../services/cardPayments.js';
 import { platformCreds } from '../services/onepay.js';
-import { listGateways, saveGateway, cardAvailability, gatewayUrls } from '../services/gateways.js';
+import { listGateways, saveGateway, cardAvailability, gatewayUrls, restockOrder } from '../services/gateways.js';
 import QRCode from 'qrcode';
 import { waybillMissing, isCod, receiptExpired, toWhatsAppIntl, receiptUrl, trackUrl } from '../services/orderLinks.js';
 import { onepayGuide } from '../services/onepayGuide.js';
@@ -60,6 +60,12 @@ dashboardRouter.get(
   })
 );
 
+// Money after refunds: a cancelled order is worth 0, a refunded one its total minus
+// the refund (partial refunds keep the rest). Fully refunded orders are not counted
+// as sales in order counts, items sold or customer insights.
+const NET = (a = '') => `CASE WHEN ${a}status = 'CANCELLED' THEN 0 WHEN ${a}status = 'REFUNDED' THEN GREATEST(${a}total - COALESCE(${a}refund_amount, ${a}total), 0) ELSE ${a}total END`;
+const COUNTED = (a = '') => `${a}status <> 'CANCELLED' AND NOT (${a}status = 'REFUNDED' AND COALESCE(${a}refund_amount, ${a}total) >= ${a}total)`;
+
 // ---- Overview: today's sales, order/product counts, low stock, last 7 days ----
 dashboardRouter.get(
   '/overview',
@@ -67,8 +73,8 @@ dashboardRouter.get(
     const b = bid(req);
     const today = (
       await query(
-        `SELECT COALESCE(SUM(total),0) s, COUNT(*) c FROM orders
-          WHERE business_id=$1 AND created_at::date = CURRENT_DATE AND status <> 'CANCELLED'`,
+        `SELECT COALESCE(SUM(${NET()}),0) s, COUNT(*) FILTER (WHERE ${COUNTED()}) c FROM orders
+          WHERE business_id=$1 AND created_at::date = CURRENT_DATE`,
         [b]
       )
     ).rows[0];
@@ -79,7 +85,7 @@ dashboardRouter.get(
     ).rows[0];
     const sales7 = (
       await query(
-        `SELECT d::date AS date, COALESCE(SUM(o.total),0) AS value
+        `SELECT d::date AS date, COALESCE(SUM(${NET('o.')}),0) AS value
            FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day') d
            LEFT JOIN orders o ON o.business_id=$1 AND o.created_at::date = d::date AND o.status <> 'CANCELLED'
           GROUP BY d ORDER BY d`,
@@ -123,8 +129,11 @@ dashboardRouter.get(
 
     const totals = (
       await query(
-        `SELECT COALESCE(SUM(total),0) revenue, COUNT(*) orders,
-                COUNT(*) FILTER (WHERE status <> 'CANCELLED') paid
+        `SELECT COALESCE(SUM(${NET()}),0) revenue, COUNT(*) orders,
+                COUNT(*) FILTER (WHERE ${COUNTED()}) paid,
+                COALESCE(SUM(total) FILTER (WHERE status <> 'CANCELLED'),0) gross,
+                COALESCE(SUM(COALESCE(refund_amount, total)) FILTER (WHERE status = 'REFUNDED'),0) refunds,
+                COUNT(*) FILTER (WHERE status = 'REFUNDED') refunded
            FROM orders WHERE business_id = $1${plainClause}`,
         P
       )
@@ -133,7 +142,7 @@ dashboardRouter.get(
       await query(
         `SELECT COALESCE(SUM(oi.qty),0) n FROM order_items oi
            JOIN orders o ON o.id = oi.order_id
-          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'${oClause}`,
+          WHERE o.business_id = $1 AND ${COUNTED('o.')}${oClause}`,
         P
       )
     ).rows[0].n;
@@ -144,7 +153,7 @@ dashboardRouter.get(
       await query(
         `SELECT oi.name, SUM(oi.qty) units, SUM(oi.qty * oi.price) revenue
            FROM order_items oi JOIN orders o ON o.id = oi.order_id
-          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'${oClause}
+          WHERE o.business_id = $1 AND ${COUNTED('o.')}${oClause}
           GROUP BY oi.name ORDER BY units DESC LIMIT 10`,
         P
       )
@@ -164,7 +173,7 @@ dashboardRouter.get(
       granularity = 'day';
       series = (
         await query(
-          `SELECT d::date date, COALESCE(SUM(o.total),0) value
+          `SELECT d::date date, COALESCE(SUM(${NET('o.')}),0) value
              FROM generate_series($2::date, $3::date, INTERVAL '1 day') d
              LEFT JOIN orders o ON o.business_id=$1 AND o.created_at::date=d::date AND o.status <> 'CANCELLED'
             GROUP BY d ORDER BY d`,
@@ -175,7 +184,7 @@ dashboardRouter.get(
       const startMonth = effFrom || null;
       series = (
         await query(
-          `SELECT to_char(m,'Mon') label, m::date date, COALESCE(SUM(o.total),0) value
+          `SELECT to_char(m,'Mon') label, m::date date, COALESCE(SUM(${NET('o.')}),0) value
              FROM generate_series(date_trunc('month', $2::date), date_trunc('month', $3::date), INTERVAL '1 month') m
              LEFT JOIN orders o ON o.business_id=$1 AND date_trunc('month', o.created_at)=m AND o.status <> 'CANCELLED'
             GROUP BY m ORDER BY m`,
@@ -194,7 +203,7 @@ dashboardRouter.get(
            JOIN orders o ON o.id = oi.order_id
            LEFT JOIN products p ON p.business_id = o.business_id
                                    AND p.name = split_part(oi.name, ' (', 1)
-          WHERE o.business_id = $1 AND o.status <> 'CANCELLED'${oClause}
+          WHERE o.business_id = $1 AND ${COUNTED('o.')}${oClause}
           GROUP BY 1 ORDER BY revenue DESC`,
         P
       )
@@ -203,8 +212,8 @@ dashboardRouter.get(
     const payments = (
       await query(
         `SELECT COALESCE(NULLIF(payment_method,''),'Other') method, COUNT(*) orders,
-                COALESCE(SUM(total),0) revenue
-           FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
+                COALESCE(SUM(${NET()}),0) revenue
+           FROM orders WHERE business_id = $1 AND ${COUNTED()}${plainClause}
           GROUP BY 1 ORDER BY orders DESC`,
         P
       )
@@ -215,7 +224,10 @@ dashboardRouter.get(
     const report = {
       plan: plan.name,
       range: { from: req.query.from || null, to: req.query.to || null },
-      revenue,
+      revenue,                                   // net: after refunds
+      grossSales: Number(totals.gross),
+      refunds: Number(totals.refunds),
+      refundedOrders: Number(totals.refunded),
       orders: Number(totals.orders),
       paidOrders: paid,
       avgOrder: paid ? Math.round(revenue / paid) : 0,
@@ -232,15 +244,15 @@ dashboardRouter.get(
       report.cities = (
         await query(
           `SELECT COALESCE(NULLIF(city,''),'Unknown') city, COUNT(*) n
-             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
+             FROM orders WHERE business_id = $1 AND ${COUNTED()}${plainClause}
              GROUP BY 1 ORDER BY n DESC`,
           P
         )
       ).rows.map((r) => ({ city: r.city, orders: Number(r.n) }));
       report.topCustomers = (
         await query(
-          `SELECT customer_name name, COUNT(*) orders, COALESCE(SUM(total),0) spent
-             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
+          `SELECT customer_name name, COUNT(*) orders, COALESCE(SUM(${NET()}),0) spent
+             FROM orders WHERE business_id = $1 AND ${COUNTED()}${plainClause}
              GROUP BY customer_name ORDER BY spent DESC LIMIT 8`,
           P
         )
@@ -249,7 +261,7 @@ dashboardRouter.get(
         await query(
           `SELECT COUNT(*) customers, COUNT(*) FILTER (WHERE c > 1) repeat_customers
              FROM (SELECT customer_name, COUNT(*) c FROM orders
-                    WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
+                    WHERE business_id = $1 AND ${COUNTED()}${plainClause}
                     GROUP BY customer_name) t`,
           P
         )
@@ -264,7 +276,7 @@ dashboardRouter.get(
       report.weekdays = (
         await query(
           `SELECT EXTRACT(DOW FROM created_at)::int dow, COUNT(*) n
-             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
+             FROM orders WHERE business_id = $1 AND ${COUNTED()}${plainClause}
              GROUP BY 1`,
           P
         )
@@ -272,7 +284,7 @@ dashboardRouter.get(
       report.coupons = (
         await query(
           `SELECT coupon_code code, COUNT(*) uses, COALESCE(SUM(discount),0) discount
-             FROM orders WHERE business_id = $1 AND status <> 'CANCELLED'${plainClause}
+             FROM orders WHERE business_id = $1 AND ${COUNTED()}${plainClause}
                    AND coupon_code IS NOT NULL AND coupon_code <> ''
              GROUP BY coupon_code ORDER BY uses DESC`,
           P
@@ -317,12 +329,26 @@ dashboardRouter.put(
     // "Refunded": the refund itself is made in the seller's OnePay dashboard (or by
     // bank transfer); here the seller records it with a note.
     const note = req.body && req.body.note ? String(req.body.note).trim().slice(0, 500) : null;
-    if (status === 'REFUNDED' && !note) throw badRequest('Add a note about the refund (amount, how and when it was refunded).');
+    if (status === 'REFUNDED' && !note) throw badRequest('Add a note about the refund (how and when it was refunded).');
+    // Refund amount: full by default, or a partial amount up to the order total.
+    // Reports deduct it from sales.
+    let refundAmount = null;
+    if (status === 'REFUNDED') {
+      const raw = req.body && req.body.refundAmount;
+      refundAmount = raw == null || raw === '' ? Number(order.total) : Math.round(Number(raw));
+      if (!Number.isFinite(refundAmount) || refundAmount < 1 || refundAmount > Number(order.total)) {
+        throw badRequest(`Enter a refund amount between Rs. 1 and Rs. ${Number(order.total).toLocaleString('en-LK')}.`);
+      }
+    }
+    // The seller chooses whether a cancelled or refunded order's items go back into stock.
+    const wantRestock = ['CANCELLED', 'REFUNDED'].includes(status) && !!(req.body && req.body.restock);
+    let restocked = false;
     await withTransaction(async (client) => {
       await client.query('UPDATE orders SET status=$3 WHERE business_id=$1 AND code=$2', [b, req.params.code, status]);
       if (status === 'REFUNDED') {
-        await client.query(`UPDATE orders SET refund_note=$2, refunded_at=now(), payment_status=CASE WHEN payment_status='PAID' THEN 'REFUNDED' ELSE payment_status END WHERE id=$1`, [order.id, note]);
+        await client.query(`UPDATE orders SET refund_note=$2, refund_amount=$3, refunded_at=now(), payment_status=CASE WHEN payment_status='PAID' THEN 'REFUNDED' ELSE payment_status END WHERE id=$1`, [order.id, note, refundAmount]);
       }
+      if (wantRestock) restocked = await restockOrder(client, order.id);
       await client.query(
         'INSERT INTO order_status_history (order_id, status, changed_by, note) VALUES ($1,$2,$3,$4)',
         [order.id, status, req.user.sub, note]
@@ -343,7 +369,7 @@ dashboardRouter.put(
         await queueNotification({ businessId: b, recipient: order.customer_email, dedupeKey: `${status}:${order.id}`, ...mail }, client);
       }
     });
-    res.json({ ok: true, status });
+    res.json({ ok: true, status, refundAmount, restocked, alreadyRestocked: wantRestock && !restocked && !!order.restocked_at });
   })
 );
 

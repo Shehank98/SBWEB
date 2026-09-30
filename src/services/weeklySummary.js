@@ -23,8 +23,11 @@ export function lastWeekRange(now = new Date()) {
 
 async function weekNumbers(businessId, from, to) {
   const t = (await query(
-    `SELECT COALESCE(SUM(total),0) revenue, COUNT(*) orders FROM orders
-      WHERE business_id=$1 AND created_at >= $2 AND created_at < $3 AND status NOT IN ('CANCELLED','REFUNDED')`,
+    // Net of refunds (partial refunds keep the rest), like the Reports page.
+    `SELECT COALESCE(SUM(CASE WHEN status = 'REFUNDED' THEN GREATEST(total - COALESCE(refund_amount, total), 0) ELSE total END),0) revenue,
+            COUNT(*) FILTER (WHERE status <> 'REFUNDED' OR COALESCE(refund_amount, total) < total) orders
+       FROM orders
+      WHERE business_id=$1 AND created_at >= $2 AND created_at < $3 AND status <> 'CANCELLED'`,
     [businessId, from, to]
   )).rows[0];
   return { revenue: Number(t.revenue), orders: Number(t.orders) };

@@ -104,7 +104,8 @@
         var isPro = R.plan === 'Pro';
         var delivered = (R.byStatus.filter(function (s) { return s.label === K.orderLabel('DELIVERED'); })[0] || {}).value || 0;
         var tiles = [
-          ['Revenue', K.rs(R.revenue), R.paidOrders + ' paid orders'],
+          ['Net revenue', K.rs(R.revenue), R.refunds ? 'After ' + K.rs(R.refunds) + ' in refunds' : R.paidOrders + ' paid orders'],
+          ['Refunds', R.refunds ? '- ' + K.rs(R.refunds) : K.rs(0), R.refundedOrders ? R.refundedOrders + (R.refundedOrders === 1 ? ' refunded order' : ' refunded orders') + ' · Gross ' + K.rs(R.grossSales) : 'No refunds'],
           ['Orders', R.orders, 'In this period'],
           ['Average order', K.rs(R.avgOrder), 'Per paid order'],
           ['Items sold', R.itemsSold, 'Units in period'],
@@ -193,7 +194,7 @@
             var rep = res[0].report, prods = res[1].products || [];
             function findProd(name) { var base = name.split(' (')[0]; return prods.filter(function (p) { return p.name === base; })[0]; }
             render({
-              plan: rep.plan, revenue: rep.revenue, orders: rep.orders, paidOrders: rep.paidOrders, avgOrder: rep.avgOrder, itemsSold: rep.itemsSold, lowStock: rep.lowStock,
+              plan: rep.plan, revenue: rep.revenue, grossSales: rep.grossSales || 0, refunds: rep.refunds || 0, refundedOrders: rep.refundedOrders || 0, orders: rep.orders, paidOrders: rep.paidOrders, avgOrder: rep.avgOrder, itemsSold: rep.itemsSold, lowStock: rep.lowStock,
               series: rep.series || { granularity: 'month', points: [] },
               byStatus: (rep.byStatus || []).map(function (s) { return { label: K.orderLabel(s.status), value: s.count }; }),
               topProducts: (rep.topProducts || []).map(function (t) { var p = findProd(t.name); return { name: t.name, units: t.units, revenue: t.revenue, category: p && p.category, image: p && p.image, tone: p && p.tone }; }),
@@ -283,7 +284,7 @@
         var h = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body>';
         h += '<h2>Sidadiya sales report</h2><p>Range: ' + xesc(rangeLabel) + '</p>';
         h += tbl('Summary', ['Metric', 'Value'], [
-          ['Revenue (Rs.)', R.revenue], ['Orders', R.orders], ['Average order (Rs.)', R.avgOrder],
+          ['Gross sales (Rs.)', R.grossSales || R.revenue], ['Refunds (Rs.)', R.refunds || 0], ['Net revenue (Rs.)', R.revenue], ['Orders', R.orders], ['Average order (Rs.)', R.avgOrder],
           ['Items sold', R.itemsSold], ['Delivered', delivered], ['Low or out of stock', R.lowStock]
         ]);
         h += tbl('Sales over time', ['Period', 'Revenue (Rs.)'], (R.series && R.series.points || []).map(function (p) { return [p.label || p.date, p.value]; }));
