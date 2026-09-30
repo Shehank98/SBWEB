@@ -58,7 +58,7 @@
           '<p class="trk-status' + (cancelled ? ' bad' : '') + '">' + K.esc(cur ? cur.label : 'Placed') + '</p>' +
           '<p style="color:var(--sf-muted);font-size:14px">Placed ' + when((tl[0] && tl[0].at) || o.date) + ' · ' + K.esc(o.payment || '') + '</p></section>' +
           '<section class="panel"><h2>Progress</h2>' + line + '</section>' +
-          '<section class="panel"><h2>Summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li><span class="mini-img">' + (i.image ? SF.img(i.image, '', true) : '<span class="ph">' + K.esc(K.initials(i.name)) + '</span>') + '<b>' + i.qty + '</b></span><span class="mini-n">' + K.esc(i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
+          '<section class="panel"><h2>Summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li><span class="mini-img">' + (i.image ? '<img src="' + K.esc(i.image) + '" alt="" width="52" height="60" style="width:52px;height:60px;object-fit:cover;border-radius:10px">' : '<span class="ph">' + K.esc(K.initials(i.name)) + '</span>') + '<b>' + i.qty + '</b></span><span class="mini-n">' + K.esc(i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
           '<div class="rows" style="margin-bottom:0"><div><span>Subtotal</span><span>' + rs(o.subtotal) + '</span></div>' + (o.discount ? '<div class="disc"><span>Discount</span><span>− ' + rs(o.discount) + '</span></div>' : '') +
           '<div><span>Delivery</span><span>' + (o.delivery ? rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span>' + rs(o.total) + '</span></div></div></section>' +
           deliveredBox(r) + reviewBox(r) +
