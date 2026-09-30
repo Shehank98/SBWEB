@@ -39,6 +39,7 @@
 
       function paint(r) {
         var o = r.order, s = r.store || { name: 'Shop' }, tl = r.timeline || [];
+        lastStore = r.store || null;
         if (r.store) SF.chrome(r.store, { noCart: true });
         document.title = 'Order ' + o.code + ' | ' + s.name;
         var cancelled = tl.some(function (t) { return t.key === 'CANCELLED'; });
@@ -61,13 +62,39 @@
           '<section class="panel"><h2>Summary</h2><ul class="mini">' + o.items.map(function (i) { return '<li><span class="mini-img">' + (i.image ? '<img src="' + K.esc(i.image) + '" alt="" width="52" height="60" style="width:52px;height:60px;object-fit:cover;border-radius:10px">' : '<span class="ph">' + K.esc(K.initials(i.name)) + '</span>') + '<b>' + i.qty + '</b></span><span class="mini-n">' + K.esc(i.name) + '</span><span>' + rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul>' +
           '<div class="rows" style="margin-bottom:0"><div><span>Subtotal</span><span>' + rs(o.subtotal) + '</span></div>' + (o.discount ? '<div class="disc"><span>Discount</span><span>− ' + rs(o.discount) + '</span></div>' : '') +
           '<div><span>Delivery</span><span>' + (o.delivery ? rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span>' + rs(o.total) + '</span></div></div></section>' +
-          deliveredBox(r) + reviewBox(r) +
+          slipBox(r) + deliveredBox(r) + reviewBox(r) +
           '<div class="trk-actions">' +
           (r.receiptUrl ? '<a class="btn btn-soft btn-sm" href="' + K.esc(r.receiptUrl) + '">' + ic('list', 'ic-sm') + 'View receipt</a>' : '') +
           (s.whatsapp ? '<a class="btn btn-wa btn-sm" target="_blank" rel="noopener" href="' + K.wa(s, 'Hello ' + s.name + ', I have a question about my order ' + o.code + '.') + '">WhatsApp the shop</a>' : '') +
           (s.slug ? '<a class="btn btn-ghost btn-sm" href="/store/' + encodeURIComponent(s.slug) + '">Back to shop</a>' : '') +
           '</div></div>';
       }
+      /* ---------- Bank transfer slip: status, and upload (again) when the shop needs it ---------- */
+      function slipBox(r) {
+        var o = r.order, s = r.store || {};
+        if (!/bank/i.test(o.payment || '') || o.status === 'CANCELLED' || o.status === 'REFUNDED') return '';
+        var st = o.paymentStatus;
+        if (st === 'PAID') return '<section class="panel"><h2>Payment</h2><div class="slip-state">' + ic('check') + '<p><b>Payment confirmed.</b> ' + K.esc(s.name || 'The shop') + ' received your bank transfer.</p></div></section>';
+        var input = '<input type="file" id="trkSlip" class="slip-input" accept="image/jpeg,image/png,image/webp,application/pdf">';
+        if (st === 'SLIP_UPLOADED') return '<section class="panel"><h2>Payment</h2><div class="slip-state">' + ic('check') + '<p><b>Payment slip received.</b> ' + K.esc(s.name || 'The shop') + ' is checking it.</p></div>' +
+          '<div class="slip">' + input + '<label class="link" for="trkSlip" style="cursor:pointer">Upload a different slip</label></div></section>';
+        return '<section class="panel"><h2>' + (st === 'SLIP_REJECTED' ? 'Please upload a new slip' : 'Add your payment slip') + '</h2>' +
+          (st === 'SLIP_REJECTED' && o.slipNote ? '<div class="slip-state warn"><p><b>Message from ' + K.esc(s.name || 'the shop') + ':</b> ' + K.esc(o.slipNote) + '</p></div>' : '<p style="color:var(--sf-muted);font-size:14px">Transfer <b>' + rs(o.total) + '</b> and add a photo or PDF of the slip. Use <b>' + K.esc(o.code) + '</b> as the reference.</p>') +
+          '<div class="slip">' + input + '<label class="slip-drop" for="trkSlip">' + ic('bank') + '<b>' + (st === 'SLIP_REJECTED' ? 'Upload a new slip' : 'Add your payment slip') + '</b><span>Photo or PDF, up to 8 MB. Only the shop can see it.</span></label></div></section>';
+      }
+      document.addEventListener('change', function (e) {
+        if (e.target.id !== 'trkSlip') return;
+        var f = e.target.files && e.target.files[0]; e.target.value = '';
+        if (!f) return;
+        if (!/^(image\/(jpeg|png|webp|gif)|application\/pdf)$/.test(f.type)) return SF.toast('Choose a photo (JPG, PNG) or a PDF of your slip.');
+        if (f.size > 8 * 1024 * 1024) return SF.toast('The slip must be 8 MB or smaller.');
+        var slug = (lastStore && lastStore.slug) || '';
+        SF.toast('Uploading your slip…');
+        KadeApi.uploadSlip(slug, code, key, f).then(function () { editing = false; SF.toast('Slip sent to the shop.'); load(true, true); })
+          .catch(function (ex) { SF.toast(ex.message || 'Could not upload the slip. Please try again.'); });
+      });
+      var lastStore = null;
+
       /* ---------- The buyer confirms delivery, then reviews (if the shop has reviews on) ---------- */
       function deliveredBox(r) {
         if (!r.canConfirmDelivery) return '';
@@ -90,6 +117,8 @@
       }
       var busy = false, lastJson = '', editing = false;
       main.addEventListener('focusin', function (e) { if (e.target.closest('.trk-rv')) editing = true; });
+      // Choosing a slip file: pause the 10-second refresh so the file picker's input stays on the page.
+      main.addEventListener('click', function (e) { if (e.target.closest('label[for="trkSlip"]')) { editing = true; setTimeout(function () { editing = false; }, 90000); } });
       main.addEventListener('click', function (e) {
         var b = e.target.closest('[data-act], .rv-star'); if (!b || busy) return;
         if (b.classList.contains('rv-star')) {

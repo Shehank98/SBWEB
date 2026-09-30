@@ -413,3 +413,9 @@ LankaQR) replacing manual slip verification.
 - Browsers signed in before this change are moved through automatically (the login page sets the cookie from the saved login once).
 - The public demo (`/dashboard/index?demo=1`) still opens the sample seller dashboard without a login, never the admin panel. Internal `.md` notes in the frontend folder are no longer served.
 - The API was already protected by the Bearer token on every admin and seller request; this adds the same protection to the pages themselves.
+
+### 8.14 Bank transfer payment slips
+
+- Buyers who pay by bank transfer must add a photo or PDF of the slip at checkout (up to 8 MB). It uploads right after the order is placed; if that fails, the thank-you page offers a retry and the buyer can also upload from the tracking page.
+- Slips are stored privately (migration `013_order_payment_slips.sql`; `private/shops/<id>/slips/` in Firebase or `uploads-private/` locally), never as a public link. The shop opens them from the order through a 5-minute signed link (`GET /api/dashboard/orders/:code/slip`).
+- Payment status for bank orders: Waiting for slip, Slip to check, New slip requested, Paid. The shop confirms ("Payment received") or asks for a new slip with a reason the buyer sees on the tracking page (`POST /api/dashboard/orders/:code/payment`).

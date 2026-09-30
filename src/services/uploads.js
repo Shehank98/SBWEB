@@ -97,11 +97,13 @@ export const DOC_TYPES = SLIP_TYPES; // JPG/PNG/WEBP/GIF or PDF
 
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'application/pdf': 'pdf' };
 
-export async function savePrivate(file, businessId, name) {
+// folder: 'verification' (seller ID documents) or 'slips' (buyer payment slips).
+export async function savePrivate(file, businessId, name, folder = 'verification') {
   if (!file || !file.buffer) throw badRequest('No file was uploaded.');
   if (!DOC_TYPES.has(file.mimetype)) throw badRequest('Please upload a JPG, PNG, WEBP or PDF file.');
   if (!/^[0-9a-f-]{36}$/i.test(String(businessId))) throw badRequest('Invalid shop.');
-  const key = `private/shops/${businessId}/verification/${name}-${Date.now()}.${EXT[file.mimetype]}`;
+  if (!['verification', 'slips'].includes(folder)) throw badRequest('Invalid upload.');
+  const key = `private/shops/${businessId}/${folder}/${name}-${Date.now()}.${EXT[file.mimetype]}`;
   if (config.uploadDriver === 'firebase') {
     const bucket = await getFirebaseBucket();
     // No firebaseStorageDownloadTokens metadata and no ACL change: the object stays
@@ -134,7 +136,7 @@ export async function signedPrivateUrl(key, ttlSeconds = 300) {
 export function verifyPrivateRequest(key, exp, sig) {
   const e = Number(exp);
   if (!key || !sig || !Number.isFinite(e) || e < Date.now()) return null;
-  if (!/^private\/shops\/[0-9a-f-]{36}\/verification\/[\w.-]+$/i.test(key)) return null;
+  if (!/^private\/shops\/[0-9a-f-]{36}\/(verification|slips)\/[\w.-]+$/i.test(key)) return null;
   const want = Buffer.from(hmac(key, e));
   const got = Buffer.from(String(sig));
   if (want.length !== got.length || !timingSafeEqual(want, got)) return null;

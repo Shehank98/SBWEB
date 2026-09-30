@@ -93,7 +93,7 @@
         open = o; o.history = o.history || [{ s: 'PENDING', t: o.date }];
         K.$('#dt').innerHTML = '#' + o.id + ' ' + K.badge('order', o.status);
         var n = next(o.status), phone = o.phone.replace(/\s/g, ''), wa = o.waPhone || ('94' + phone.replace(/^0/, ''));
-        K.$('#db').innerHTML = '<dl class="dl"><dt>Customer</dt><dd>' + K.esc(o.customer) + '</dd><dt>Phone</dt><dd><a class="kd-link" href="tel:' + phone + '">' + K.esc(o.phone) + '</a></dd><dt>Deliver to</dt><dd>' + K.esc(o.address ? o.address + ', ' + o.city : o.city) + '</dd><dt>Payment</dt><dd>' + K.esc(o.payment) + (o.paymentStatus ? ' ' + K.badge('paystat', o.paymentStatus) : '') + '</dd>' + (o.status === 'REFUNDED' || o.refundNote ? '<dt>Refund</dt><dd>' + (o.refundAmount != null ? '<strong>' + K.rs(o.refundAmount) + '</strong>' + (o.refundAmount < o.total ? ' (partial)' : ' (full)') + (o.refundNote ? ' · ' : '') : '') + K.esc(o.refundNote || '') + '</dd>' : '') + ((o.status === 'CANCELLED' || o.status === 'REFUNDED') ? '<dt>Stock</dt><dd>' + (o.restocked ? 'Items returned to stock' : 'Not returned to stock') + '</dd>' : '') + (o.tracking ? '<dt>Shipped with</dt><dd>' + K.esc(o.tracking.courier) + ' · <strong>' + K.esc(o.tracking.number) + '</strong>' + (o.tracking.url ? ' · <a class="kd-link" href="' + K.esc(o.tracking.url) + '" target="_blank" rel="noopener">track</a>' : '') + '</dd>' : '') + (o.source ? '<dt>Came from</dt><dd>' + K.esc(o.source) + '</dd>' : '') + '<dt>Placed</dt><dd>' + K.fmtDate(o.date) + '</dd>' + (o.note ? '<dt>Note</dt><dd>' + K.esc(o.note) + '</dd>' : '') + '</dl>' +
+        K.$('#db').innerHTML = '<dl class="dl"><dt>Customer</dt><dd>' + K.esc(o.customer) + '</dd><dt>Phone</dt><dd><a class="kd-link" href="tel:' + phone + '">' + K.esc(o.phone) + '</a></dd><dt>Deliver to</dt><dd>' + K.esc(o.address ? o.address + ', ' + o.city : o.city) + '</dd><dt>Payment</dt><dd>' + K.esc(o.payment) + (o.paymentStatus ? ' ' + K.badge('paystat', o.paymentStatus) : '') + '</dd>' + (o.status === 'REFUNDED' || o.refundNote ? '<dt>Refund</dt><dd>' + (o.refundAmount != null ? '<strong>' + K.rs(o.refundAmount) + '</strong>' + (o.refundAmount < o.total ? ' (partial)' : ' (full)') + (o.refundNote ? ' · ' : '') : '') + K.esc(o.refundNote || '') + '</dd>' : '') + ((o.status === 'CANCELLED' || o.status === 'REFUNDED') ? '<dt>Stock</dt><dd>' + (o.restocked ? 'Items returned to stock' : 'Not returned to stock') + '</dd>' : '') + (o.tracking ? '<dt>Shipped with</dt><dd>' + K.esc(o.tracking.courier) + ' · <strong>' + K.esc(o.tracking.number) + '</strong>' + (o.tracking.url ? ' · <a class="kd-link" href="' + K.esc(o.tracking.url) + '" target="_blank" rel="noopener">track</a>' : '') + '</dd>' : '') + (o.source ? '<dt>Came from</dt><dd>' + K.esc(o.source) + '</dd>' : '') + '<dt>Placed</dt><dd>' + K.fmtDate(o.date) + '</dd>' + (o.note ? '<dt>Note</dt><dd>' + K.esc(o.note) + '</dd>' : '') + '</dl>' + slipBlock(o) +
           '<div><h3 class="label" style="margin-bottom:8px">Items</h3><ul class="list">' + o.items.map(function (i) { return '<li><span class="oi">' + (i.image ? '<img src="' + K.esc(i.image) + '" alt="" loading="lazy" width="40" height="40" style="width:40px;height:40px;max-width:40px;object-fit:cover;border-radius:8px;flex:none">' : '<span class="oi__ph" aria-hidden="true">' + K.esc(K.initials(i.name)) + '</span>') + '<span>' + i.qty + ' &times; ' + K.esc(i.name) + '</span></span><span class="price-sm">' + K.rs(i.qty * i.price) + '</span></li>'; }).join('') + '</ul><div class="totals" style="margin-top:8px"><div><span>Subtotal</span><span class="price-sm">' + K.rs(o.subtotal) + '</span></div><div><span>Delivery</span><span class="price-sm">' + (o.delivery ? K.rs(o.delivery) : 'Free') + '</span></div><div class="grand"><span>Total</span><span class="price">' + K.rs(o.total) + '</span></div></div></div>' +
           '<div><h3 class="label" style="margin-bottom:8px">History</h3><ul class="timeline">' + o.history.slice().reverse().map(function (h) { return '<li><time>' + K.fmtDate(h.t) + '</time><span>' + K.orderLabel(h.s) + (h.reason ? ': ' + K.esc(h.reason) : '') + '</span></li>'; }).join('') + '</ul></div>' +
           docsBlock(o) +
@@ -116,6 +116,21 @@
           '<div class="kd-field"><label class="kd-label" for="shUrl">Tracking link <span class="muted">(optional)</span></label><input class="kd-input" id="shUrl" type="url" inputmode="url" value="' + K.esc(t.url || '') + '" placeholder="https://"></div>' +
           '<button class="kd-btn kd-btn--primary kd-btn--block" type="submit">' + (again ? 'Update tracking' : 'Mark as shipped') + '</button>' +
           '<p class="kd-help">' + (o.email || o.hasEmail ? 'The buyer gets an email with the tracking details.' : 'The buyer did not give an email. Send the tracking number on WhatsApp.') + ' It also shows on their order page.</p></form>';
+      }
+      // Bank transfer slip uploaded by the buyer at checkout (or later from the tracking page).
+      function slipBlock(o) {
+        if (!/bank/i.test(o.payment || '') || o.status === 'CANCELLED' || o.status === 'REFUNDED') return '';
+        var ps = o.paymentStatus, sl = o.slip;
+        var head = '<div class="slipbox" role="group" aria-label="Payment slip"><div class="row row--between" style="gap:8px"><h3 class="label" style="margin:0">Payment slip</h3>' + (ps ? K.badge('paystat', ps) : '') + '</div>';
+        if (!sl) return head + '<p class="kd-help" style="margin:6px 0 0">' + (ps === 'PAID' ? 'Payment confirmed.' : 'The buyer has not uploaded a slip yet. They can add it from their tracking page.') + '</p>' +
+          (ps !== 'PAID' ? '<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" data-act="pay-ok">Mark payment received</button></div>' : '') + '</div>';
+        return head +
+          '<div class="slipbox__file"><span class="slipbox__ic" aria-hidden="true">' + (sl.isPdf ? 'PDF' : 'IMG') + '</span><span class="slipbox__name">' + K.esc(sl.name) + '<small>Uploaded ' + K.fmtDate(String(sl.uploadedAt).slice(0, 10)) + '</small></span>' +
+          '<button type="button" class="kd-btn kd-btn--secondary kd-btn--sm" data-act="slip-view">View slip</button></div>' +
+          (ps === 'SLIP_REJECTED' && o.slipNote ? '<p class="kd-help" style="margin:6px 0 0">You asked for a new slip: ' + K.esc(o.slipNote) + '</p>' : '') +
+          (ps !== 'PAID' ? '<p class="kd-help" style="margin:8px 0 0">Check your bank account for ' + K.rs(o.total) + ' with reference ' + K.esc(o.id) + ' before you confirm.</p>' +
+            '<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><button type="button" class="kd-btn kd-btn--primary kd-btn--sm" data-act="pay-ok">Payment received</button>' +
+            (ps !== 'SLIP_REJECTED' ? '<button type="button" class="kd-btn kd-btn--ghost kd-btn--sm" data-act="pay-no">Ask for a new slip</button>' : '') + '</div>' : '') + '</div>';
       }
       function applyStatus(o, s, reason) { o.status = s; o.history = o.history || [{ s: 'PENDING', t: o.date }]; o.history.push({ s: s, t: D.today, reason: reason }); tabs(); rows(); drawer(o); K.toast('Order #' + o.id + ' is now ' + K.orderLabel(s).toLowerCase()); }
       function setStatus(o, s, reason, extra) {
@@ -203,6 +218,31 @@
         var o = open;
         var act = b.getAttribute('data-act');
         if (act === 'waybill') { openWaybills([o.id]); return; }
+        if (act === 'slip-view') {
+          if (!API) return K.toast('Slips open in your real dashboard.');
+          var w = window.open('about:blank', '_blank'); // open now so pop-up blockers allow it
+          KadeApi.orderSlip(o.id).then(function (r) { if (w) w.location.href = r.url; else location.href = r.url; })
+            .catch(function (ex) { if (w) w.close(); K.toast(ex.message || 'Could not open the slip.'); });
+          return;
+        }
+        if (act === 'pay-ok') {
+          K.confirm({ title: 'Payment received for #' + o.id + '?', body: 'Confirm only after you see ' + K.rs(o.total) + ' in your bank account. The buyer sees "Payment confirmed" on their tracking page.', confirmLabel: 'Yes, payment received' }).then(function (ok) {
+            if (!ok) return;
+            var done = function () { o.paymentStatus = 'PAID'; o.slipNote = null; rows(); drawer(o); K.toast('Payment confirmed for #' + o.id); };
+            if (!API) return done();
+            KadeApi.orderPayment(o.id, 'confirm').then(done).catch(function (ex) { K.toast(ex.message); });
+          });
+          return;
+        }
+        if (act === 'pay-no') {
+          K.confirm({ title: 'Ask for a new slip?', body: 'The buyer sees your message on their tracking page and can upload a new slip there.', confirmLabel: 'Ask for a new slip', reason: 'What is wrong with the slip?' }).then(function (r) {
+            if (!r) return; if (!r.reason.trim()) return K.toast('Tell the buyer what is wrong with the slip.');
+            var done = function () { o.paymentStatus = 'SLIP_REJECTED'; o.slipNote = r.reason.trim(); rows(); drawer(o); K.toast('The buyer was asked for a new slip.'); };
+            if (!API) return done();
+            KadeApi.orderPayment(o.id, 'reject', r.reason.trim()).then(done).catch(function (ex) { K.toast(ex.message); });
+          });
+          return;
+        }
         if (act === 'share') { if (API) KadeApi.receiptShared(o.id).then(function () { o.receiptSharedAt = new Date().toISOString(); }).catch(function (ex) { K.toast(ex.message); }); return; }
         if (act === 'copyReceipt') { var url = location.origin + o.receiptUrl; if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { K.toast('Receipt link copied'); }); else K.toast(url); return; }
         if (b.getAttribute('data-act') === 'next') setStatus(o, next(o.status));
