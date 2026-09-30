@@ -387,3 +387,10 @@ LankaQR) replacing manual slip verification.
 - **Offline or server down**: `sw.js` (a small service worker) shows the same page, in "offline" or "server down" style, when a page cannot load: no internet, or Railway answering 502/503/504. It caches only that one page, never your other pages or data. It works for anyone who has opened Sidadiya at least once on that browser; a first-time visitor during an outage still sees Railway's own error page.
 - Inside an open page, a failed request shows a small "The shop is closed for a moment" note at the bottom, which clears itself when the connection is back.
 - Preview: `/closed?preview=maintenance`, `/closed?preview=down`, `/closed?preview=offline`.
+
+### 8.10 Store setup progress
+
+- One weighted score (`src/services/setup.js`, `GET /api/dashboard/setup`) is shared by the welcome screen (`/dashboard/setup`), the dashboard card and Store settings.
+- Weights: store information 15, logo 10, category 10, first product 20, delivery 15, payment method 15 (essential, 85 in total: the store is "ready to accept orders" when all are done), cover photo 5, social links 5, business verification 5 (recommended). Optional extras (3+ categories, both COD and bank transfer, OnePay, weekly email) are shown but weigh 0, so they never lower the score.
+- Migration `011_store_setup.sql` adds `delivery_set_at` and `payments_set_at`: the defaults (Rs. 350, cash on delivery) only count once the seller confirms them. Shops that existed before are treated as confirmed.
+- New sign-ups land on `/dashboard/setup?welcome=1`. "Continue setup" always opens the next unfinished step.

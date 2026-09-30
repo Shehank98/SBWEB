@@ -20,6 +20,7 @@
 
         <div class="page-head"><div><h1 id="hello">Hello</h1><p id="lede">Here is how your store is doing today.</p></div><a class="kd-btn kd-btn--primary" href="products?new=1">Add product</a></div>
         <div id="sub-banner"></div>
+        <div id="setup-card"></div>
         <div id="compliance-card"></div>
         <div class="tiles" id="tiles"></div>
         <div class="grid-2">
@@ -146,6 +147,27 @@
         // Where visitors came from: Pro only. The API refuses other plans (403), and
         // then a blurred sample (made-up numbers, never this shop's data) is shown.
         loadTraffic({ days: 7 });
+
+        // Store setup progress: small card until 100%, then a one-time celebration.
+        if (!sess || sess.role !== 'BUSINESS_STAFF') KadeApi.storeSetup().then(function (d) {
+          var el = K.$('#setup-card'), seenKey = 'kade-setup-done-' + (d.slug || '');
+          if (d.complete) {
+            try { if (localStorage.getItem(seenKey)) return; } catch (e) {}
+            el.innerHTML = '<section class="kd-card panel sp-card sp-card--done" aria-labelledby="spc-h"><button type="button" class="sp-x" aria-label="Dismiss">×</button>' +
+              '<h2 id="spc-h">Your store is fully set up!</h2><p class="muted">Your customers can now:</p><ul class="sp-can sp-can--row">' +
+              ['Browse products', 'Add products to cart', 'Place orders', 'Contact your business'].map(function (t, n) { return '<li style="--i:' + n + '"><span class="sp-mark is-done" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span><span>' + t + '</span></li>'; }).join('') +
+              '</ul><a class="kd-btn kd-btn--primary" href="../store/' + encodeURIComponent(d.slug) + '" target="_blank" rel="noopener">Open my store</a></section>';
+            K.confetti(K.$('.sp-card', el));
+            K.$('.sp-x', el).addEventListener('click', function () { try { localStorage.setItem(seenKey, '1'); } catch (e) {} el.innerHTML = ''; });
+            return;
+          }
+          el.innerHTML = '<section class="kd-card panel sp-card" aria-labelledby="spc-h"><div class="sp-card__top"><h2 id="spc-h">Complete your store</h2><span class="sp-card__pct"><b data-count="' + d.percent + '">0</b>%</span></div>' +
+            K.setupBar(d.percent) +
+            (d.ready ? '<p class="sp-ready sp-ready--sm"><span class="sp-dot"></span>Your store is ready to accept orders</p>' : '') +
+            (d.next ? '<p class="sp-card__tip">' + K.esc(d.next.tip) + '</p>' : '') +
+            '<div class="row" style="gap:8px;flex-wrap:wrap"><a class="kd-btn kd-btn--primary" href="' + K.esc(d.next ? d.next.href : 'setup') + '">Complete now →</a><a class="kd-btn kd-btn--ghost" href="setup">See all steps</a></div></section>';
+          K.animateSetup(el);
+        }).catch(function () {});
 
         // Compliance checklist (policies + contact): shown until all 5 are done.
         var sess = KadeApi.currentUser && KadeApi.currentUser();

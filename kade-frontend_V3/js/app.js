@@ -316,6 +316,32 @@
   };
 
   /* ---------- App shell (owner dashboard and admin) ---------- */
+  /* ---- Store setup progress (shared by the setup page, dashboard card and settings) ---- */
+  var REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  K.setupBar = function (pct, cls) {
+    return '<div class="sp-bar' + (cls ? ' ' + cls : '') + '" role="progressbar" aria-label="Store setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '"><i data-to="' + pct + '"></i></div>';
+  };
+  // Fill bars and count numbers up from 0, once the markup is on the page.
+  K.animateSetup = function (root) {
+    root = root || document;
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      K.$$('.sp-bar i[data-to]', root).forEach(function (i) { i.style.width = i.getAttribute('data-to') + '%'; });
+      K.$$('.sp-ring [data-to]', root).forEach(function (c) { var r = +c.getAttribute('r'), len = 2 * Math.PI * r; c.style.strokeDashoffset = String(len * (1 - c.getAttribute('data-to') / 100)); });
+      K.$$('[data-count]', root).forEach(function (el) {
+        var to = +el.getAttribute('data-count'), t0 = null, dur = REDUCED ? 0 : 1100;
+        if (!dur) { el.textContent = to; return; }
+        (function step(t) { if (t0 == null) t0 = t; var k = Math.min(1, (t - t0) / dur); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); })(performance.now());
+      });
+    }); });
+  };
+  K.confetti = function (host) {
+    if (REDUCED || !host) return;
+    var C = ['#0f5b4a', '#e8a317', '#52c2a2', '#f5c96a', '#7a2e5c', '#1f5aa6'], html = '';
+    for (var i = 0; i < 36; i++) html += '<i style="left:' + (Math.random() * 100).toFixed(1) + '%;background:' + C[i % C.length] + ';animation-delay:' + (Math.random() * 0.9).toFixed(2) + 's;animation-duration:' + (2.2 + Math.random() * 1.6).toFixed(2) + 's;--r:' + Math.round(Math.random() * 720 - 360) + 'deg;--x:' + Math.round(Math.random() * 120 - 60) + 'px"></i>';
+    var box = document.createElement('div'); box.className = 'confetti'; box.setAttribute('aria-hidden', 'true'); box.innerHTML = html;
+    host.appendChild(box); setTimeout(function () { box.remove(); }, 4500);
+  };
+
   K.maintBanner = function (m) {
     var el = K.$('#maint-banner'), main = K.$('#main');
     if (!m) { if (el) el.remove(); return; }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { query, withTransaction } from '../db/pool.js';
 import { authenticate, requireBusiness, requireOwner, requirePermission } from '../middleware/auth.js';
+import { storeSetup } from '../services/setup.js';
 import { wrap, badRequest, notFound, conflict, forbidden, HttpError } from '../utils/http.js';
 import { saveUpload, savePrivate, SLIP_TYPES } from '../services/uploads.js';
 import { config } from '../config.js';
@@ -670,6 +671,16 @@ dashboardRouter.delete(
   })
 );
 
+// ---- Store setup progress (weighted; see services/setup.js) ----
+dashboardRouter.get(
+  '/setup',
+  requireOwner,
+  wrap(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json(await storeSetup(bid(req)));
+  })
+);
+
 // ---- Store settings (read + update) ----
 dashboardRouter.get(
   '/store',
@@ -730,6 +741,9 @@ dashboardRouter.put(
        ['classic', 'showcase', 'minimal'].includes(s.template) ? s.template : store.template,
        JSON.stringify(bankAccount)]
     );
+    // Store setup: remember that the seller confirmed delivery / payment choices.
+    if (s.delivery) await query('UPDATE stores SET delivery_set_at = now() WHERE business_id = $1', [b]);
+    if (s.payments) await query('UPDATE stores SET payments_set_at = now() WHERE business_id = $1', [b]);
     // Social links for the storefront footer (a handle or a full https link).
     const social = (v) => { const t = String(v || '').trim().slice(0, 200); if (!t) return null; if (/^https?:\/\//i.test(t)) return t; if (/^@?[A-Za-z0-9._-]{1,80}$/.test(t)) return t.replace(/^@/, ''); throw badRequest('Enter a Facebook or Instagram page name, or its full link.'); };
     if (s.facebook !== undefined || s.instagram !== undefined) {
