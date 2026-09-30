@@ -1,4 +1,4 @@
-# Sidadiya email notifications — Google Apps Script
+# Sidadiya email notifications: Google Apps Script
 
 This turns the backend's **notifications outbox** into real emails, sent from your
 Google account, styled to match the Sidadiya site (Figtree / Bricolage, brand green).
@@ -20,7 +20,7 @@ per order event) and double checked inside each run.
 | Type | When | Goes to |
 | --- | --- | --- |
 | `REGISTERED` | A business registers | Owner |
-| `APPROVED` | Admin approves a business | Owner — **includes the store link + login** |
+| `APPROVED` | Admin approves a business | Owner, **with the store link and login** |
 | `REJECTED` | Admin rejects a business | Owner (with the reason) |
 | `NEW_ORDER` | A customer places an order | Owner (with items + total) |
 | `ORDER_CONFIRMED` | Owner marks the order confirmed | Customer (full order summary) |
