@@ -1,5 +1,6 @@
 # Sidadiya: 5 Sinhala posts (1080 x 1080)
 
+Font: Yaldevi (Sinhala headings and text) and Poppins (English words), both free for commercial use (SIL Open Font License).
 Images: `post-1-online-shop.png` to `post-5-free-trial.png`. Each has the phone number 070 642 1998, the Sidadiya logo and www.sidadiya.com.
 Please have a native speaker read the Sinhala once before boosting.
 
