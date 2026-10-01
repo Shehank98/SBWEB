@@ -119,7 +119,7 @@
       var API = !!(window.KadeApi && KadeApi.enabled);
       var DISTRICTS = ['Ampara','Anuradhapura','Badulla','Batticaloa','Colombo','Galle','Gampaha','Hambantota','Jaffna','Kalutara','Kandy','Kegalle','Kilinochchi','Kurunegala','Mannar','Matale','Matara','Monaragala','Mullaitivu','Nuwara Eliya','Polonnaruwa','Puttalam','Ratnapura','Trincomalee','Vavuniya'];
       var PRESETS = [['tea', 'Tea', '#0f5b4a', '#e8a317'], ['sapphire', 'Sapphire', '#1b4f9c', '#f2b73f'], ['cinnamon', 'Cinnamon', '#8a3b12', '#f0c36a'], ['orchid', 'Orchid', '#7a2e5c', '#f4b6c2'], ['ink', 'Ink', '#1f2624', '#d9a441']];
-      var TEMPLATES = [['classic', 'Classic', 'Cover, then a 2-column grid'], ['showcase', 'Showcase', 'Big cover, large photos'], ['minimal', 'Minimal', 'Compact, no cover'], ['boutique', 'Boutique', 'Centred name, tall photos'], ['catalog', 'Catalogue', 'One product per row']];
+      var TEMPLATES = [['classic', 'Classic', 'Cover, then a 2-column grid'], ['showcase', 'Showcase', 'Big cover, large photos'], ['minimal', 'Minimal', 'Compact, no cover'], ['boutique', 'Boutique', 'Centred name, tall photos'], ['catalog', 'Catalogue', 'One product per row'], ['soft', 'Soft', 'Warm, rounded, arch photos'], ['night', 'Night', 'Dark mode tiles'], ['quick', 'Quick Buy', '+ and - on every product'], ['pop', 'Pop', 'Bold outlines, playful'], ['link', 'Link Shop', 'Link-in-bio profile']];
       // Sample products per business type so the preview looks like a real shop.
       var SAMPLES = {
         'Fashion and clothing': [['👗', 'Summer dress', 4500, 5600], ['👕', 'Linen shirt', 3800], ['🧣', 'Silk scarf', 1800], ['👜', 'Canvas tote', 2200]],
@@ -207,7 +207,7 @@
         var city = $('city').value.trim() || 'Your town';
         var items = SAMPLES[$('bizType').value] || DEFAULT_SAMPLES;
         var avatar = st.logo ? '<img src="' + st.logo + '" alt="">' : K.esc(K.initials(name) || 'S');
-        var cover = st.template === 'minimal' ? '' : '<div class="pv-cover">' + (st.cover ? '<img src="' + st.cover + '" alt="">' : '') + '</div>';
+        var cover = (st.template === 'minimal' || st.template === 'link') ? '' : '<div class="pv-cover">' + (st.cover ? '<img src="' + st.cover + '" alt="">' : '') + '</div>';
         $('screen').innerHTML =
           '<div class="pv-top"><span class="pv-mark">' + avatar + '</span><b>' + K.esc(name) + '</b><span class="pv-cart">🛒</span></div>' + cover +
           '<div class="pv-card"><span class="pv-avatar">' + avatar + '</span><div class="pv-info"><p class="pv-name">' + K.esc(name) + '</p><p class="pv-tag">' + K.esc(tag) + '</p><p class="pv-meta">📍 ' + K.esc(city) + ' · ⭐ New shop</p></div>' +
