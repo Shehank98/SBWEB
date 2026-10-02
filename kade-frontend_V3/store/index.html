@@ -193,7 +193,7 @@
         });
         $('grid').addEventListener('click', function (e) {
           var add = e.target.closest('[data-add]'), w = e.target.closest('[data-wish]'), rs = e.target.closest('#reset');
-          if (add) { K.cart.add(s.slug, { pid: add.getAttribute('data-add'), opts: {}, qty: 1 }); SF.updateCart(); SF.toast('Added to your cart'); SF.bump($('cc')); SF.bump(add); }
+          if (add) { K.cart.add(s.slug, { pid: add.getAttribute('data-add'), opts: {}, qty: 1 }); var step = !!add.closest('.qty-step'); SF.updateCart(); if (!step) SF.toast('Added to your cart'); SF.bump($('cc')); }
           if (w) { var on = SF.wish.toggle(w.getAttribute('data-wish')); w.setAttribute('aria-pressed', String(on)); SF.bump(w); SF.toast(on ? 'Saved to your wishlist' : 'Removed from your wishlist'); }
           if (rs) { H = { chip: 'all', q: '', sort: H.sort }; $('q').value = ''; $('qClear').hidden = true; paintChips(); grid(); }
         });

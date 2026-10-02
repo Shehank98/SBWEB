@@ -115,10 +115,62 @@
       : hasOpts ? '<a class="btn btn-accent btn-block" href="' + href + '">Choose options</a>'
       : '<button class="btn btn-accent btn-block" type="button" data-add="' + K.esc(p.id) + '">Add to cart</button>';
     var meta = out || stock <= p.lowAt ? SF.stockBadge(stock, p.lowAt) : (p.reviews ? SF.stars(p.rating, p.reviews) : K.esc(p.category || ''));
-    return '<article class="card"><a href="' + href + '" aria-labelledby="pn-' + K.esc(p.id) + '"><div class="media">' + SF.media(p) + (p.sale ? '<span class="tag">SALE</span>' : '') + '</div>' +
+    var tpl = SF.template();
+    // Quick Buy: simple products get + / - right on the card once they are in the cart.
+    if (tpl === 'quick' && !out && !hasOpts) action = SF.qtyFoot(p);
+    var pill = tpl === 'link' ? '<span class="price-pill">' + SF.rs(K.fromPrice(p)) + '</span>' : '';
+    return '<article class="card"><a href="' + href + '" aria-labelledby="pn-' + K.esc(p.id) + '"><div class="media">' + SF.media(p) + (p.sale ? '<span class="tag">SALE</span>' : '') + pill + '</div>' +
       '<div class="card-body"><h3 class="pname" id="pn-' + K.esc(p.id) + '">' + K.esc(p.name) + '</h3><p class="pmeta">' + meta + '</p>' + SF.priceHtml(p) + '</div></a>' +
       '<button class="heart" type="button" data-wish="' + K.esc(p.id) + '" aria-pressed="' + on + '" aria-label="Save ' + K.esc(p.name) + ' to wishlist">' + SF.ic('heart') + '</button>' +
-      '<div class="card-foot">' + action + '</div></article>';
+      '<div class="card-foot" data-foot="' + K.esc(p.id) + '">' + action + '</div></article>';
+  };
+  SF.template = function () { return document.documentElement.getAttribute('data-template') || 'classic'; };
+  // How many of a simple product (no options) are in this shop's cart.
+  SF.qtyOf = function (pid) {
+    return K.cart.get(K.slug()).filter(function (i) { return i.pid === pid && K.cart.sig(i) === K.cart.sig({}); }).reduce(function (n, i) { return n + i.qty; }, 0);
+  };
+  SF.qtyFoot = function (p) {
+    var n = SF.qtyOf(p.id), id = K.esc(p.id), nm = K.esc(p.name);
+    if (!n) return '<button class="btn btn-accent btn-block" type="button" data-add="' + id + '">Add to cart</button>';
+    var max = SF.stockOf(p);
+    return '<div class="qty-step" role="group" aria-label="Quantity of ' + nm + '"><button type="button" data-dec="' + id + '" aria-label="Remove one ' + nm + '">−</button>' +
+      '<output aria-live="polite">' + n + '</output><button type="button" data-add="' + id + '" aria-label="Add one more ' + nm + '"' + (n >= max ? ' disabled' : '') + '>+</button></div>';
+  };
+  // Take one simple product out of the cart (Quick Buy steppers).
+  SF.decrement = function (pid) {
+    var slug = K.slug(), sig = K.cart.sig({});
+    var items = K.cart.get(slug).map(function (i) { if (i.pid === pid && K.cart.sig(i) === sig) i.qty -= 1; return i; }).filter(function (i) { return i.qty > 0; });
+    K.cart.set(slug, items); SF.updateCart();
+  };
+  // Repaint the Quick Buy steppers after any cart change, keeping keyboard focus.
+  function syncQtyFoots() {
+    if (SF.template() !== 'quick') return;
+    var list = K.storeProducts || [];
+    K.$$('[data-foot]').forEach(function (f) {
+      var pid = f.getAttribute('data-foot'), p = list.filter(function (x) { return x.id === pid; })[0];
+      if (!p || SF.stockOf(p) <= 0 || (p.variants && p.variants.length) || Object.keys(p.options || {}).length) return;
+      var had = f.contains(document.activeElement) ? (document.activeElement.hasAttribute('data-dec') ? 'dec' : 'add') : '';
+      var html = SF.qtyFoot(p); if (f.innerHTML === html) return;
+      f.innerHTML = html;
+      if (had) { var b = f.querySelector(had === 'dec' ? '[data-dec]' : '[data-add]') || f.querySelector('button'); if (b) b.focus({ preventScroll: true }); }
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var d = e.target.closest('[data-dec]'); if (!d) return;
+    SF.decrement(d.getAttribute('data-dec'));
+  });
+  // Template fonts (Google Fonts, already allowed for the platform fonts in tokens.css).
+  var TEMPLATE_FONTS = {
+    soft: 'DM+Serif+Display',
+    night: 'Space+Grotesk:wght@400;500;700',
+    pop: 'Baloo+2:wght@500;600;700;800',
+    link: 'Syne:wght@700;800'
+  };
+  SF.templateFont = function (t) {
+    if (!TEMPLATE_FONTS[t] || document.getElementById('tpl-font')) return;
+    var l = document.createElement('link'); l.id = 'tpl-font'; l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=' + TEMPLATE_FONTS[t] + '&display=swap';
+    document.head.appendChild(l);
   };
 
   /* ---------- Blocked pages ---------- */
@@ -197,12 +249,15 @@
       document.getElementById('cb-total').textContent = SF.rs(K.cartTotal(slug));
     }
     document.body.classList.toggle('has-bar', !!(n && bar) || !!document.querySelector('#buybar:not([hidden])'));
+    syncQtyFoots();
   };
 
   function applyChrome(s, opts) {
     document.documentElement.classList.add('sf');
     document.documentElement.setAttribute('data-preset', s.preset || 'tea');
     document.documentElement.setAttribute('data-template', s.template || 'classic');
+    SF.templateFont(s.template);
+    if (s.template === 'night') { var tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.content = '#0E1014'; }
     var h = document.getElementById('sf-header'); if (h) h.outerHTML = header(s, opts);
     var f = document.getElementById('sf-footer'); if (f) f.outerHTML = footer(s);
     if (opts.cartBar) SF.cartBar();
