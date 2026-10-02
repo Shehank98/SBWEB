@@ -9,7 +9,7 @@ import { wrap, badRequest, unauthorized, conflict } from '../utils/http.js';
 import { saveUpload, SLIP_TYPES } from '../services/uploads.js';
 
 export const PRESETS = ['tea', 'sapphire', 'cinnamon', 'orchid', 'ink'];
-export const TEMPLATES = ['classic', 'showcase', 'minimal', 'boutique', 'catalog'];
+export const TEMPLATES = ['classic', 'showcase', 'minimal', 'boutique', 'catalog', 'soft', 'night', 'quick', 'pop', 'link'];
 import { queueNotification, templates } from '../services/notifications.js';
 import { startTrial } from '../services/subscription.js';
 import { ensurePolicies } from '../services/policies.js';

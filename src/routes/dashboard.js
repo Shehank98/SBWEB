@@ -1,3 +1,4 @@
+import { TEMPLATES as STORE_TEMPLATES } from './auth.js';
 import { Router } from 'express';
 import multer from 'multer';
 import { query, withTransaction } from '../db/pool.js';
@@ -803,7 +804,7 @@ dashboardRouter.put(
        d.pickup != null ? d.pickup : store.pickup,
        p.cod != null ? p.cod : store.pay_cod, p.bank != null ? p.bank : store.pay_bank, p.online != null ? p.online : store.pay_online,
        bankLine,
-       ['classic', 'showcase', 'minimal', 'boutique', 'catalog'].includes(s.template) ? s.template : store.template,
+       STORE_TEMPLATES.includes(s.template) ? s.template : store.template,
        JSON.stringify(bankAccount)]
     );
     // Store setup: remember that the seller confirmed delivery / payment choices.
